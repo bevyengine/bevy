@@ -1,7 +1,7 @@
 ---
 title: Entity inspection tools
 authors: ["@jbuehler23", "@alice-i-cecile", "@Nilirad", "@Zeophlite"]
-pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163, 26201, 26184, 26200, 26327, 26395, 26113, 26452, 26519, 26543, 26559, 26570]
+pull_requests: [25818, 25822, 25823, 25824, 25826, 25837, 25845, 25866, 25883, 25884, 25885, 25923, 26014, 26063, 26172, 26171, 26163, 26201, 26184, 26200, 26327, 26395, 26113, 26452, 26519, 26543, 26559, 26570, 26613]
 ---
 
 `bevy_dev_tools::inspection` is gaining a backend for inspecting worlds, entities, components, and resources.
@@ -33,3 +33,4 @@ This note will be completed once the rest of the series lands.
 - Added a Resources tab beside the `bevy_inspector` entity tree, listing the local world's resources so they can be viewed and edited in the details panel
 - Clicking an entity in the app selects it while the `bevy_inspector` panels are shown, expanding the tree down to its row. Meshes can be clicked without `MeshPickingPlugin`, and apps that add it keep using their own mesh picking backend. In Edit mode the selected entity is outlined with a gizmo box around its bounds, clicking empty space clears the selection, and the app gets no picking hover or pointer events. Touches select like the mouse, and a press that selects or clears is removed from `ButtonInput<MouseButton>` and `Touches` before the app's `Update` systems run. Preview mode leaves clicks to the app and hides the outline
 - Added a fuzzy filter to the `bevy_inspector` entity tree. It shows the entities whose label or component names match, with their ancestors expanded, and highlights the matched characters. Clearing it restores the previously expanded rows and reveals the selection. Apps can set it through `EntityTreeFilter`
+- The `bevy_inspector` Resources tab has a fuzzy filter. It shows the resources whose short type name matches, best match first, and highlights the matched characters. Apps can set it through `ResourceListFilter`
