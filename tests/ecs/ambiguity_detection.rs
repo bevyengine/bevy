@@ -11,6 +11,12 @@ use bevy::{
     render::{pipelined_rendering::PipelinedRenderingPlugin, RenderPlugin},
 };
 
+#[derive(States, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+enum GameState {
+    #[default]
+    Running,
+}
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(
@@ -28,6 +34,8 @@ fn main() {
             // rendering frame is still executing in another thread.
             .disable::<PipelinedRenderingPlugin>(),
     );
+    // Make sure that adding a state doesn't add ambiguities.
+    app.init_state::<GameState>();
 
     let schedule_build_settings = ScheduleBuildSettings {
         // NOTE: you can change this to `LogLevel::Ignore` to easily see the current number of ambiguities.

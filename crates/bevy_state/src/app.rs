@@ -5,9 +5,9 @@ use log::warn;
 
 use crate::{
     state::{
-        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState,
-        PreviousState, State, StateTransition, StateTransitionEvent, StateTransitionSystems,
-        States, SubStates,
+        setup_state_transitions_in_world, ComputedStates, EnterSchedules, ExitSchedules,
+        FreelyMutableState, NextState, PreviousState, State, StateTransition, StateTransitionEvent,
+        StateTransitionSystems, States, SubStates, TransitionSchedules,
     },
     state_scoped::{
         despawn_entities_on_enter_state, despawn_entities_on_exit_state,
@@ -250,6 +250,12 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
         warn!("State scoped entities are enabled for state `{name}`, but the state wasn't initialized in the app!");
     }
 
+    // Each group of systems below runs after the system that runs this state's `OnExit`,
+    // `OnTransition` or `OnEnter` schedule. That system takes `&mut World`, so without an
+    // ordering they would be ambiguous with it. Running after it also lets them see the
+    // changes that schedule made. Running before it would add a sync point that applies
+    // their commands before the schedule runs.
+
     // Note: We work with `StateTransition` in set
     // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
     // `OnExit` only runs for one specific variant of the state.
@@ -260,7 +266,8 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
             disable_entities_on_exit_state::<S>,
             enable_entities_on_exit_state::<S>,
         )
-            .in_set(StateTransitionSystems::ExitSchedules),
+            .in_set(StateTransitionSystems::ExitSchedules)
+            .after(ExitSchedules::<S>::default()),
     )
     // Note: We work with `StateTransition` in set
     // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
@@ -272,7 +279,8 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
             disable_entities_on_enter_state::<S>,
             enable_entities_on_enter_state::<S>,
         )
-            .in_set(StateTransitionSystems::EnterSchedules),
+            .in_set(StateTransitionSystems::EnterSchedules)
+            .after(EnterSchedules::<S>::default()),
     )
     .add_systems(
         StateTransition,
@@ -281,7 +289,8 @@ fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
             disable_entities_when_state::<S>,
             enable_entities_when_state::<S>,
         )
-            .in_set(StateTransitionSystems::TransitionSchedules),
+            .in_set(StateTransitionSystems::TransitionSchedules)
+            .after(TransitionSchedules::<S>::default()),
     );
 }
 
@@ -344,8 +353,12 @@ mod tests {
         app::StatesPlugin,
         state::{State, StateTransition, StateTransitionEvent},
     };
+    use alloc::{string::String, vec::Vec};
     use bevy_app::App;
-    use bevy_ecs::message::Messages;
+    use bevy_ecs::{
+        message::Messages,
+        schedule::{ScheduleBuildSettings, Schedules},
+    };
     use bevy_state_macros::States;
 
     use super::AppExtStates;
@@ -396,5 +409,55 @@ mod tests {
         let last = reader.read(events).last().unwrap();
         assert_eq!(last.exited, None);
         assert_eq!(last.entered, Some(TestState::C));
+    }
+
+    /// Builds the [`StateTransition`] schedule with `auto_insert_apply_deferred` disabled, as in
+    /// the `ambiguity_detection` test, and returns the names of every ambiguous system pair.
+    fn state_transition_ambiguities(app: &mut App) -> Vec<(String, String)> {
+        app.world_mut()
+            .schedule_scope(StateTransition, |world, schedule| {
+                // Auto-inserted sync points can hide ambiguities, so disable them.
+                schedule.set_build_settings(ScheduleBuildSettings {
+                    auto_insert_apply_deferred: false,
+                    ..Default::default()
+                });
+                // Build through the graph rather than `Schedule::initialize`, which moves the
+                // systems out of the graph and makes their names unavailable.
+                let ignored_ambiguities = world
+                    .resource::<Schedules>()
+                    .ignored_scheduling_ambiguities
+                    .clone();
+                schedule.graph_mut().initialize(world);
+                schedule
+                    .graph_mut()
+                    .build_schedule(world, &ignored_ambiguities)
+                    .unwrap();
+                schedule
+                    .graph()
+                    .conflicting_systems()
+                    .to_string(schedule.graph(), world.components())
+                    .map(|(system_a, system_b, _)| (system_a, system_b))
+                    .collect()
+            })
+    }
+
+    #[test]
+    fn init_state_adds_no_ambiguities() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.init_state::<TestState>();
+
+        let ambiguities = state_transition_ambiguities(&mut app);
+        assert!(ambiguities.is_empty(), "{ambiguities:#?}");
+    }
+
+    #[test]
+    fn insert_state_adds_no_ambiguities() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.insert_state(TestState::B);
+
+        let ambiguities = state_transition_ambiguities(&mut app);
+        assert!(ambiguities.is_empty(), "{ambiguities:#?}");
     }
 }
