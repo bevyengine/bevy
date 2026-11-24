@@ -90,7 +90,7 @@ impl<'w> EntityWorldMut<'w> {
                 (false, false) => {
                     // sources
                     let added = related
-                        .into_iter()
+                        .iter()
                         .copied()
                         .filter(|&related| {
                             let mut entity_mut = world.entity_mut(related);
@@ -121,9 +121,7 @@ impl<'w> EntityWorldMut<'w> {
                         }
                         let mut relationship =
                             entity_mut.get_mut::<R::RelationshipTarget>().unwrap();
-                        relationship
-                            .collection_mut_risky()
-                            .extend_from_iter(added.into_iter())
+                        relationship.collection_mut_risky().extend_from_iter(added);
                     }
                 }
             }
