@@ -3451,7 +3451,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
                 .filter(|(_, _, render_target)| match render_target {
                     RenderTarget::Window(WindowRef::Primary) => true,
                     RenderTarget::Window(WindowRef::Entity(w)) => {
-                        self.primary_window.get(*w).is_ok()
+                        self.primary_window.get(w).is_ok()
                     }
                     _ => false,
                 })
