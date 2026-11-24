@@ -240,6 +240,10 @@ pub fn update_text2d_layout(
                 .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
                 .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
             else {
+                // Change detection won't report these changes again, so keep them for a later frame.
+                if text2d.is_changed() || bounds.is_changed() || hinting.is_changed() {
+                    reprocess_queue.insert(entity);
+                }
                 continue;
             };
             previous_scale_factor = *scale_factor;
@@ -572,6 +576,46 @@ mod tests {
         // Check that the height is the same, but the width is greater.
         approx::assert_abs_diff_eq!(first_aabb.half_extents.y, second_aabb.half_extents.y);
         assert!(FIRST_TEXT.len() < SECOND_TEXT.len());
+        assert!(first_aabb.half_extents.x < second_aabb.half_extents.x);
+    }
+
+    fn set_sprites_visible(app: &mut App, visible: bool) {
+        let world = app.world_mut();
+        let mut query = world.query::<&mut VisibleEntities>();
+        let mut visible_entities = query.single_mut(world).expect("Could not find camera");
+        visible_entities.clear(TypeId::of::<Sprite>());
+        if visible {
+            visible_entities.push(Entity::PLACEHOLDER, TypeId::of::<Sprite>());
+        }
+    }
+
+    #[test]
+    fn text2d_change_while_no_sprite_is_visible_is_laid_out_later() {
+        let (mut app, entity) = setup();
+
+        app.update();
+
+        let first_aabb = *app
+            .world()
+            .get::<Aabb>(entity)
+            .expect("Could not find initial AABB");
+
+        // With every `Text2d` hidden, no camera has a visible sprite-class entity.
+        set_sprites_visible(&mut app, false);
+        *app.world_mut()
+            .get_mut::<Text2d>(entity)
+            .expect("Missing Text2d on entity") = Text2d::new(SECOND_TEXT);
+        app.update();
+
+        set_sprites_visible(&mut app, true);
+        app.update();
+
+        let second_aabb = *app
+            .world()
+            .get::<Aabb>(entity)
+            .expect("Could not find second AABB");
+
+        // The longer text gets wider bounds once sprites become visible again.
         assert!(first_aabb.half_extents.x < second_aabb.half_extents.x);
     }
 
