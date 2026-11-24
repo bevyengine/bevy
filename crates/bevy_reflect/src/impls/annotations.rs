@@ -91,13 +91,6 @@ mod tests {
         grounded: bool,
     }
 
-    #[derive(Reflect)]
-    #[reflect(@SerializedAs::Seq)]
-    struct Span {
-        min: f32,
-        max: f32,
-    }
-
     #[derive(Reflect, Clone)]
     #[reflect(opaque, @SerializedAs::STRING)]
     struct Tag;
@@ -124,14 +117,7 @@ mod tests {
     }
 
     #[test]
-    fn serialized_as_on_struct_and_opaque() {
-        let TypeInfo::Struct(span) = Span::type_info() else {
-            panic!("expected struct info");
-        };
-        assert_eq!(
-            span.get_attribute::<SerializedAs>(),
-            Some(&SerializedAs::Seq)
-        );
+    fn serialized_as_on_opaque() {
         let TypeInfo::Opaque(tag) = Tag::type_info() else {
             panic!("expected opaque info");
         };

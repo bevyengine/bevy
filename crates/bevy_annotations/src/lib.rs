@@ -92,23 +92,14 @@ pub struct Tooltip(pub &'static str);
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DisplayName(pub &'static str);
 
-/// Describes what a type serializes to, for a `Serialize` implementation that does not follow
-/// the type's reflected structure.
+/// Describes what an opaque type serializes to.
 ///
-/// Tools that read serialized values, such as `bevy_remote`, use this to describe them. Types
-/// without this annotation serialize as their reflected structure, unless they are opaque, in
-/// which case the shape is unknown.
+/// Opaque types have no reflected structure, so tools that read serialized values, such as
+/// `bevy_remote`, use this to describe them. It is ignored on types that are not opaque.
 ///
 /// ```ignore
 /// use bevy_annotations::SerializedAs;
 /// use bevy_reflect::Reflect;
-///
-/// #[derive(Reflect)]
-/// #[reflect(@SerializedAs::Seq)]
-/// struct Span {
-///     min: f32,
-///     max: f32,
-/// }
 ///
 /// #[derive(Reflect, Clone)]
 /// #[reflect(opaque, @SerializedAs::STRING)]
@@ -116,19 +107,14 @@ pub struct DisplayName(pub &'static str);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SerializedAs {
-    /// A flat array of the fields of a struct or tuple struct, in order.
-    ///
-    /// Fields whose types are also `Seq` are inlined, so `Mat2`, with two `Vec2` fields,
-    /// serializes as an array of four numbers.
-    Seq,
-    /// A fixed-length array with one labeled item per entry, for opaque types.
+    /// A fixed-length array with one labeled item per entry.
     Array {
         /// The type path of the items.
         item: &'static str,
         /// The label of each item.
         labels: &'static [&'static str],
     },
-    /// A map with exactly these fields, for opaque types.
+    /// A map with these fields and no others.
     Object {
         /// The name and type path of each field.
         fields: &'static [(&'static str, &'static str)],
