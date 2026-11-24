@@ -153,6 +153,11 @@ pub const TAB_DRAG_PROXY_OUTLINE: ThemeToken = ThemeToken::new_static("feathers.
 /// Tab drag proxy text
 pub const TAB_DRAG_PROXY_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.text");
 
+// Dock
+
+/// Highlight over the part of a dock group where a dragged tab would be dropped
+pub const DOCK_DROP_PREVIEW: ThemeToken = ThemeToken::new_static("feathers.dock.drop.preview");
+
 // Checkbox
 
 /// Checkbox background around the checkmark
