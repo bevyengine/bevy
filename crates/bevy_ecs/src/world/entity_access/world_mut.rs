@@ -1041,35 +1041,6 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
-    /// Adds a [`Bundle`] of components to the entity.
-    /// [`Relationship`](crate::relationship::Relationship) components in the bundle will follow the configuration
-    /// in `relationship_hook_mode`.
-    ///
-    /// This will *not* overwrite any previous value(s) of the same component type.
-    ///
-    /// # Warning
-    ///
-    /// This can easily break the integrity of relationships. This is intended to be used for cloning and spawning code internals,
-    /// not most user-facing scenarios.
-    ///
-    /// # Panics
-    ///
-    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    #[track_caller]
-    pub fn insert_if_new_with_relationship_hook_mode<T: Bundle>(
-        &mut self,
-        bundle: T,
-        relationship_hook_mode: RelationshipHookMode,
-    ) -> &mut Self {
-        move_as_ptr!(bundle);
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Keep,
-            MaybeLocation::caller(),
-            relationship_hook_mode,
-        )
-    }
-
     /// Adds a [`Bundle`] of components to the entity without overwriting.
     ///
     /// This will leave any previous value(s) of the same component type
@@ -1570,21 +1541,6 @@ impl<'w> EntityWorldMut<'w> {
         self.world.flush();
         self.update_location();
         self
-    }
-
-    #[track_caller]
-    pub(crate) fn remove_with_relationship_hook_mode<C: Component>(
-        &mut self,
-        relationship_hook_mode: RelationshipHookMode,
-    ) -> &mut Self {
-        // SAFETY: since we're only registering a component, we don't move the entity.
-        let component_id = unsafe { self.world_mut() }.register_component::<C>();
-        self.remove_by_ids_with_caller(
-            &[component_id],
-            MaybeLocation::caller(),
-            relationship_hook_mode,
-            BundleRemover::empty_pre_remove,
-        )
     }
 
     /// Removes a dynamic bundle from the entity if it exists.
