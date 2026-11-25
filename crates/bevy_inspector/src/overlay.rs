@@ -9,7 +9,7 @@
 //! on the left and the details on the right. The group between them has no tabs and shows the
 //! app, and the pointer reaches the app or picks for the inspector there, depending on the
 //! [`InspectorMode`]. Tabs can be dragged between groups or to the edge of one, and a draggable
-//! toolbar switches the mode.
+//! toolbar switches the mode and holds the [`time_controls`].
 
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate, Update};
 use bevy_camera::visibility::Visibility;
@@ -41,7 +41,7 @@ use bevy_picking::{cursor::EntityCursor, Pickable, PickingSystems};
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundColor, BorderRadius, DefaultUiCamera, Display,
-    FlexDirection, GlobalZIndex, Node, PositionType, UiRect,
+    FlexDirection, FlexWrap, GlobalZIndex, Node, PositionType, UiRect,
 };
 use bevy_ui_widgets::{
     dock_self_update, Activate, Dialog, DialogDragHandle, DockEdge, DockError, DockNodeBinding,
@@ -53,6 +53,7 @@ use crate::{
     details_panel::{details_body, DetailsCollapsed},
     entity_tree::{entity_tree_body, InspectorUi},
     resource_list::resource_list_body,
+    time_controls::time_controls,
     InspectorMode, InspectorPlugin,
 };
 
@@ -354,9 +355,12 @@ fn toolbar() -> impl Scene {
             position_type: PositionType::Absolute,
             left: percent(20),
             top: px(8),
+            max_width: percent(78),
             flex_direction: FlexDirection::Row,
+            flex_wrap: FlexWrap::Wrap,
             align_items: AlignItems::Center,
             column_gap: px(6),
+            row_gap: px(3),
             padding: UiRect::all(px(3)),
             border: UiRect::all(px(1)),
             border_radius: BorderRadius::all(px(4)),
@@ -376,6 +380,8 @@ fn toolbar() -> impl Scene {
             }
             ModeToggle(InspectorMode::Preview)
             on(on_mode_toggle)
+            --
+            @time_controls()
             --
             DialogDragHandle
             EntityCursor::System(SystemCursorIcon::Grab)
@@ -405,7 +411,9 @@ mod tests {
         entity::Entity, hierarchy::ChildOf, name::Name, prelude::*, system::RunSystemOnce,
     };
     use bevy_feathers::{
-        controls::{FeathersDockPlugin, FeathersTabsPlugin, SplitPanePlugin},
+        controls::{
+            Dimensionless, FeathersDockPlugin, FeathersTabsPlugin, SplitPanePlugin, UnitsRegistry,
+        },
         theme::UiTheme,
         FeathersSystems,
     };
@@ -432,6 +440,10 @@ mod tests {
         app.init_asset::<bevy_text::Font>();
         app.init_resource::<UiTheme>();
         app.init_resource::<ButtonInput<KeyCode>>();
+        let mut units = UnitsRegistry::default();
+        units.insert(&Dimensionless);
+        app.insert_resource(units);
+        app.init_resource::<bevy_input_focus::InputFocus>();
         app.insert_resource(InspectorOverlayKey(KeyCode::F12));
         app.add_systems(
             Update,
@@ -1036,6 +1048,51 @@ mod tests {
             app.world().get::<ButtonVariant>(preview),
             Some(&ButtonVariant::Normal)
         );
+    }
+
+    #[derive(Component)]
+    struct Extra;
+
+    fn detail_sections(app: &mut App) -> usize {
+        let world = app.world_mut();
+        world
+            .query::<&crate::details_panel::InspectorDetailsComponent>()
+            .iter(world)
+            .count()
+    }
+
+    #[test]
+    fn the_tree_and_details_keep_syncing_while_time_is_paused() {
+        use crate::time_controls::TimeControl;
+        use bevy_time::{Time, TimeUpdateStrategy, Virtual};
+
+        let mut app = test_app();
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(
+            core::time::Duration::from_millis(100),
+        ));
+        let subject = app.world_mut().spawn(Name::new("Subject")).id();
+        press(&mut app);
+        let world = app.world_mut();
+        let pause = world
+            .query::<(Entity, &TimeControl)>()
+            .iter(world)
+            .find(|(_, control)| **control == TimeControl::Pause)
+            .unwrap()
+            .0;
+        click(&mut app, pause);
+        assert!(app.world().resource::<Time<Virtual>>().is_paused());
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(subject, InspectorSource::Local));
+        app.update();
+        let sections = detail_sections(&mut app);
+
+        let late = app.world_mut().spawn(Name::new("Late")).id();
+        app.world_mut().entity_mut(subject).insert(Extra);
+        for _ in 0..3 {
+            app.update();
+        }
+        assert_eq!(row_count(&mut app, late), 1);
+        assert_eq!(detail_sections(&mut app), sections + 1);
     }
 
     #[test]

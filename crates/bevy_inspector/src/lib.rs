@@ -36,6 +36,7 @@ mod picking;
 #[cfg(feature = "remote")]
 pub mod remote;
 pub mod resource_list;
+pub mod time_controls;
 pub mod world_tabs;
 
 use alloc::string::{String, ToString};
@@ -64,7 +65,7 @@ use bevy_picking::{backend::PointerHits, pointer::PointerInput};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::EditableTextSystems;
-use bevy_time::{Time, Timer, TimerMode};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
 use bevy_ui_widgets::{DockSystems, SelectedTreeItem};
 
@@ -286,10 +287,10 @@ impl<M: Component> PanelSync<M> {
         self.timer.almost_finish();
     }
 
-    /// Advances the timer by the frame's [`Time`] delta, returning `true` if a pass is due.
+    /// Advances the timer by the frame's [`Time<Real>`] delta, returning `true` if a pass is due.
     pub(crate) fn tick(world: &mut World) -> bool {
         let delta = world
-            .get_resource::<Time>()
+            .get_resource::<Time<Real>>()
             .map(Time::delta)
             .unwrap_or_default();
         world
@@ -474,6 +475,7 @@ impl Plugin for InspectorPlugin {
         embedded_asset!(app, "assets/icons/eye-closed.png");
         embedded_asset!(app, "assets/icons/filter.png");
 
+        time_controls::add_time_controls(app);
         app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
             .init_resource::<InspectorMode>()
