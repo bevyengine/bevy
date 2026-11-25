@@ -909,7 +909,6 @@ pub enum FontSize {
     /// Font Size relative to the value of the `RemSize` resource.
     Rem(f32),
     /// Calc
-    #[reflect(ignore)]
     Calc(FontSizeCalc),
 }
 
