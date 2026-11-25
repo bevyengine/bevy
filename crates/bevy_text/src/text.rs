@@ -869,12 +869,29 @@ pub struct FontSizeCtx {
 /// Calc fontsize wrapper
 #[derive(Clone, Reflect)]
 #[reflect(opaque)]
-#[reflect(Clone, Debug)]
+#[reflect(Clone, Debug, Serialize, Deserialize)]
 pub struct FontSizeCalc(Arc<Box<dyn Fn(FontSizeCtx) -> f32 + Send + Sync>>);
 
 impl Debug for FontSizeCalc {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.write_str("FontSizeCalc(..)")
+    }
+}
+
+impl Serialize for FontSizeCalc {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        bevy_log::warn_once!("`FontSizeCalc` can't serialized, it will be deserialized with a closure returning the current `RemSize`.");
+        s.serialize_unit()
+    }
+}
+
+impl<'de> Deserialize<'de> for FontSizeCalc {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        <()>::deserialize(d)?;
+        bevy_log::warn_once!(
+            "Deserialized a `FontSizeCalc` without a closure. It will return the current `RemSize`."
+        );
+        Ok(FontSizeCalc(Arc::new(Box::new(|ctx| ctx.rem))))
     }
 }
 
