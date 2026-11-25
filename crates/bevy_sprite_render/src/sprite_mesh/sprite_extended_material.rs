@@ -211,7 +211,7 @@ fn update_changed_material_extensions<M>(
 /// fn get_final_color(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32>;
 /// ```
 ///
-/// See the `sprite_material` example for a complete usage example of sprite materials.
+/// See the [`sprite_material` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader/sprite_material.rs) for a complete usage example of sprite materials.
 #[derive(Component, Reflect, Deref, DerefMut, PartialEq, Debug, FromTemplate, Clone)]
 #[reflect(Component)]
 #[component(on_add, on_remove)]

@@ -2,7 +2,7 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::pbr_lighting::{D_GGX, V_SmithGGXCorrelated, specular_multiscatter};
 import bevy_pbr::render::pbr_functions::calculate_F0_dielectric;
 import bevy_pbr::render::utils::{rand_f, sample_cosine_hemisphere};
-import bevy_render::maths::{PI, orthonormalize};
+import bevy_render::maths::{PI, orthonormalize, pow5};
 import package::scene::sampling::{sample_ggx_vndf, ggx_vndf_pdf, ggx_vndf_sample_invalid};
 import package::scene::bindings::{ResolvedMaterial, MIRROR_ROUGHNESS_THRESHOLD, brdf_dfg_lut, brdf_dfg_lut_sampler};
 
@@ -167,7 +167,7 @@ fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, world_normal: vec3<f32>, material: Res
 }
 
 fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
-    return f0 + (1.0 - f0) * pow(saturate(1.0 - LdotH), 5.0);
+    return f0 + (1.0 - f0) * pow5(saturate(1.0 - LdotH));
 }
 
 /// Scale/bias approximation

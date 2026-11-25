@@ -1,4 +1,4 @@
-use crate::{Reflect, TypeRef};
+use crate::{metadata::impl_metadata_methods, metadata::Metadata, Reflect, TypeRef};
 use bevy_ptr::{Ptr, PtrMut};
 use core::{alloc::Layout, fmt::Debug};
 
@@ -26,6 +26,8 @@ pub struct StructField {
     pub offset: usize,
     /// A reference to the [`Type`](crate::Type) of the field.
     pub ty: TypeRef,
+    /// The metadata of the field (registered with `#[reflect(@expr)]`).
+    pub metadata: Metadata,
 }
 
 /// A [`Struct`] field that is not reflected (ex: a field marked `#[reflect(ignore)]`).
@@ -160,6 +162,8 @@ impl Struct {
 }
 
 impl StructField {
+    impl_metadata_methods!(self, self.metadata, "field");
+
     /// Access the field for the given struct ptr.
     ///
     /// # Safety

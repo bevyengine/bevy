@@ -325,7 +325,7 @@ fn toggle_prepass(
         return;
     }
 
-    app_status.prepass = !app_status.prepass;
+    app_status.prepass.toggle();
 
     for camera in cameras.iter() {
         if app_status.prepass {

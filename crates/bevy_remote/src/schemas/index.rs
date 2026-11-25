@@ -121,6 +121,11 @@ impl<'a> TypeSchema<'a> {
         &self.schema.kind
     }
 
+    /// Whether the type serializes to JSON of unknown shape.
+    pub fn raw_json(&self) -> bool {
+        self.schema.raw_json
+    }
+
     /// The fields of a struct, tuple struct or tuple, in declaration order.
     ///
     /// Tuple-like fields are named by their position. Struct fields without a `fieldIndex`
@@ -600,6 +605,44 @@ mod tests {
             .unwrap()
             .default_value()
             .is_none());
+    }
+
+    #[test]
+    fn opaque_types_describe_serialized_form() {
+        use crate::schemas::json_schema::SchemaType;
+        use bevy_reflect::ReflectSerialize;
+        use core::time::Duration;
+
+        #[derive(Reflect, Clone, serde::Serialize)]
+        #[reflect(opaque, Clone, Serialize)]
+        struct Blob(u8, u8);
+
+        let registry = AppTypeRegistry::default();
+        {
+            let mut registry = registry.write();
+            registry.register::<Duration>();
+            registry.register::<Blob>();
+        }
+        let local = SchemaRegistry::from_type_registry(
+            &registry.read(),
+            &SchemaTypesMetadata::default(),
+            &Components::default(),
+        );
+        let json = serde_json::to_string(&local.schemas).expect("Should serialize");
+        let remote = SchemaRegistry::from_schemas(
+            serde_json::from_str::<HashMap<String, JsonSchemaBevyType>>(&json)
+                .expect("Should deserialize"),
+        );
+        assert_eq!(local, remote);
+
+        let duration = remote.get(Duration::type_path()).unwrap();
+        assert_eq!(duration.kind(), &SchemaKind::Value);
+        assert_eq!(duration.schema.schema_type, Some(SchemaType::Object));
+        assert!(!duration.raw_json());
+
+        let blob = remote.get(Blob::type_path()).unwrap();
+        assert!(blob.raw_json());
+        assert!(blob.schema.schema_type.is_none());
     }
 
     #[test]

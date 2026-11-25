@@ -419,12 +419,12 @@ fn toggle_debug_overlay(
 
     if input.just_pressed(KeyCode::KeyS) {
         // Toggle debug outlines for nodes with `ViewVisibility` set to false.
-        debug_options.show_hidden = !debug_options.show_hidden;
+        debug_options.show_hidden.toggle();
     }
 
     if input.just_pressed(KeyCode::KeyC) {
         // Toggle outlines for clipped UI nodes.
-        debug_options.show_clipped = !debug_options.show_clipped;
+        debug_options.show_clipped.toggle();
     }
 
     if input.just_pressed(KeyCode::KeyV) {

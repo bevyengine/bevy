@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.97.1"
+rust-version = "1.100.0"
 
 [workspace]
 resolver = "3"
@@ -531,6 +531,9 @@ pnm = ["bevy_internal/pnm"]
 
 # QOI image format support
 qoi = ["bevy_internal/qoi"]
+
+# SVG image support, rasterized to an `Image` when loaded. Enabled by `bevy_feathers`.
+svg = ["bevy_internal/svg"]
 
 # TGA image format support
 tga = ["bevy_internal/tga"]
@@ -1686,6 +1689,18 @@ doc-scrape-examples = true
 [package.metadata.example.two_passes]
 name = "Two Passes"
 description = "Renders two 3d passes to the same window from different perspectives"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "blur"
+path = "examples/3d/blur.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.blur]
+name = "Blur"
+description = "Demonstrates blurring selected UI panels over a live 3D scene"
 category = "3D Rendering"
 wasm = true
 
@@ -5489,6 +5504,14 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
+name = "testbed_text"
+path = "examples/testbed/text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_text]
+hidden = true
+
+[[example]]
 name = "tab_navigation"
 path = "examples/ui/widgets/tab_navigation.rs"
 doc-scrape-examples = true
@@ -5648,6 +5671,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "dock"
+path = "examples/ui/widgets/dock.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dock]
+name = "Dock"
+description = "Builds split panes and tab groups from a dock tree and edits the tree at runtime"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "headless_tree"
 path = "examples/ui/widgets/headless_tree.rs"
 doc-scrape-examples = true
@@ -5725,6 +5759,18 @@ required-features = ["bevy_feathers"]
 [package.metadata.example.feathers_counter]
 name = "Feathers Counter"
 description = "Simple counter using feathers"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "feathers_dock"
+path = "examples/ui/widgets/feathers_dock.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.feathers_dock]
+name = "Feathers Dock"
+description = "A dock layout styled with Feathers"
 category = "UI (User Interface)"
 wasm = true
 

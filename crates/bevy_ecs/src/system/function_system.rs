@@ -1,7 +1,6 @@
 use crate::{
     change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
-    never::Never,
     prelude::FromWorld,
     schedule::{InternedSystemSet, SystemSet},
     system::{
@@ -13,7 +12,7 @@ use crate::{
 
 use alloc::{borrow::Cow, format, string::String, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
-use core::marker::PhantomData;
+use core::{marker::PhantomData, mem::DropGuard};
 use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
@@ -740,13 +739,13 @@ impl<T> IntoResult<T> for Result<T, BevyError> {
 // `impl<T> IntoResult<T> for T` when `T` = `!`.
 // Use explicit impls for `()` and `bool` so diverging functions
 // can be used for systems and conditions.
-impl IntoResult<()> for Never {
+impl IntoResult<()> for ! {
     fn into_result(self) -> Result<(), RunSystemError> {
         self
     }
 }
 
-impl IntoResult<bool> for Never {
+impl IntoResult<bool> for ! {
     fn into_result(self) -> Result<bool, RunSystemError> {
         self
     }
@@ -789,26 +788,6 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
-        // This guard is used by exclusive systems to temporarily set the world's
-        // last change tick to the system's last run tick, and then restore it
-        // when the system finishes running, regardless of whether the system
-        // completes successfully or panics.
-        struct LastTickGuard<'a> {
-            world: UnsafeWorldCell<'a>,
-            last_tick: Tick,
-        }
-        // By setting the change tick in the drop impl, we ensure that
-        // the change tick gets reset even if a panic occurs during the scope.
-        impl Drop for LastTickGuard<'_> {
-            fn drop(&mut self) {
-                // SAFETY: The guard was only created under exclusive access to
-                // the world, and nothing else is accessing the world mutably
-                // when this drop occurs.
-                let world = unsafe { self.world.world_mut() };
-                world.last_change_tick = self.last_tick;
-            }
-        }
-
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
 
@@ -826,10 +805,19 @@ where
 
             (
                 change_tick,
-                Some(LastTickGuard {
-                    world,
-                    last_tick: previous_tick,
-                }),
+                // This guard is used by exclusive systems to temporarily set the world's
+                // last change tick to the system's last run tick, and then restore it
+                // when the system finishes running, regardless of whether the system
+                // completes successfully or panics.
+                // By setting the change tick in the drop impl, we ensure that
+                // the change tick gets reset even if a panic occurs during the scope.
+                Some(DropGuard::new((), move |()| {
+                    // SAFETY: The guard was only created under exclusive access to
+                    // the world, and nothing else is accessing the world mutably
+                    // when this drop occurs.
+                    let world = unsafe { world.world_mut() };
+                    world.last_change_tick = previous_tick;
+                })),
             )
         } else {
             (world.increment_change_tick(), None)
