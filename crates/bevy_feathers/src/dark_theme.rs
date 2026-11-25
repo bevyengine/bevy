@@ -188,6 +188,8 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::TAB_DRAG_PROXY_BORDER, semantic::FILL_ACCENT_DEFAULT),
             (tokens::TAB_DRAG_PROXY_OUTLINE, semantic::BORDER_DEFAULT),
             (tokens::TAB_DRAG_PROXY_TEXT, semantic::TEXT_DEFAULT),
+            // Dock
+            (tokens::DOCK_DROP_PREVIEW, semantic::FILL_ITEM_SELECTED),
             // Checkbox
             (tokens::CHECKBOX_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::CHECKBOX_BG_HOVER, semantic::FILL_SOLID_DEFAULT),

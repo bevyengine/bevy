@@ -122,7 +122,7 @@ impl TaskPoolBuilder {
 /// automatically driven by the pool on threads owned by the pool. The [`Task`]
 /// future only needs to be polled in order to receive the result. (For that
 /// purpose, it is often stored in a component or resource, see the
-/// `async_compute` example.)
+/// [`async_compute` example](https://github.com/bevyengine/bevy/blob/latest/examples/async_tasks/async_compute.rs).)
 ///
 /// If the result is not required, one may also use [`Task::detach`] and the pool
 /// will still execute a task, even if it is dropped.
