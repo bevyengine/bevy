@@ -908,7 +908,13 @@ pub enum FontSize {
     /// Font Size relative to the value of the `RemSize` resource.
     Rem(f32),
     /// Calc
-    Calc { calc: FontSizeCalc, scalar: f32 },
+    Calc {
+        /// The closure used to compute the font size.
+        calc: FontSizeCalc,
+        /// Multiplier applied to the closure's result.
+        /// Used to avoid overflow with `Mul`.
+        scalar: f32,
+    },
 }
 
 impl FontSize {
