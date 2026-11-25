@@ -1,8 +1,10 @@
+mod atmosphere;
 mod binder;
 mod blas;
 mod extract;
 mod types;
 
+pub use atmosphere::AtmosphereBindings;
 use bevy_asset::embedded_asset;
 use bevy_shader::load_shader_library;
 pub use binder::prepare_raytracing_scene_resources;
@@ -10,6 +12,7 @@ pub use binder::{RaytracingSceneBindings, RaytracingSceneNeedsPreviousFrameData}
 pub use types::RaytracingMesh3d;
 
 use crate::SolariPlugins;
+use atmosphere::AtmosphereFallbackUniform;
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
@@ -42,6 +45,7 @@ impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "brdf.wesl");
         load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "atmosphere.wesl");
         load_shader_library!(app, "sampling.wesl");
         embedded_asset!(app, "binder/setup_tlas_instances.wesl");
     }
@@ -70,6 +74,7 @@ impl Plugin for RaytracingScenePlugin {
             .init_gpu_resource::<StandardMaterialAssets>()
             .init_gpu_resource::<RaytracingSceneBindings>()
             .init_gpu_resource::<TlasInstanceSetupPipeline>()
+            .init_gpu_resource::<AtmosphereFallbackUniform>()
             .add_systems(
                 ExtractSchedule,
                 (
