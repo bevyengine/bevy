@@ -25,7 +25,7 @@ struct UncompressedVertex {
 
     @if(MORPH_TARGETS)
     @builtin(vertex_index) index: u32,
-};
+}
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -69,37 +69,49 @@ fn decompress_vertex(vertex_in: Vertex, instance_index: u32) -> UncompressedVert
     let mesh_metadata = package::render::mesh_functions::get_metadata(instance_index);
     var uncompressed_vertex: UncompressedVertex;
     uncompressed_vertex.instance_index = instance_index;
-@if(VERTEX_POSITIONS_COMPRESSED)
-    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(vertex_in.compressed_position, mesh_metadata.aabb_center, mesh_metadata.aabb_half_extents);
-@else
+    @if(VERTEX_POSITIONS_COMPRESSED)
+    uncompressed_vertex.position = bevy_render::utils::decompress_vertex_position(
+            vertex_in.compressed_position,
+            mesh_metadata.aabb_center,
+            mesh_metadata.aabb_half_extents,
+        );
+    @else
     uncompressed_vertex.position = vertex_in.position;
-@if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_NORMALS && VERTEX_NORMALS_COMPRESSED)
-    uncompressed_vertex.normal = bevy_render::utils::decompress_vertex_normal(vertex_in.compressed_normal);
-@if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_NORMALS && !VERTEX_NORMALS_COMPRESSED)
+    @if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_NORMALS && VERTEX_NORMALS_COMPRESSED)
+    uncompressed_vertex.normal =
+        bevy_render::utils::decompress_vertex_normal(vertex_in.compressed_normal);
+    @if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_NORMALS && !VERTEX_NORMALS_COMPRESSED)
     uncompressed_vertex.normal = vertex_in.normal;
-@if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_TANGENTS && VERTEX_TANGENTS_COMPRESSED)
-    uncompressed_vertex.tangent = bevy_render::utils::decompress_vertex_tangent(vertex_in.compressed_tangent);
-@if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_TANGENTS && !VERTEX_TANGENTS_COMPRESSED)
+    @if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_TANGENTS && VERTEX_TANGENTS_COMPRESSED)
+    uncompressed_vertex.tangent =
+        bevy_render::utils::decompress_vertex_tangent(vertex_in.compressed_tangent);
+    @if(NORMAL_PREPASS_OR_DEFERRED_PREPASS && VERTEX_TANGENTS && !VERTEX_TANGENTS_COMPRESSED)
     uncompressed_vertex.tangent = vertex_in.tangent;
-@if(VERTEX_UVS_A && VERTEX_UVS_A_COMPRESSED) {
-    let uv_min_and_extents_a = mesh_metadata.uv_channels_min_and_extents[0];
-    uncompressed_vertex.uv = bevy_render::utils::decompress_vertex_uv(vertex_in.compressed_uv, uv_min_and_extents_a);
-}
-@if(VERTEX_UVS_A && !VERTEX_UVS_A_COMPRESSED)
+    @if(VERTEX_UVS_A && VERTEX_UVS_A_COMPRESSED) {
+        let uv_min_and_extents_a = mesh_metadata.uv_channels_min_and_extents[0];
+        uncompressed_vertex.uv = bevy_render::utils::decompress_vertex_uv(
+                vertex_in.compressed_uv,
+                uv_min_and_extents_a,
+            );
+    }
+    @if(VERTEX_UVS_A && !VERTEX_UVS_A_COMPRESSED)
     uncompressed_vertex.uv = vertex_in.uv;
-@if(VERTEX_UVS_B && VERTEX_UVS_B_COMPRESSED) {
-    let uv_min_and_extents_b = mesh_metadata.uv_channels_min_and_extents[1];
-    uncompressed_vertex.uv_b = bevy_render::utils::decompress_vertex_uv(vertex_in.compressed_uv_b, uv_min_and_extents_b);
-}
-@if(VERTEX_UVS_B && !VERTEX_UVS_B_COMPRESSED)
+    @if(VERTEX_UVS_B && VERTEX_UVS_B_COMPRESSED) {
+        let uv_min_and_extents_b = mesh_metadata.uv_channels_min_and_extents[1];
+        uncompressed_vertex.uv_b = bevy_render::utils::decompress_vertex_uv(
+                vertex_in.compressed_uv_b,
+                uv_min_and_extents_b,
+            );
+    }
+    @if(VERTEX_UVS_B && !VERTEX_UVS_B_COMPRESSED)
     uncompressed_vertex.uv_b = vertex_in.uv_b;
-@if(VERTEX_COLORS)
+    @if(VERTEX_COLORS)
     uncompressed_vertex.color = vertex_in.color;
-@if(SKINNED) {
-    uncompressed_vertex.joint_indices = vertex_in.joint_indices;
-    uncompressed_vertex.joint_weights = vertex_in.joint_weights;
-}
-@if(MORPH_TARGETS)
+    @if(SKINNED) {
+        uncompressed_vertex.joint_indices = vertex_in.joint_indices;
+        uncompressed_vertex.joint_weights = vertex_in.joint_weights;
+    }
+    @if(MORPH_TARGETS)
     uncompressed_vertex.index = vertex_in.index;
     return uncompressed_vertex;
 }
@@ -127,13 +139,15 @@ struct VertexOutput {
     @if(UNCLIPPED_DEPTH_ORTHO_EMULATION)
     @location(6) unclipped_depth: f32,
     @if(VERTEX_OUTPUT_INSTANCE_INDEX)
-    @location(7) @interpolate(flat) instance_index: u32,
+    @interpolate(flat)
+    @location(7) instance_index: u32,
 
     @if(VERTEX_COLORS)
     @location(8) color: vec4<f32>,
 
     @if(VISIBILITY_RANGE_DITHER)
-    @location(9) @interpolate(flat) visibility_range_dither: i32,
+    @interpolate(flat)
+    @location(9) visibility_range_dither: i32,
 }
 
 @if(PREPASS_FRAGMENT)

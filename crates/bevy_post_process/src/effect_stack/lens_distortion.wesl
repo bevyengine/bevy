@@ -19,7 +19,7 @@ const MATH_EPSILON: f32 = 1e-6;
 
 fn lens_distortion(uv: vec2<f32>) -> vec2<f32> {
     let intensity = lens_distortion_settings.intensity;
-    if (abs(intensity) < VISUAL_THRESHOLD) {
+    if abs(intensity) < VISUAL_THRESHOLD {
         return uv;
     }
     let multiplier = lens_distortion_settings.multiplier;

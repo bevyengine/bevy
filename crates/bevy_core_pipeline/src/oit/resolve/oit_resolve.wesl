@@ -20,7 +20,7 @@ struct OitFragment {
 struct FullscreenVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
-};
+}
 
 const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
 const SORTED_FRAGMENT_MAX_COUNT: u32 = constants::SORTED_FRAGMENT_MAX_COUNT;
@@ -80,7 +80,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             // There is still room in the sorted list.
             // Insert the fragment so that the list stay sorted.
             var i = sorted_frag_count;
-            for (; i > 0 && fragment_node.depth_alpha > fragment_list[i - 1].depth_alpha; i -= 1) {
+            for(; i > 0 && fragment_node.depth_alpha > fragment_list[i - 1].depth_alpha; i -= 1) {
                 fragment_list[i] = fragment_list[i - 1];
             }
             fragment_list[i].color = fragment_node.color;
@@ -95,7 +95,12 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
             let nearest_alpha = packed_depth_alpha_get_alpha(fragment_list[0].depth_alpha);
             final_color = blend(final_color, vec4f(nearest_color * nearest_alpha, nearest_alpha));
             var i = 0u;
-            for (; i < SORTED_FRAGMENT_MAX_COUNT - 1 && fragment_node.depth_alpha < fragment_list[i + 1].depth_alpha; i += 1) {
+            for(
+                ;
+                i < SORTED_FRAGMENT_MAX_COUNT - 1
+                && fragment_node.depth_alpha < fragment_list[i + 1].depth_alpha;
+                i += 1
+            ) {
                 fragment_list[i] = fragment_list[i + 1];
             }
             fragment_list[i].color = fragment_node.color;
@@ -111,7 +116,7 @@ fn resolve(head: u32, opaque_depth: f32) -> vec4<f32> {
     }
 
     // blend sorted fragments
-    for (var i = 0u; i < sorted_frag_count; i += 1) {
+    for(var i = 0u; i < sorted_frag_count; i += 1) {
         let color = bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_(fragment_list[i].color);
         let alpha = packed_depth_alpha_get_alpha(fragment_list[i].depth_alpha);
         var base_color = vec4(color.rgb, alpha);

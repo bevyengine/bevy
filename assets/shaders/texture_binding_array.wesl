@@ -8,9 +8,7 @@ enable wgpu_binding_array;
 // var samplers: binding_array<sampler>;
 
 @fragment
-fn fragment(
-    mesh: VertexOutput,
-) -> @location(0) vec4<f32> {
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // Select the texture to sample from using non-uniform uv coordinates
     let coords = clamp(vec2<u32>(mesh.uv * 4.0), vec2<u32>(0u), vec2<u32>(3u));
     let index = coords.y * 4u + coords.x;

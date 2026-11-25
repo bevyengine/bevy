@@ -20,7 +20,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // this loop is iterating over the full list of (position, normal, uv)
     // data what we have in `vertices`.
     // `192` is used because arrayLength on const arrays doesn't work
-    for (var i = 0u; i < 192; i++) {
+    for(var i = 0u; i < 192; i++) {
         // The vertex_data buffer is bigger than just the mesh we're
         // processing because Bevy stores meshes in the mesh_allocator
         // which allocates slabs that each can contain multiple meshes.
@@ -39,7 +39,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         vertex_data[i + data_range.vertex_start] = vertices[i];
     }
     // `36` is the length of the `indices` array
-    for (var i = 0u; i < 36; i++) {
+    for(var i = 0u; i < 36; i++) {
         // This is doing the same as the vertex_data offset described above
         index_data[i + data_range.index_start] = u32(indices[i]);
     }
@@ -52,6 +52,7 @@ const min = -half_size;
 const max = half_size;
 
 // Suppose Y-up right hand, and camera look from +Z to -Z
+// @wgslfmt(ignore)
 const vertices = array(
     // xyz, normal.xyz, uv.xy
     // Front
@@ -86,6 +87,7 @@ const vertices = array(
     max.x, min.y, min.z, 0.0, -1.0, 0.0, 0.0, 1.0
 );
 
+// @wgslfmt(ignore)
 const indices = array(
     0, 1, 2, 2, 3, 0, // front
     4, 5, 6, 6, 7, 4, // back

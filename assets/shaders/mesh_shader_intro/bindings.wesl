@@ -9,11 +9,12 @@ import bevy_render::globals::Globals;
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
-    @location(1) normal: vec3<f32>
+    @location(1) normal: vec3<f32>,
 }
 
 struct PrimitiveInput {
-    @per_primitive @location(3) colorMask: vec4<f32>,
+    @per_primitive
+    @location(3) colorMask: vec4<f32>,
 }
 
 // TaskPayload should be kept very small, if you use it at all.

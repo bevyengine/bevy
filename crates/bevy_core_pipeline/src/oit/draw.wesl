@@ -1,4 +1,11 @@
-import bevy_pbr::render::mesh_view_bindings::{view, oit_nodes_capacity, oit_nodes, oit_heads, oit_atomic_counter, oit_settings};
+import bevy_pbr::render::mesh_view_bindings::{
+    oit_atomic_counter,
+    oit_heads,
+    oit_nodes,
+    oit_nodes_capacity,
+    oit_settings,
+    view
+};
 import bevy_pbr::render::mesh_view_types::OitFragmentNode;
 import bevy_pbr::prepass::utils as prepass_utils;
 
@@ -11,11 +18,8 @@ fn oit_draw(position: vec4f, color: vec4f) {
     }
     // Don't add fully transparent fragments to the list
     // because we don't want to have to sort them in the resolve pass
-    if color.r < oit_settings.alpha_threshold
-        && color.g < oit_settings.alpha_threshold
-        && color.b < oit_settings.alpha_threshold
-        && color.a < oit_settings.alpha_threshold
-    {
+    if color.r < oit_settings.alpha_threshold && color.g < oit_settings.alpha_threshold
+        && color.b < oit_settings.alpha_threshold && color.a < oit_settings.alpha_threshold {
         return;
     }
     let pixel = vec2<u32>(position.xy - view.main_pass_viewport.xy);

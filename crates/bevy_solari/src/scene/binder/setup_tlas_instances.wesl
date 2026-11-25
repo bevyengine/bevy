@@ -12,14 +12,15 @@ struct TlasInstance {
 @compute @workgroup_size(64, 1, 1)
 fn setup_tlas_instances(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let slot = global_id.x;
-    if slot >= arrayLength(&instances) || slot >= arrayLength(&blas_refs) || slot >= arrayLength(&transforms) {
+    if slot >= arrayLength(&instances) || slot >= arrayLength(&blas_refs)
+        || slot >= arrayLength(&transforms) {
         return;
     }
 
     instances[slot] = TlasInstance(
-        transforms[slot],
-        (slot & 0xFFFFFFu) | 0xFF000000u,
-        0u,
-        blas_refs[slot],
-    );
+            transforms[slot],
+            (slot & 0xFFFFFFu) | 0xFF000000u,
+            0u,
+            blas_refs[slot],
+        );
 }

@@ -25,7 +25,7 @@ struct BinUnpackingMetadata {
     pad_a: u32,
     /// Padding.
     pad_b: array<vec4<u32>, 15>,
-};
+}
 
 /// One mesh instance in a bin.
 ///
@@ -40,7 +40,7 @@ struct BinnedMeshInstance {
     input_uniform_index: u32,
     /// The index of the bin that this mesh instance belongs to.
     bin_index: u32,
-};
+}
 
 /// Metadata for the entire batch set.
 @group(0) @binding(0) var<uniform> bin_unpacking_metadata: BinUnpackingMetadata;
@@ -64,12 +64,11 @@ struct BinnedMeshInstance {
 /// buffer.
 @group(0) @binding(4) var<storage> bin_index_to_bin_metadata_index: array<u32>;
 
-@compute
-@workgroup_size(64)
+@compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Figure out which instance we're looking at.
     let global_id = global_invocation_id.x;
-    if (global_id >= bin_unpacking_metadata.binned_mesh_instance_count) {
+    if global_id >= bin_unpacking_metadata.binned_mesh_instance_count {
         return;
     }
 

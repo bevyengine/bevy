@@ -1,7 +1,4 @@
-import bevy_pbr::{
-    render::{mesh_view_bindings::globals, forward_io::VertexOutput},
-    prepass::utils,
-};
+import bevy_pbr::{prepass::utils, render::{forward_io::VertexOutput, mesh_view_bindings::globals}};
 
 struct ShowPrepassSettings {
     show_depth: u32,
@@ -14,10 +11,12 @@ struct ShowPrepassSettings {
 
 @fragment
 fn fragment(
-    @if(MULTISAMPLED) @builtin(sample_index) sample_index: u32,
+    @if(MULTISAMPLED)
+    @builtin(sample_index) sample_index: u32,
     mesh: VertexOutput,
 ) -> @location(0) vec4<f32> {
-    @if(!MULTISAMPLED) let sample_index = 0u;
+    @if(!MULTISAMPLED)
+    let sample_index = 0u;
     if settings.show_depth == 1u {
         let depth = bevy_pbr::prepass::utils::prepass_depth(mesh.position, sample_index);
         return vec4(depth, depth, depth, 1.0);
@@ -25,7 +24,10 @@ fn fragment(
         let normal = bevy_pbr::prepass::utils::prepass_normal(mesh.position, sample_index);
         return vec4(normal, 1.0);
     } else if settings.show_motion_vectors == 1u {
-        let motion_vector = bevy_pbr::prepass::utils::prepass_motion_vector(mesh.position, sample_index);
+        let motion_vector = bevy_pbr::prepass::utils::prepass_motion_vector(
+                mesh.position,
+                sample_index,
+            );
         return vec4(motion_vector / globals.delta_time, 0.0, 1.0);
     }
 

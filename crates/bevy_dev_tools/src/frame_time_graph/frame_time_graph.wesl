@@ -40,7 +40,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     let len = arrayLength(&values);
     var graph_width = 0.0;
-    for (var i = 1u; i <= len; i += 1u) {
+    for(var i = 1u; i <= len; i += 1u) {
         let dt = values[len - i];
 
         var frame_width: f32;
@@ -56,7 +56,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
         let size = vec2(frame_width, frame_height) / 2.0;
         let offset = vec2(1.0 - graph_width - size.x, 1. - size.y);
-        if (sdf_square(in.uv, size, offset) < 0.0) {
+        if sdf_square(in.uv, size, offset) < 0.0 {
             return color_from_dt(dt);
         }
 

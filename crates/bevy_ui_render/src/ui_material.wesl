@@ -1,13 +1,8 @@
-import bevy_render::{
-    view::View,
-    globals::Globals,
-};
+import bevy_render::{globals::Globals, view::View};
 import package::ui_vertex_output::UiVertexOutput;
 
-@group(0) @binding(0)
-var<uniform> view: View;
-@group(0) @binding(1)
-var<uniform> globals: Globals;
+@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(1) var<uniform> globals: Globals;
 
 @vertex
 fn vertex(

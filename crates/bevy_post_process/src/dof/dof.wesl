@@ -64,7 +64,8 @@ struct DualOutput {
 /// The depth texture for the main view.
 @if(MULTISAMPLED)
 @group(0) @binding(1) var depth_texture: texture_depth_multisampled_2d;
-@else   // MULTISAMPLED
+@else
+// MULTISAMPLED
 @group(0) @binding(1) var depth_texture: texture_depth_2d;
 
 /// The main color texture.
@@ -131,7 +132,7 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     //
     // [1]: https://en.wikipedia.org/wiki/Circle_of_confusion#Determining_a_circle_of_confusion_diameter_from_the_object_field
     var candidate_coc = scale * abs(depth - focus);
-    if (view.clip_from_view[3][3] != 1.0) {
+    if view.clip_from_view[3][3] != 1.0 {
         candidate_coc *= focus / depth;
     }
 
@@ -156,9 +157,9 @@ fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 
     // Accumulate samples in a single direction.
     var sum = vec3(0.0);
-    for (var i = 0; i <= support; i += 1) {
-        sum += textureSampleLevel(
-            color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
+    for(var i = 0; i <= support; i += 1) {
+        sum += textureSampleLevel(color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0)
+                .rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);
@@ -182,9 +183,9 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
 
     // Accumulate samples in a single direction.
     var sum = vec3(0.0);
-    for (var i = 0; i <= support; i += 1) {
-        sum += textureSampleLevel(
-            color_texture_b, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
+    for(var i = 0; i <= support; i += 1) {
+        sum += textureSampleLevel(color_texture_b, color_texture_sampler, uv + offset * f32(i), 0.0)
+                .rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);

@@ -1,8 +1,8 @@
 import bevy_render::view::View;
 
 import package::{
-    render::mesh_view_types::Lights,
-    atmosphere::types::{Atmosphere, AtmosphereSettings, AtmosphereTransforms}
+    atmosphere::types::{Atmosphere, AtmosphereSettings, AtmosphereTransforms},
+    render::mesh_view_types::Lights
 };
 
 @group(0) @binding(0) var<uniform> atmosphere: Atmosphere;

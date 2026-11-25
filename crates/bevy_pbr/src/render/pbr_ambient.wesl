@@ -1,7 +1,4 @@
-import package::render::{
-    pbr_lighting::{EnvBRDFApprox, F_AB},
-    mesh_view_bindings::lights,
-};
+import package::render::{mesh_view_bindings::lights, pbr_lighting::{EnvBRDFApprox, F_AB}};
 
 /// A precomputed `NdotV` is provided because it is computed regardless,
 /// but `world_normal` and the view vector `V` are provided separately for more advanced uses.
@@ -23,5 +20,6 @@ fn ambient_light(
     // See: https://google.github.io/filament/Filament.md.html#specularocclusion
     let specular_occlusion = saturate(dot(specular_color, vec3(50.0 * 0.33)));
 
-    return (diffuse_ambient + specular_ambient * specular_occlusion) * lights.ambient_color.rgb * occlusion;
+    return (diffuse_ambient + specular_ambient * specular_occlusion) * lights.ambient_color.rgb
+        * occlusion;
 }

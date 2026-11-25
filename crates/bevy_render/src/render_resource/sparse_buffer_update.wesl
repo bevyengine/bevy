@@ -14,7 +14,7 @@ struct SparseBufferUpdateMetadata {
     element_size: u32,
     /// The total number of elements to be updated.
     updated_element_count: u32,
-};
+}
 
 /// The buffer we're copying to.
 @group(0) @binding(0) var<storage, read_write> dest_buffer: array<u32>;
@@ -26,14 +26,13 @@ struct SparseBufferUpdateMetadata {
 /// Metadata that describes the operation.
 @group(0) @binding(3) var<uniform> metadata: SparseBufferUpdateMetadata;
 
-@workgroup_size(256, 1, 1)
-@compute
+@compute @workgroup_size(256, 1, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Calculate which word we are. Remember that this shader executes with one
     // thread per word.
     let invocation_index = global_id.x;
     let total_word_count = metadata.updated_element_count * metadata.element_size;
-    if (invocation_index >= total_word_count) {
+    if invocation_index >= total_word_count {
         return;
     }
 
@@ -46,7 +45,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let dest_element_index = indices[element_index];
     // Calculate where we should write our word.
     let dest_index = dest_element_index * metadata.element_size + word_index;
-    if (dest_index >= arrayLength(&dest_buffer)) {
+    if dest_index >= arrayLength(&dest_buffer) {
         return;
     }
 
