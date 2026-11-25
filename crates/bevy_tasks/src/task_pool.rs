@@ -1,5 +1,10 @@
 use alloc::{boxed::Box, format, string::String, vec::Vec};
-use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
+use core::{
+    future::Future,
+    marker::PhantomData,
+    mem::{self, DropGuard},
+    panic::AssertUnwindSafe,
+};
 use std::{
     thread::{self, JoinHandle},
     thread_local,
@@ -15,16 +20,6 @@ use crate::{
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
     Task,
 };
-
-struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
-
-impl Drop for CallOnDrop {
-    fn drop(&mut self) {
-        if let Some(call) = self.0.as_ref() {
-            call();
-        }
-    }
-}
 
 /// Used to create a [`TaskPool`]
 #[derive(Default)]
@@ -127,7 +122,7 @@ impl TaskPoolBuilder {
 /// automatically driven by the pool on threads owned by the pool. The [`Task`]
 /// future only needs to be polled in order to receive the result. (For that
 /// purpose, it is often stored in a component or resource, see the
-/// `async_compute` example.)
+/// [`async_compute` example](https://github.com/bevyengine/bevy/blob/latest/examples/async_tasks/async_compute.rs).)
 ///
 /// If the result is not required, one may also use [`Task::detach`] and the pool
 /// will still execute a task, even if it is dropped.
@@ -199,7 +194,8 @@ impl TaskPool {
                                 on_thread_spawn();
                                 drop(on_thread_spawn);
                             }
-                            let _destructor = CallOnDrop(on_thread_destroy);
+                            let _destructor =
+                                on_thread_destroy.map(|f| DropGuard::new((), move |()| f()));
                             loop {
                                 let res = std::panic::catch_unwind(|| {
                                     let tick_forever = async move {

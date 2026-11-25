@@ -905,7 +905,7 @@ pub enum RenderTarget {
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
-    /// example a depth prepass. See the `render_depth_to_texture` example.
+    /// example a depth prepass. See the [`render_depth_to_texture` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/render_depth_to_texture.rs).
     None {
         /// The physical size of the viewport.
         size: UVec2,
@@ -955,7 +955,7 @@ pub enum NormalizedRenderTarget {
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
-    /// example a depth prepass. See the `render_depth_to_texture` example.
+    /// example a depth prepass. See the [`render_depth_to_texture` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/render_depth_to_texture.rs).
     None {
         /// The physical width of the viewport.
         width: u32,
@@ -1045,7 +1045,10 @@ impl Default for RenderTarget {
     }
 }
 
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera.
+///
+/// Cameras that render to the same render target share one main texture when their main texture format
+/// and MSAA settings match. The shared texture gets the combined usages of all of them.
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]

@@ -45,10 +45,10 @@ bevy_platform = { path = "../crates/bevy_platform", optional = true, default-fea
 wgpu-types = { version = "30", optional = true, default-features = false }
 
 # Other crates
-glam = { version = "0.33.2", default-features = false, features = [
+glam = { version = "0.34.2", default-features = false, features = [
   "std",
   "all-types",
-  "rand",
+  "rand-010",
   "bytemuck",
 ] }
 rand = "0.10"

@@ -35,11 +35,12 @@ use bevy_text::{
 };
 use bevy_ui::{
     prelude::AccessibleLabel, px, AlignItems, AlignSelf, Display, FlexDirection, GridPlacement,
-    GridTrack, JustifySelf, Node, RepeatedGridTrack,
+    GridTrack, JustifySelf, Node, RepeatedGridTrack, UiSystems,
 };
 use bevy_ui_widgets::{
     popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-    Activate, ActivateOnPress, NumericRange, NumericValue, SliderValue, ValueChange,
+    Activate, ActivateOnPress, MenuFocusSystem, NumericRange, NumericValue, SliderValue,
+    ValueChange,
 };
 
 use crate::{
@@ -1360,7 +1361,10 @@ impl Plugin for ColorInputPlugin {
 
         app.add_systems(
             PostUpdate,
-            (update_mode_selector, color_input_value_change).chain(),
+            (update_mode_selector, color_input_value_change)
+                .chain()
+                .in_set(UiSystems::Prepare)
+                .before(MenuFocusSystem),
         );
     }
 }

@@ -41,7 +41,7 @@ serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1", default-features = false }
 smol_str = { version = "0.2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-parley = { version = "0.11.0", default-features = false, features = ["std"] }
+parley = { version = "0.13.0", default-features = false, features = ["std"] }
 swash = { version = "0.2.6" }
 
 [dev-dependencies]

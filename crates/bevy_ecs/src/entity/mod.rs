@@ -439,7 +439,14 @@ impl core::str::FromStr for EntityGeneration {
 #[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
-    reflect(Serialize, Deserialize)
+    reflect(
+        Serialize,
+        Deserialize,
+        @bevy_reflect::annotations::SerializedAs::String {
+            format: None,
+            pattern: Some("^([0-9]+v[0-9]+|PLACEHOLDER)$"),
+        }
+    )
 )]
 // Alignment repr necessary to allow LLVM to better output
 // optimized codegen for `to_bits`, `PartialEq` and `Ord`.

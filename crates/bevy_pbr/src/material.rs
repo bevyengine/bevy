@@ -665,7 +665,7 @@ impl RenderMaterialInstances {
     ///
     /// Meshes almost always have materials, but in very specific circumstances
     /// involving custom pipelines they won't. (See the
-    /// `specialized_mesh_pipelines` example.)
+    /// [`specialized_mesh_pipeline` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/specialized_mesh_pipeline.rs).)
     pub(crate) fn mesh_material(&self, entity: MainEntity) -> Option<UntypedAssetId> {
         self.instances
             .get(&entity)

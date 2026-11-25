@@ -293,6 +293,10 @@ pub fn extract_shadows(
             commands.entity(render_entity).despawn();
         }
 
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
+
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
@@ -314,7 +318,6 @@ pub fn extract_shadows(
             }
 
             let resolve_val = |val, base, scale_factor| match val {
-                Val::Auto => 0.,
                 Val::Px(px) => px * scale_factor,
                 Val::Percent(percent) => percent / 100. * base,
                 Val::Vw(percent) => percent / 100. * ui_physical_viewport_size.x,
@@ -323,6 +326,7 @@ pub fn extract_shadows(
                 Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
                 Val::Em(em) => em * uinode.em_size.0 * scale_factor,
                 Val::Rem(rem) => rem * uinode.rem_size.0 * scale_factor,
+                _ => 0.,
             };
 
             let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
@@ -358,7 +362,7 @@ pub fn extract_shadows(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedBoxShadow {
-                        stack_index: stack_index.0,
+                        stack_index,
                         transform: Affine2::from(transform) * Affine2::from_translation(offset),
                         color: drop_shadow.color.into(),
                         bounds: shadow_size + 6. * blur_radius,

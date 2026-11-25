@@ -1,4 +1,4 @@
-//! This is mostly a pluginified version of the `custom_post_processing` example
+//! This is mostly a pluginified version of the [`custom_post_processing` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/custom_post_processing.rs)
 //!
 //! The plugin will create a new system that runs a fullscreen triangle.
 //!
