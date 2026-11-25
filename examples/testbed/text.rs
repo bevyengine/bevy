@@ -151,10 +151,10 @@ mod font_size {
                         {relative_sizes.into_iter().collect::<Vec<_>>()}
                         --
                         Text("calc [ Vw(2) + 5 ]")
-                        TextFont { font_size: FontSize::calc(|ctx| 0.02 * ctx.view.x + 5.) }
+                        TextFont { font_size: FontSize::calc(|ctx| ctx.vw(2.) + 5.) }
                         --
                         Text("calc [ Vw(2) - 5 ]")
-                        TextFont { font_size: FontSize::calc(|ctx| 0.02 * ctx.view.x - 5.) }
+                        TextFont { font_size: FontSize::calc(|ctx| ctx.vw(2.) - 5.) }
                     ]
                 ]
                 --
