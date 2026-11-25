@@ -866,6 +866,33 @@ pub struct FontSizeCtx {
     pub view: Vec2,
 }
 
+impl FontSizeCtx {
+    /// Size in logical pixels relative to the value of the `RemSize` resource.
+    pub fn rem(&self, value: f32) -> f32 {
+        self.rem * value
+    }
+
+    /// Size in logical pixels as a percentage of the viewport width.
+    pub fn vw(&self, value: f32) -> f32 {
+        self.view.x * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the viewport height.
+    pub fn vh(&self, value: f32) -> f32 {
+        self.view.y * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the smaller of the viewport width and height.
+    pub fn vmin(&self, value: f32) -> f32 {
+        self.view.min_element() * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the larger of the viewport width and height.
+    pub fn vmax(&self, value: f32) -> f32 {
+        self.view.max_element() * value / 100.
+    }
+}
+
 /// Calc fontsize wrapper
 #[derive(Clone, Reflect)]
 #[reflect(opaque)]
