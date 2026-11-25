@@ -674,7 +674,38 @@ impl<const N: usize> From<[FontSource; N]> for FontSourceTemplate {
 }
 
 /// The default font source used to resolve `FontSource::Default`.
-/// `DefaultFontSource(FontSource::Default)` is mapped to the default Font asset.
+/// `DefaultFontSource(FontSource::Default)` is mapped to the default `Font` asset.
+/// If `default_font` feature is enabled, the embedded 'FiraMono-subset.ttf' is the default.
+///
+/// There are two ways to change the `FontSource::Default`:
+///
+/// 1: (Recommended) You can set this resource from a font source, by an asset handle or a font family name
+/// ```
+/// # use bevy_asset::{AssetServer, Handle};
+/// # use bevy_ecs::system::{Res, ResMut};
+/// # use bevy_text::{DefaultFontSource, Font, FontSource};
+/// fn replace_default_font_asset_system(
+///     mut default_font: ResMut<DefaultFontSource>,
+///     asset_server: Res<AssetServer>,
+/// ) {
+///     // With an asset handle:
+///     let font_handle: Handle<Font> = asset_server.load("fonts/MyFont.ttf");
+///     default_font.0 = font_handle.into();
+///
+///     // Or with a font family name:
+///     default_font.0 = FontSource::family("My Font");
+/// }
+/// ```
+/// 2: (If you are unable to use method 1) You can replace the `Font` asset with inserting a font under `AssetId::default()`
+/// ```
+/// # use bevy_asset::{AssetId, Assets};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_text::Font;
+/// fn replace_default_font_asset_system(mut fonts: ResMut<Assets<Font>>) {
+///     # let custom_font: Font = unimplemented!();
+///     fonts.insert(AssetId::default(), custom_font);
+/// }
+/// ```
 #[derive(Clone, Debug, Reflect, PartialEq, Default, Resource, Deref, DerefMut)]
 pub struct DefaultFontSource(pub FontSource);
 
