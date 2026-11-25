@@ -18,7 +18,7 @@ use bevy_ecs::{
 };
 
 use bevy_log::warn_once;
-use bevy_math::{Affine2, Vec2};
+use bevy_math::{Affine2, BVec2, Vec2};
 use bevy_sprite::BorderRect;
 use layout_tree::ComputedLayout;
 use thiserror::Error;
@@ -648,9 +648,10 @@ fn update_uinode_geometry_recursive(
             computed_node.inverse_scale_factor = inverse_target_scale_factor;
         }
 
+        // Incorrect with reversed axes (not supported yet).
         let content_size = Vec2::new(
-            layout.scrollable_overflow_rect.right,
-            layout.scrollable_overflow_rect.bottom,
+            layout.scrollable_overflow_rect.right(),
+            layout.scrollable_overflow_rect.bottom(),
         );
         if computed_node.content_size != content_size {
             computed_node.content_size = content_size;
@@ -740,9 +741,12 @@ fn update_uinode_geometry_recursive(
             })
             .unwrap_or_default();
 
+        // We don't support reverse scrolling yet. If the direction is reversed, clamp the offset to zero.
+        let reversed = layout.scrollable_overflow_rect.is_reversed();
         let clamped_scroll_position = scroll_position.clamp(
             Vec2::ZERO,
-            Vec2::new(layout.scroll_width(), layout.scroll_height()),
+            Vec2::new(layout.scroll_width(), layout.scroll_height())
+                * Vec2::from(!BVec2::new(reversed.x, reversed.y)),
         );
 
         let physical_scroll_position = clamped_scroll_position.floor();
