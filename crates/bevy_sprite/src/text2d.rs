@@ -217,6 +217,8 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
+    reprocess_queue.retain(|entity| text_query.contains(*entity));
+
     for (
         entity,
         text2d,
