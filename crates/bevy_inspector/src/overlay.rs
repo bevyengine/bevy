@@ -32,6 +32,7 @@ use bevy_feathers::{
     controls::{ButtonVariant, FeathersDock, FeathersToolButton},
     dark_theme::create_dark_theme,
     display::{caption, icon},
+    rounded_corners::RoundedCorners,
     theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, UiTheme},
     tokens, FeathersPlugins,
 };
@@ -365,17 +366,26 @@ fn toolbar() -> impl Scene {
         ThemeBorderColor(tokens::DIALOG_BORDER)
         InheritableThemeTextColor(tokens::DIALOG_TEXT)
         Children [
-            @FeathersToolButton {
-                @caption: bsn! { @caption("Edit") },
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(1),
             }
-            ModeToggle(InspectorMode::Edit)
-            on(on_mode_toggle)
-            --
-            @FeathersToolButton {
-                @caption: bsn! { @caption("Preview") },
-            }
-            ModeToggle(InspectorMode::Preview)
-            on(on_mode_toggle)
+            Children [
+                @FeathersToolButton {
+                    @caption: bsn! { @caption("Edit") },
+                    @corners: RoundedCorners::Left,
+                }
+                ModeToggle(InspectorMode::Edit)
+                on(on_mode_toggle)
+                --
+                @FeathersToolButton {
+                    @caption: bsn! { @caption("Preview") },
+                    @corners: RoundedCorners::Right,
+                }
+                ModeToggle(InspectorMode::Preview)
+                on(on_mode_toggle)
+            ]
             --
             DialogDragHandle
             EntityCursor::System(SystemCursorIcon::Grab)
