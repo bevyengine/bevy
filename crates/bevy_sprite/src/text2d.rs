@@ -217,6 +217,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
+    // Keep only queued entities that still match the Text2d query.
     reprocess_queue.retain(|entity| text_query.contains(*entity));
 
     for (
