@@ -451,6 +451,24 @@ mod tests {
     }
 
     #[test]
+    fn the_tree_keeps_syncing_while_virtual_time_is_paused() {
+        use bevy_time::{Time, TimeUpdateStrategy, Virtual};
+
+        let mut app = test_app();
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(
+            core::time::Duration::from_millis(100),
+        ));
+        press(&mut app);
+        app.world_mut().resource_mut::<Time<Virtual>>().pause();
+        app.update();
+        let late = app.world_mut().spawn(Name::new("Late")).id();
+        for _ in 0..5 {
+            app.update();
+        }
+        assert_eq!(row_count(&mut app, late), 1);
+    }
+
+    #[test]
     fn hidden_overlay_does_not_sync_and_catches_up_when_shown() {
         let mut app = test_app();
         press(&mut app);
