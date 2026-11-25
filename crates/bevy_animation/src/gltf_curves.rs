@@ -193,6 +193,7 @@ where
 
             InterpolationDatum::Between(u, v, s) => {
                 let interpolated = u.iter().zip(v.iter()).map(move |(x, y)| x.lerp(*y, s));
+
                 Either::Right(interpolated)
             }
         }
@@ -301,7 +302,7 @@ where
             | InterpolationDatum::RightTail((_, v)) => {
                 // Pick out the part of this that actually represents the position (instead of tangents),
                 // which is the middle third.
-                let width = self.core.width();
+                let width = self.core.width() / 3;
                 Either::Left(v[width..(width * 2)].iter().copied())
             }
 
@@ -398,10 +399,128 @@ fn cubic_spline_interpolate_slices<'a, T: VectorSpace<Scalar = f32>>(
         cubic_spline_interpolation(
             first[idx + width],
             first[idx + (width * 2)],
-            second[idx + width],
             second[idx],
+            second[idx + width],
             s,
             step_between,
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hermite(p0: f32, m0: f32, m1: f32, p1: f32, s: f32, dt: f32) -> f32 {
+        let s2 = s * s;
+        let s3 = s2 * s;
+        (2.0 * s3 - 3.0 * s2 + 1.0) * p0
+            + (s3 - 2.0 * s2 + s) * dt * m0
+            + (-2.0 * s3 + 3.0 * s2) * p1
+            + (s3 - s2) * dt * m1
+    }
+
+    #[test]
+    fn wide_cubic_keyframe_curve_interpolates_multiple_channels() {
+        let times = [0.0, 2.0];
+        let mut values = Vec::new();
+        // Keyframe 0 at t = 0.0: 2 channels (in, value, out).
+        values.extend_from_slice(&[0.2, -0.4]);
+        values.extend_from_slice(&[0.0, 1.0]);
+        values.extend_from_slice(&[0.5, -0.25]);
+        // Keyframe 1 at t = 2.0: 2 channels (in, value, out).
+        values.extend_from_slice(&[-0.3, 0.6]);
+        values.extend_from_slice(&[2.0, -1.0]);
+        values.extend_from_slice(&[0.1, 0.4]);
+
+        let curve = WideCubicKeyframeCurve::new(times, values).unwrap();
+
+        let t = 0.75;
+        let s = 0.375;
+        let dt = 2.0;
+        let sampled: Vec<f32> = curve.sample_iter_clamped(t).collect();
+        let expected = [
+            hermite(0.0, 0.5, -0.3, 2.0, s, dt),
+            hermite(1.0, -0.25, 0.6, -1.0, s, dt),
+        ];
+
+        assert_eq!(sampled.len(), 2);
+        assert!((sampled[0] - expected[0]).abs() <= 1e-5);
+        assert!((sampled[1] - expected[1]).abs() <= 1e-5);
+    }
+
+    #[test]
+    fn wide_cubic_keyframe_curve_clamps_and_hits_exact_keys() {
+        let times = [0.0, 1.0];
+        let mut values = Vec::new();
+        values.extend_from_slice(&[9.0, 9.0]);
+        values.extend_from_slice(&[1.0, 2.0]);
+        values.extend_from_slice(&[8.0, 8.0]);
+        values.extend_from_slice(&[7.0, 7.0]);
+        values.extend_from_slice(&[3.0, 4.0]);
+        values.extend_from_slice(&[6.0, 6.0]);
+
+        let curve = WideCubicKeyframeCurve::new(times, values).unwrap();
+
+        assert_eq!(
+            curve.sample_iter_clamped(-0.5).collect::<Vec<_>>(),
+            vec![1.0, 2.0]
+        );
+        assert_eq!(
+            curve.sample_iter_clamped(0.0).collect::<Vec<_>>(),
+            vec![1.0, 2.0]
+        );
+        assert_eq!(
+            curve.sample_iter_clamped(1.0).collect::<Vec<_>>(),
+            vec![3.0, 4.0]
+        );
+        assert_eq!(
+            curve.sample_iter_clamped(1.5).collect::<Vec<_>>(),
+            vec![3.0, 4.0]
+        );
+    }
+
+    #[test]
+    fn wide_linear_keyframe_curve_interpolates_multiple_channels() {
+        let times = [0.0, 2.0];
+
+        // Two channels per keyframe.
+        let values = [0.0, 1.0, 2.0, 3.0];
+
+        let curve = WideLinearKeyframeCurve::new(times, values).unwrap();
+
+        let sampled: Vec<f32> = curve.sample_iter_clamped(0.75).collect();
+
+        assert_eq!(sampled.len(), 2);
+        assert!((sampled[0] - 0.75).abs() <= 1e-5);
+        assert!((sampled[1] - 1.75).abs() <= 1e-5);
+    }
+
+    #[test]
+    fn wide_linear_keyframe_curve_clamps_and_hits_exact_keys() {
+        let times = [0.0, 1.0];
+        let values = [1.0, 2.0, 3.0, 4.0];
+
+        let curve = WideLinearKeyframeCurve::new(times, values).unwrap();
+
+        assert_eq!(
+            curve.sample_iter_clamped(-0.5).collect::<Vec<_>>(),
+            vec![1.0, 2.0]
+        );
+
+        assert_eq!(
+            curve.sample_iter_clamped(0.0).collect::<Vec<_>>(),
+            vec![1.0, 2.0]
+        );
+
+        assert_eq!(
+            curve.sample_iter_clamped(1.0).collect::<Vec<_>>(),
+            vec![3.0, 4.0]
+        );
+
+        assert_eq!(
+            curve.sample_iter_clamped(1.5).collect::<Vec<_>>(),
+            vec![3.0, 4.0]
+        );
+    }
 }
