@@ -51,11 +51,8 @@ pub struct SolariLightingPipelines {
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
     compact_world_cache_write_active_cells_pipeline: CachedComputePipelineId,
-    sample_di_for_world_cache_pipeline: CachedComputePipelineId,
-    sample_di_for_world_cache_force_opaque_pipeline: CachedComputePipelineId,
-    sample_gi_for_world_cache_pipeline: CachedComputePipelineId,
-    sample_gi_for_world_cache_force_opaque_pipeline: CachedComputePipelineId,
-    blend_new_world_cache_samples_pipeline: CachedComputePipelineId,
+    update_world_cache_pipeline: CachedComputePipelineId,
+    update_world_cache_force_opaque_pipeline: CachedComputePipelineId,
     presample_light_tiles_pipeline: CachedComputePipelineId,
     restir: RestirPipelines,
     no_restir: NoRestirPipelines,
@@ -146,18 +143,11 @@ pub fn solari_lighting(
         return;
     };
 
-    let (sample_di_for_world_cache_pipeline_id, sample_gi_for_world_cache_pipeline_id) =
-        if solari_lighting.world_cache_force_opaque {
-            (
-                pipelines.sample_di_for_world_cache_force_opaque_pipeline,
-                pipelines.sample_gi_for_world_cache_force_opaque_pipeline,
-            )
-        } else {
-            (
-                pipelines.sample_di_for_world_cache_pipeline,
-                pipelines.sample_gi_for_world_cache_pipeline,
-            )
-        };
+    let update_world_cache_pipeline_id = if solari_lighting.world_cache_force_opaque {
+        pipelines.update_world_cache_force_opaque_pipeline
+    } else {
+        pipelines.update_world_cache_pipeline
+    };
 
     let restir = solari_lighting_resources.reservoirs.as_ref().zip(
         view_prepass_textures
@@ -204,9 +194,7 @@ pub fn solari_lighting(
         Some(compact_world_cache_single_block_pipeline),
         Some(compact_world_cache_blocks_pipeline),
         Some(compact_world_cache_write_active_cells_pipeline),
-        Some(sample_di_for_world_cache_pipeline),
-        Some(sample_gi_for_world_cache_pipeline),
-        Some(blend_new_world_cache_samples_pipeline),
+        Some(update_world_cache_pipeline),
         Some(presample_light_tiles_pipeline),
         Some(initial_pipeline),
         Some(scene_bind_group),
@@ -221,9 +209,7 @@ pub fn solari_lighting(
         pipeline_cache.get_compute_pipeline(pipelines.compact_world_cache_blocks_pipeline),
         pipeline_cache
             .get_compute_pipeline(pipelines.compact_world_cache_write_active_cells_pipeline),
-        pipeline_cache.get_compute_pipeline(sample_di_for_world_cache_pipeline_id),
-        pipeline_cache.get_compute_pipeline(sample_gi_for_world_cache_pipeline_id),
-        pipeline_cache.get_compute_pipeline(pipelines.blend_new_world_cache_samples_pipeline),
+        pipeline_cache.get_compute_pipeline(update_world_cache_pipeline_id),
         pipeline_cache.get_compute_pipeline(pipelines.presample_light_tiles_pipeline),
         pipeline_cache.get_compute_pipeline(initial_pipeline_id),
         &scene_bindings.bind_group,
@@ -416,19 +402,7 @@ pub fn solari_lighting(
 
     pass.set_bind_group(2, None, &[]);
 
-    pass.set_pipeline(sample_di_for_world_cache_pipeline);
-    pass.dispatch_workgroups_indirect(
-        &solari_lighting_resources.world_cache_active_cells_dispatch,
-        0,
-    );
-
-    pass.set_pipeline(sample_gi_for_world_cache_pipeline);
-    pass.dispatch_workgroups_indirect(
-        &solari_lighting_resources.world_cache_active_cells_dispatch,
-        0,
-    );
-
-    pass.set_pipeline(blend_new_world_cache_samples_pipeline);
+    pass.set_pipeline(update_world_cache_pipeline);
     pass.dispatch_workgroups_indirect(
         &solari_lighting_resources.world_cache_active_cells_dispatch,
         0,
@@ -668,33 +642,17 @@ pub fn init_solari_lighting_pipelines(
             ExtraBindGroup::WorldCacheDispatch,
             vec![],
         ),
-        sample_di_for_world_cache_pipeline: create_pipeline(
-            "solari_lighting_sample_di_for_world_cache_pipeline",
-            "sample_di",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
-            false,
-            ExtraBindGroup::None,
-            vec![],
-        ),
-        sample_di_for_world_cache_force_opaque_pipeline: create_pipeline(
-            "solari_lighting_sample_di_for_world_cache_force_opaque_pipeline",
-            "sample_di",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
-            false,
-            ExtraBindGroup::None,
-            vec!["WORLD_CACHE_FORCE_OPAQUE".into()],
-        ),
-        sample_gi_for_world_cache_pipeline: create_pipeline(
-            "solari_lighting_sample_gi_for_world_cache_pipeline",
-            "sample_gi",
+        update_world_cache_pipeline: create_pipeline(
+            "solari_lighting_update_world_cache_pipeline",
+            "update_world_cache",
             load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
             false,
             ExtraBindGroup::None,
             vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
         ),
-        sample_gi_for_world_cache_force_opaque_pipeline: create_pipeline(
-            "solari_lighting_sample_gi_for_world_cache_force_opaque_pipeline",
-            "sample_gi",
+        update_world_cache_force_opaque_pipeline: create_pipeline(
+            "solari_lighting_update_world_cache_force_opaque_pipeline",
+            "update_world_cache",
             load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
             false,
             ExtraBindGroup::None,
@@ -702,14 +660,6 @@ pub fn init_solari_lighting_pipelines(
                 "WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into(),
                 "WORLD_CACHE_FORCE_OPAQUE".into(),
             ],
-        ),
-        blend_new_world_cache_samples_pipeline: create_pipeline(
-            "solari_lighting_blend_new_world_cache_samples_pipeline",
-            "blend_new_samples",
-            load_embedded_asset!(asset_server.as_ref(), "world_cache_update.wesl"),
-            false,
-            ExtraBindGroup::None,
-            vec![],
         ),
         presample_light_tiles_pipeline: create_pipeline(
             "solari_lighting_presample_light_tiles_pipeline",
