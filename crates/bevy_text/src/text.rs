@@ -1,5 +1,5 @@
 use crate::{Font, InlineBox, TextBrush, TextError, TextLayoutInfo, TextSection};
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -14,7 +14,6 @@ use parley::{FontFamily, FontFeature, FontVariation, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
-use std::sync::Arc;
 use tracing::warn;
 
 /// A sub-entity of a [`ComputedTextBlock`].
