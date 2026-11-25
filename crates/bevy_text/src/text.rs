@@ -858,7 +858,7 @@ impl Default for TextFont {
 }
 
 /// Context values needed to evaluate a `FontSize`
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct FontSizeCtx {
     /// rem size in logical pixels
     pub rem: f32,
