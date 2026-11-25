@@ -116,7 +116,7 @@ impl TextPipeline {
                             | crate::FontSize::VMin(_)
                             | crate::FontSize::VMax(_) => computed.uses_viewport_sizes = true,
                             crate::FontSize::Rem(_) => computed.uses_rem_sizes = true,
-                            crate::FontSize::Calc(_) => {
+                            crate::FontSize::Calc { .. } => {
                                 computed.uses_viewport_sizes = true;
                                 computed.uses_rem_sizes = true;
                             }
