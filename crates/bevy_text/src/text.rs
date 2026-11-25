@@ -870,10 +870,7 @@ pub struct FontSizeCtx {
 #[derive(Clone, Reflect)]
 #[reflect(opaque)]
 #[reflect(Clone, Debug)]
-pub struct FontSizeCalc {
-    calc: Arc<Box<dyn Fn(FontSizeCtx) -> f32 + Send + Sync>>,
-    scalar: f32,
-}
+pub struct FontSizeCalc(Arc<Box<dyn Fn(FontSizeCtx) -> f32 + Send + Sync>>);
 
 impl Debug for FontSizeCalc {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -883,7 +880,7 @@ impl Debug for FontSizeCalc {
 
 impl PartialEq for FontSizeCalc {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.calc, &other.calc) && self.scalar == other.scalar
+        Arc::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -911,7 +908,7 @@ pub enum FontSize {
     /// Font Size relative to the value of the `RemSize` resource.
     Rem(f32),
     /// Calc
-    Calc(FontSizeCalc),
+    Calc { calc: FontSizeCalc, scalar: f32 },
 }
 
 impl FontSize {
@@ -930,22 +927,21 @@ impl FontSize {
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
             FontSize::Rem(s) => rem_size.0 * s,
-            FontSize::Calc(calc) => {
-                calc.scalar
-                    * (calc.calc)(FontSizeCtx {
-                        view: logical_viewport_size,
-                        rem: *rem_size,
-                    })
+            FontSize::Calc { scalar, calc } => {
+                (calc.0)(FontSizeCtx {
+                    view: logical_viewport_size,
+                    rem: *rem_size,
+                }) * scalar
             }
         }
     }
 
     /// Create a a calc font size
     pub fn calc(calc: impl Fn(FontSizeCtx) -> f32 + Send + Sync + 'static) -> Self {
-        Self::Calc(FontSizeCalc {
-            calc: Arc::new(Box::new(calc)),
+        Self::Calc {
+            calc: FontSizeCalc(Arc::new(Box::new(calc))),
             scalar: 1.,
-        })
+        }
     }
 }
 
@@ -958,7 +954,9 @@ impl PartialEq for FontSize {
             | (Self::VMin(l), Self::VMin(r))
             | (Self::VMax(l), Self::VMax(r))
             | (Self::Rem(l), Self::Rem(r)) => *l == *r,
-            (Self::Calc(c), Self::Calc(d)) => c == d,
+            (Self::Calc { calc: c, scalar: s }, Self::Calc { calc: d, scalar: t }) => {
+                c == d && s == t
+            }
             _ => false,
         }
     }
@@ -975,10 +973,10 @@ impl core::ops::Mul<f32> for FontSize {
             FontSize::VMin(v) => FontSize::VMin(v * rhs),
             FontSize::VMax(v) => FontSize::VMax(v * rhs),
             FontSize::Rem(v) => FontSize::Rem(v * rhs),
-            FontSize::Calc(mut calc) => {
-                calc.scalar = calc.scalar * rhs;
-                FontSize::Calc(calc)
-            }
+            FontSize::Calc { calc, scalar } => FontSize::Calc {
+                calc,
+                scalar: scalar * rhs,
+            },
         }
     }
 }
