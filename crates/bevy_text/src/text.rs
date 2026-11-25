@@ -14,6 +14,7 @@ use parley::{FontFamily, FontFeature, FontVariation, Layout};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::SmolStr;
+use std::sync::Arc;
 use tracing::warn;
 
 /// A sub-entity of a [`ComputedTextBlock`].
@@ -857,6 +858,33 @@ impl Default for TextFont {
     }
 }
 
+/// Context values needed to evaluate a `FontSize`
+#[derive(Clone, Debug)]
+pub struct FontSizeCtx {
+    /// rem size in logical pixels
+    pub rem: f32,
+    /// viewport size in logical pixels
+    pub view: Vec2,
+}
+
+/// Calc fontsize wrapper
+#[derive(Clone, Reflect)]
+#[reflect(opaque)]
+#[reflect(Clone, Debug)]
+pub struct FontSizeCalc(pub Arc<Box<dyn Fn(FontSizeCtx) -> f32 + Send + Sync>>);
+
+impl Debug for FontSizeCalc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str("FontSizeCalc(..)")
+    }
+}
+
+impl PartialEq for FontSizeCalc {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 /// The vertical height of rasterized glyphs in the font atlas in pixels.
 ///
 /// This is multiplied by the scale factor, but not the text entity
@@ -866,7 +894,7 @@ impl Default for TextFont {
 ///
 /// A new font atlas is generated for every combination of font handle and scaled font size
 /// which can have a strong performance impact.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 pub enum FontSize {
     /// Font Size in logical pixels.
     Px(f32),
@@ -880,62 +908,52 @@ pub enum FontSize {
     VMax(f32),
     /// Font Size relative to the value of the `RemSize` resource.
     Rem(f32),
+    /// Calc
+    #[reflect(ignore)]
+    Calc(FontSizeCalc),
 }
 
 impl FontSize {
     /// Evaluate the font size to a value in logical pixels
     pub fn eval(
-        self,
+        &self,
         // Viewport size in logical pixels
         logical_viewport_size: Vec2,
         // Base Rem size in logical pixels
         rem_size: RemSize,
     ) -> f32 {
         match self {
-            FontSize::Px(s) => s,
+            FontSize::Px(s) => *s,
             FontSize::Vw(s) => logical_viewport_size.x * s / 100.,
             FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
             FontSize::Rem(s) => rem_size.0 * s,
+            FontSize::Calc(calc) => calc.0(FontSizeCtx {
+                view: logical_viewport_size,
+                rem: *rem_size,
+            }),
         }
+    }
+
+    /// Create a a calc font size
+    pub fn calc(calc: impl Fn(FontSizeCtx) -> f32 + Send + Sync + 'static) -> Self {
+        Self::Calc(FontSizeCalc(Arc::new(Box::new(calc))))
     }
 }
 
 impl PartialEq for FontSize {
     fn eq(&self, other: &Self) -> bool {
-        match (*self, *other) {
+        match (self, other) {
             (Self::Px(l), Self::Px(r))
             | (Self::Vw(l), Self::Vw(r))
             | (Self::Vh(l), Self::Vh(r))
             | (Self::VMin(l), Self::VMin(r))
             | (Self::VMax(l), Self::VMax(r))
-            | (Self::Rem(l), Self::Rem(r)) => l == r,
+            | (Self::Rem(l), Self::Rem(r)) => *l == *r,
+            (Self::Calc(c), Self::Calc(d)) => c == d,
             _ => false,
         }
-    }
-}
-
-impl core::ops::Mul<f32> for FontSize {
-    type Output = FontSize;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            FontSize::Px(v) => FontSize::Px(v * rhs),
-            FontSize::Vw(v) => FontSize::Vw(v * rhs),
-            FontSize::Vh(v) => FontSize::Vh(v * rhs),
-            FontSize::VMin(v) => FontSize::VMin(v * rhs),
-            FontSize::VMax(v) => FontSize::VMax(v * rhs),
-            FontSize::Rem(v) => FontSize::Rem(v * rhs),
-        }
-    }
-}
-
-impl core::ops::Mul<FontSize> for f32 {
-    type Output = FontSize;
-
-    fn mul(self, rhs: FontSize) -> Self::Output {
-        rhs * self
     }
 }
 
@@ -993,7 +1011,7 @@ impl Default for EmSize {
 impl EmSize {
     /// Resolves a [`FontSize`] to a concrete [`EmSize`] in logical pixels.
     pub fn from_font_size(
-        font_size: FontSize,
+        font_size: &FontSize,
         logical_viewport_size: Vec2,
         rem_size: RemSize,
     ) -> Self {

@@ -20,7 +20,7 @@ use crate::{
     GlyphCacheKey, Justify, LetterSpacing, LineBreak, LineHeight, PositionedGlyph, TextBounds,
     TextEntity, TextFont, TextLayout,
 };
-use crate::{InlineBoxKind, RemSize, TextBrush};
+use crate::{FontSizeCtx, InlineBoxKind, RemSize, TextBrush};
 
 // Special character used to indicate embedded objects.
 const OBJECT_REPLACEMENT_CHARACTER: char = '\u{FFFC}';
