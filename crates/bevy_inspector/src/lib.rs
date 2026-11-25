@@ -64,7 +64,7 @@ use bevy_picking::{backend::PointerHits, pointer::PointerInput};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::EditableTextSystems;
-use bevy_time::{Time, Timer, TimerMode};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
 use bevy_ui_widgets::SelectedTreeItem;
 
@@ -286,10 +286,10 @@ impl<M: Component> PanelSync<M> {
         self.timer.almost_finish();
     }
 
-    /// Advances the timer by the frame's [`Time`] delta, returning `true` if a pass is due.
+    /// Advances the timer by the frame's [`Time<Real>`] delta, returning `true` if a pass is due.
     pub(crate) fn tick(world: &mut World) -> bool {
         let delta = world
-            .get_resource::<Time>()
+            .get_resource::<Time<Real>>()
             .map(Time::delta)
             .unwrap_or_default();
         world
