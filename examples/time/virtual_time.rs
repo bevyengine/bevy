@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             (
                 Text::default(),
                 TextFont {
-                    font_size,
+                    font_size: font_size.clone(),
                     ..default()
                 },
                 RealTime,
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             (
                 Text::new("CONTROLS\n(Un)pause: Space\nSpeed+: Up\nSpeed-: Down"),
                 TextFont {
-                    font_size,
+                    font_size: font_size.clone(),
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.85)),

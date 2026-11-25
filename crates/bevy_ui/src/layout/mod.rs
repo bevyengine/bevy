@@ -182,7 +182,7 @@ pub fn sync_font_size_to_em_size(
         if text_font.is_changed() || computed_ui_render_target_info.is_changed() || rem_size_changed
         {
             em_size.set_if_neq(EmSize::from_font_size(
-                text_font.font_size,
+                &text_font.font_size,
                 computed_ui_render_target_info.logical_size(),
                 *rem_size,
             ));
