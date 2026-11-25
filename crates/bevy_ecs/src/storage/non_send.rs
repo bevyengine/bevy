@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, Components},
     storage::{blob_array::BlobArray, SparseSet},
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, panic::Location};
 
@@ -114,9 +114,9 @@ impl NonSendData {
         // SAFETY: This is being fetched through a read-only reference to Self, so no other mutable references
         // to the ticks can exist.
         unsafe {
-            self.is_present().then(|| ComponentTicks {
-                added: self.added_ticks.read(),
-                changed: self.changed_ticks.read(),
+            self.is_present().then_some(ComponentTicks {
+                added: *self.added_ticks.as_ref_unchecked(),
+                changed: *self.changed_ticks.as_ref_unchecked(),
             })
         }
     }
@@ -174,14 +174,17 @@ impl NonSendData {
             //   layout must be identical.
             // - The value was previously not present and thus must not have been initialized.
             unsafe { self.data.initialize_unchecked(Self::ROW, value) };
-            *self.added_ticks.deref_mut() = change_tick;
+            // SAFETY: This function is being called through an exclusive mutable reference to Self
+            *unsafe { self.added_ticks.as_mut_unchecked() } = change_tick;
             self.is_present = true;
         }
-        *self.changed_ticks.deref_mut() = change_tick;
+        // SAFETY: This function is being called through an exclusive mutable reference to Self
+        *unsafe { self.changed_ticks.as_mut_unchecked() } = change_tick;
 
+        // SAFETY: This function is being called through an exclusive mutable reference to Self
         self.changed_by
             .as_ref()
-            .map(|changed_by| changed_by.deref_mut())
+            .map(|changed_by| unsafe { changed_by.as_mut_unchecked() })
             .assign(caller);
     }
 
@@ -209,7 +212,7 @@ impl NonSendData {
             .changed_by
             .as_ref()
             // SAFETY: This function is being called through an exclusive mutable reference to Self
-            .map(|changed_by| unsafe { *changed_by.deref_mut() });
+            .map(|changed_by| unsafe { *changed_by.as_mut_unchecked() });
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
         // makes it sound to read these ticks.
@@ -217,8 +220,8 @@ impl NonSendData {
             Some((
                 res,
                 ComponentTicks {
-                    added: self.added_ticks.read(),
-                    changed: self.changed_ticks.read(),
+                    added: *self.added_ticks.as_ref_unchecked(),
+                    changed: *self.changed_ticks.as_ref_unchecked(),
                 },
                 caller,
             ))

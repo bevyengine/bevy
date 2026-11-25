@@ -37,7 +37,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # use bevy_ecs::prelude::*;
 /// fn every_other_time() -> impl SystemCondition<()> {
 ///     IntoSystem::into_system(|mut flag: Local<bool>| {
-///         *flag = !*flag;
+///         flag.toggle();
 ///         *flag
 ///     })
 /// }
@@ -1677,7 +1677,7 @@ mod tests {
     }
 
     fn every_other_time(mut has_ran: Local<bool>) -> bool {
-        *has_ran = !*has_ran;
+        has_ran.toggle();
         *has_ran
     }
 

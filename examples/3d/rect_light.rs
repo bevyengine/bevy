@@ -130,6 +130,6 @@ fn toggle_gizmos(keys: Res<ButtonInput<KeyCode>>, mut config_store: ResMut<Gizmo
     if keys.just_pressed(KeyCode::KeyG) {
         let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
         light_config.draw_all = false;
-        config.enabled = !config.enabled;
+        config.enabled.toggle();
     }
 }

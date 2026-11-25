@@ -152,6 +152,7 @@ Example | Description
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[Blur](../examples/3d/blur.rs) | Demonstrates blurring selected UI panels over a live 3D scene
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
@@ -553,6 +554,7 @@ Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
 [Bevymark 3D](../examples/stress_tests/bevymark_3d.rs) | A heavy 3D cube rendering workload to benchmark your system with Bevy
+[Dynamic Mesh](../examples/stress_tests/dynamic_mesh.rs) | Edits a large mesh every frame, re-uploading it to the GPU each frame
 [Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
@@ -609,9 +611,11 @@ Example | Description
 [Directional Navigation](../examples/ui/navigation/directional_navigation.rs) | Demonstration of automatic directional navigation based on UI element positions
 [Directional Navigation Overrides](../examples/ui/navigation/directional_navigation_overrides.rs) | Demonstration of automatic directional navigation between UI elements with manual overrides
 [Display and Visibility](../examples/ui/layout/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
+[Dock](../examples/ui/widgets/dock.rs) | Builds split panes and tab groups from a dock tree and edits the tree at runtime
 [Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
 [Editable Text Filter](../examples/ui/text/editable_text_filter.rs) | Demonstrates an 8-character hex input using EditableTextFilter
 [Feathers Counter](../examples/ui/widgets/feathers_counter.rs) | Simple counter using feathers
+[Feathers Dock](../examples/ui/widgets/feathers_dock.rs) | A dock layout styled with Feathers
 [Feathers Number Input](../examples/ui/widgets/feathers_number_input.rs) | Feathers Number Input Options
 [Feathers Widgets](../examples/ui/widgets/feathers_gallery.rs) | Gallery of Feathers Widgets
 [Fixed Node](../examples/ui/layout/fixed_node.rs) | Demonstrates how to use FixedNode to lay out a UI node as a root node

@@ -15,7 +15,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_utils::default;
+use bevy_utils::{default, prelude::DebugName};
 use core::{
     any::TypeId,
     fmt::{Debug, Write},
@@ -1841,9 +1841,28 @@ impl ScheduleGraph {
                 if set.is_anonymous() {
                     self.anonymous_set_name(id)
                 } else {
-                    format!("{set:?}")
+                    self.named_set_name(set)
                 }
             }
+        }
+    }
+
+    /// Returns the name of a non-anonymous system set.
+    ///
+    /// The derived [`Debug`] output of an enum only contains the variant name (e.g. `Variant`),
+    /// so the type name is prepended for sets whose [`Debug`] output doesn't include it
+    /// (e.g. `MySet::Variant`). Structs keep their [`Debug`] output as is.
+    ///
+    /// Without the `debug` feature, type names are not available, so only the [`Debug`] output is used.
+    fn named_set_name(&self, set: &dyn SystemSet) -> String {
+        if !DebugName::ENABLED || set.debug_includes_type_name() {
+            return format!("{set:?}");
+        }
+        let set_type_name = set.set_type_name();
+        if self.settings.use_shortnames {
+            format!("{}::{set:?}", set_type_name.shortname())
+        } else {
+            format!("{set_type_name}::{set:?}")
         }
     }
 

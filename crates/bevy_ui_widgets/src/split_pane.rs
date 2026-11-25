@@ -290,7 +290,7 @@ fn split_pane_on_cancel(
     });
 }
 
-fn update_split_pane_layout(
+pub(crate) fn update_split_pane_layout(
     q_changed_split: Query<Entity, (With<SplitPane>, Or<(Changed<SplitPane>, Changed<Children>)>)>,
     q_changed_pane: Query<&ChildOf, Changed<Pane>>,
     q_split: Query<(&SplitPane, &Children)>,
@@ -358,7 +358,9 @@ impl Plugin for SplitPanePlugin {
             .add_observer(split_pane_on_cancel)
             .add_systems(
                 PostUpdate,
-                update_split_pane_layout.before(UiSystems::Prepare),
+                update_split_pane_layout
+                    .ambiguous_with(UiSystems::Stack)
+                    .before(UiSystems::Prepare),
             );
     }
 }

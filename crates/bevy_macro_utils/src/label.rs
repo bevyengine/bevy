@@ -68,6 +68,8 @@ pub fn derive_label(
         .into();
     }
 
+    // The derived `Debug` output of a struct includes its type name, but an enum's only has the variant.
+    let debug_includes_type_name = matches!(&input.data, syn::Data::Struct(_));
     let ident = input.ident.clone();
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
@@ -88,6 +90,10 @@ pub fn derive_label(
             impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
                 fn dyn_clone(&self) -> alloc::boxed::Box<dyn #trait_path> {
                     alloc::boxed::Box::new(#FQClone::clone(self))
+                }
+
+                fn debug_includes_type_name(&self) -> bool {
+                    #debug_includes_type_name
                 }
             }
         };

@@ -433,6 +433,10 @@ pub fn extract_gradients(
             commands.entity(render_entity).despawn();
         }
 
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
+
         // Skip invisible images
         if !inherited_visibility.get() {
             continue;
@@ -485,7 +489,7 @@ pub fn extract_gradients(
                         .insert(
                             commands.spawn_empty().id(),
                             ExtractedGradient {
-                                stack_index: stack_index.0,
+                                stack_index,
                                 transform: transform.into(),
                                 stops: extracted_stops,
                                 rect: Rect {
@@ -521,7 +525,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index,
                                     transform: transform.into(),
                                     stops: extracted_stops,
                                     rect: Rect {
@@ -545,7 +549,7 @@ pub fn extract_gradients(
                     }) => {
                         let c = center.resolve(&context, uinode.size);
 
-                        let size = shape.resolve(c, &context, uinode.size);
+                        let size = shape.resolve(&context, uinode.size, c);
 
                         let length = size.x;
 
@@ -560,7 +564,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index,
                                     transform: transform.into(),
                                     stops: computed_stops,
                                     rect: Rect {
@@ -615,7 +619,7 @@ pub fn extract_gradients(
                             .insert(
                                 commands.spawn_empty().id(),
                                 ExtractedGradient {
-                                    stack_index: stack_index.0,
+                                    stack_index,
                                     transform: transform.into(),
                                     stops: extracted_color_stops,
                                     rect: Rect {

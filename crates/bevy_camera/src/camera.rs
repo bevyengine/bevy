@@ -905,7 +905,7 @@ pub enum RenderTarget {
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
-    /// example a depth prepass. See the `render_depth_to_texture` example.
+    /// example a depth prepass. See the [`render_depth_to_texture` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/render_depth_to_texture.rs).
     None {
         /// The physical size of the viewport.
         size: UVec2,
@@ -955,7 +955,7 @@ pub enum NormalizedRenderTarget {
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
-    /// example a depth prepass. See the `render_depth_to_texture` example.
+    /// example a depth prepass. See the [`render_depth_to_texture` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/render_depth_to_texture.rs).
     None {
         /// The physical width of the viewport.
         width: u32,

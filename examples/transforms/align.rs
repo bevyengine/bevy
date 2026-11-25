@@ -175,7 +175,7 @@ fn handle_keypress(
     }
 
     if keyboard.just_pressed(KeyCode::KeyT) {
-        ship.in_motion ^= true;
+        ship.in_motion.toggle();
     }
 
     if keyboard.just_pressed(KeyCode::KeyH) {
