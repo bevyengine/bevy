@@ -2,6 +2,7 @@
 
 mod annotations;
 mod edit;
+mod entity_section;
 mod rows;
 mod sync;
 mod walk;
@@ -404,16 +405,20 @@ impl DetailsIndex {
 #[derive(Resource, Clone, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
 pub struct DetailsCollapsed {
-    /// Whether a component starts collapsed.
+    /// Whether a component starts collapsed. The entity section always starts collapsed.
     pub by_default: bool,
-    /// The components toggled away from [`by_default`](Self::by_default).
+    /// The components toggled away from the state they start in.
     pub toggled: HashSet<ComponentKey>,
 }
 
 impl DetailsCollapsed {
     /// Returns `true` if the field list of the component is collapsed.
     pub fn is_collapsed(&self, key: &ComponentKey) -> bool {
-        self.by_default != self.toggled.contains(key)
+        self.starts_collapsed(key) != self.toggled.contains(key)
+    }
+
+    fn starts_collapsed(&self, key: &ComponentKey) -> bool {
+        self.by_default || entity_section::is_entity_section(key)
     }
 }
 
@@ -506,7 +511,7 @@ pub fn inspector_details_toggled(
     let Ok(component) = toggles.get(change.source) else {
         return;
     };
-    if change.value == collapsed.by_default {
+    if change.value == collapsed.starts_collapsed(&component.0) {
         collapsed.toggled.insert(component.0.clone());
     } else {
         collapsed.toggled.remove(&component.0);

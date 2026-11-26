@@ -45,6 +45,7 @@ use bevy_ui::{
 use super::{
     annotations::FieldAnnotations,
     edit::same_value,
+    entity_section::prepend_entity_section,
     inspector_details_toggled,
     rows::{apply_value, descendant_with, spawn_child_scene, spawn_fields},
     walk::field_entries,
@@ -87,8 +88,14 @@ pub fn sync_details_panel(world: &mut World) {
     let local = inspector_source == InspectorSource::Local;
 
     let inspected = crate::world_to_inspect(world, &inspector_source);
-    let components = inspect_components(inspected, selection.clone(), local);
+    let mut components = inspect_components(inspected, selection.clone(), local);
     let empty = empty_state(inspected, maybe_selected, &components);
+    if local
+        && matches!(empty, None | Some(EmptyState::NoComponents))
+        && let Some(entity) = maybe_selected
+    {
+        prepend_entity_section(inspected, entity, &mut components);
+    }
 
     let index = world.resource::<DetailsIndex>();
     if index.body != Some(body) || index.empty != empty {
@@ -97,7 +104,7 @@ pub fn sync_details_panel(world: &mut World) {
         discard_focused_group(world);
         world.resource_mut::<DetailsIndex>().selection = selection.clone();
     }
-    if empty.is_none() {
+    if !components.is_empty() {
         sync_groups(world, body, &components);
     }
 }

@@ -55,6 +55,7 @@ use crate::{
 
 mod annotations;
 mod edit;
+mod entity_section;
 mod rows;
 mod sync;
 mod walk;
@@ -469,8 +470,20 @@ fn body_children(app: &mut App) -> Vec<Entity> {
         .unwrap_or_default()
 }
 
+/// The children of the panel body other than the entity section.
+fn component_groups(app: &mut App) -> Vec<Entity> {
+    let section = app
+        .world()
+        .resource::<DetailsIndex>()
+        .group(crate::details_panel::entity_section::SECTION_KEY);
+    body_children(app)
+        .into_iter()
+        .filter(|child| Some(*child) != section)
+        .collect()
+}
+
 fn body_message(app: &mut App) -> Option<String> {
-    let children = body_children(app);
+    let children = component_groups(app);
     let [caption] = children.as_slice() else {
         return None;
     };
