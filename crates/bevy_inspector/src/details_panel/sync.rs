@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 
-use bevy_app::Propagate;
+use bevy_app::{Propagate, PropagateOver};
 use bevy_color::{Alpha, Srgba};
 use bevy_dev_tools::inspection::{
     component_inspection::{ComponentDetailLevel, ComponentInspectionSettings},
@@ -36,10 +36,10 @@ use bevy_input_focus::InputFocus;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::PartialReflect;
 use bevy_scene::{bsn, on, Scene};
-use bevy_text::{FontSourceTemplate, FontWeight, LineBreak, TextLayout};
+use bevy_text::{FontSourceTemplate, FontStyle, FontWeight, LineBreak, TextFont, TextLayout};
 use bevy_ui::{
-    px, AlignItems, BoxShadow, Checked, Display, FlexDirection, JustifyContent, Node, Overflow,
-    UiRect,
+    px, widget::Text, AlignItems, BoxShadow, Checked, Display, FlexDirection, JustifyContent, Node,
+    Overflow, UiRect,
 };
 
 use super::{
@@ -56,6 +56,20 @@ use crate::{
     column_split::ColumnSplit, entity_tree::InspectorUi, InspectableEntity, InspectorSelection,
     InspectorSource,
 };
+
+fn empty_message(text: &'static str) -> impl Scene {
+    bsn! {
+        Text(text)
+        TextFont {
+            font: FontSourceTemplate::Families(fonts::SANS),
+            font_size: size::MEDIUM_FONT,
+            weight: FontWeight::NORMAL,
+            style: FontStyle::Italic,
+        }
+        PropagateOver<TextFont>
+        ThemeTextColor(tokens::TEXT_DIM)
+    }
+}
 
 /// Rebuilds or refreshes the details panel so that it matches the selected entity.
 ///
@@ -248,7 +262,7 @@ fn reset_body(
     }
 
     if let Some(empty) = empty {
-        spawn_child_scene(world, body, caption(empty.message()));
+        spawn_child_scene(world, body, empty_message(empty.message()));
     }
 
     *world.resource_mut::<DetailsIndex>() = DetailsIndex {
