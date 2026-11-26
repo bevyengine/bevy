@@ -1275,7 +1275,11 @@ pub fn prepare_lights(
     //   lights are chosen if the light count limit is exceeded.
     directional_light_entities.sort_by_cached_key(|entity| {
         let light = directional_lights.get(*entity).unwrap().2;
-        (light.volumetric, light.shadow_maps_enabled, *entity)
+        (
+            core::cmp::Reverse(light.volumetric),
+            light.shadow_maps_enabled,
+            *entity,
+        )
     });
 
     if global_clusterable_object_meta.entity_to_index.capacity() < point_light_entities.len() {
