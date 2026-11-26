@@ -5,7 +5,8 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
 use bevy_ecs::{
-    bundle::BundleScratch, message::MessageCursor, prelude::*, relationship::Relationship,
+    bundle::BundleScratch, error::ErrorReport, message::MessageCursor, prelude::*,
+    relationship::Relationship,
 };
 use bevy_platform::collections::HashMap;
 use tracing::error;
@@ -365,7 +366,7 @@ impl<'w, 's> CommandsSceneExt for Commands<'w, 's> {
             if let Ok(mut entity) = world.get_entity_mut(id)
                 && let Err(err) = entity.apply_scene(scene)
             {
-                error!("{err}");
+                error!("{}", ErrorReport::new(&err));
             }
         });
         entity_commands
@@ -385,7 +386,7 @@ impl<'w, 's> CommandsSceneExt for Commands<'w, 's> {
     fn spawn_scene_list<L: SceneList>(&mut self, scenes: L) {
         self.queue(move |world: &mut World| {
             if let Err(err) = world.spawn_scene_list(scenes) {
-                error!("{err}");
+                error!("{}", ErrorReport::new(&err));
             }
         });
     }
@@ -711,7 +712,8 @@ pub fn spawn_queued(
                             {
                                 error!(
                                     "Failed to apply scene (id: {}) to entity {entity}: {}",
-                                    id, err
+                                    id,
+                                    ErrorReport::new(&err)
                                 );
                             }
                         }
@@ -733,7 +735,11 @@ pub fn spawn_queued(
                                     });
 
                                     if let Err(err) = result {
-                                        error!("Failed to spawn scene list (id: {}): {}", id, err);
+                                        error!(
+                                            "Failed to spawn scene list (id: {}): {}",
+                                            id,
+                                            ErrorReport::new(&err)
+                                        );
                                     }
                                 }
                             }
@@ -743,7 +749,11 @@ pub fn spawn_queued(
                                 for _ in 0..waiting_list_spawns {
                                     let result = list_patch.spawn(world);
                                     if let Err(err) = result {
-                                        error!("Failed to spawn scene list (id: {}): {}", id, err);
+                                        error!(
+                                            "Failed to spawn scene list (id: {}): {}",
+                                            id,
+                                            ErrorReport::new(&err)
+                                        );
                                     }
                                 }
                             }
@@ -795,7 +805,8 @@ impl QueuedScenes {
                     let path = handle.path();
                     error!(
                         "Failed to apply scene (id: {id}, path: {path:?}) to \
-                                    entity {entity}: {err}",
+                                    entity {entity}: {}",
+                        ErrorReport::new(&err)
                     );
                 }
             } else {
@@ -818,7 +829,7 @@ impl QueuedScenes {
                         "Failed to spawn scene list (id: {}, path: {:?}): {}",
                         handle.id(),
                         handle.path(),
-                        err
+                        ErrorReport::new(&err)
                     );
                 }
             } else {
@@ -838,7 +849,7 @@ impl QueuedScenes {
                         "Failed to spawn scene list (id: {}, path: {:?}): {}",
                         handle.id(),
                         handle.path(),
-                        err
+                        ErrorReport::new(&err)
                     );
                 }
             } else {

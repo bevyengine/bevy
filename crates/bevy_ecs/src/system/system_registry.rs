@@ -858,8 +858,8 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
     /// This is not considered an error.
-    #[error("System did not run due to failed parameter validation: {0}")]
-    Skipped(SystemParamValidationError),
+    #[error("System did not run due to failed parameter validation")]
+    Skipped(#[source] SystemParamValidationError),
     /// System returned an error or failed required parameter validation.
     #[error("System returned error: {0}")]
     Failed(BevyError),

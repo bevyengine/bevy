@@ -370,8 +370,8 @@ pub enum DeserializeMetaError {
     #[error("Failed to deserialize asset meta")]
     DeserializeSettings(#[from] SpannedError),
     /// Failed to deserialize the minimal asset metadata.
-    #[error("Failed to deserialize minimal asset meta: {0:?}")]
-    DeserializeMinimal(SpannedError),
+    #[error("Failed to deserialize minimal asset meta")]
+    DeserializeMinimal(#[source] SpannedError),
 }
 
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.

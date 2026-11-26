@@ -1188,8 +1188,8 @@ impl Entities {
 pub enum SpawnError {
     /// The [`Entity`] to spawn was invalid.
     /// It probably had the wrong generation or was created erroneously.
-    #[error("Invalid id: {0}")]
-    Invalid(InvalidEntityError),
+    #[error("Invalid id")]
+    Invalid(#[source] InvalidEntityError),
     /// The [`Entity`] to spawn was already spawned.
     #[error("The entity can not be spawned as it already has a location.")]
     AlreadySpawned,

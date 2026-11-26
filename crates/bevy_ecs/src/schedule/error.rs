@@ -21,14 +21,14 @@ use crate::{
 #[derive(Error, Debug)]
 pub enum ScheduleBuildError {
     /// Tried to topologically sort the hierarchy of system sets.
-    #[error("Failed to topologically sort the hierarchy of system sets: {0}")]
-    HierarchySort(DiGraphToposortError<NodeId>),
+    #[error("Failed to topologically sort the hierarchy of system sets")]
+    HierarchySort(#[source] DiGraphToposortError<NodeId>),
     /// Tried to topologically sort the dependency graph.
-    #[error("Failed to topologically sort the dependency graph: {0}")]
-    DependencySort(DiGraphToposortError<NodeId>),
+    #[error("Failed to topologically sort the dependency graph")]
+    DependencySort(#[source] DiGraphToposortError<NodeId>),
     /// Tried to topologically sort the flattened dependency graph.
-    #[error("Failed to topologically sort the flattened dependency graph: {0}")]
-    FlatDependencySort(DiGraphToposortError<SystemKey>),
+    #[error("Failed to topologically sort the flattened dependency graph")]
+    FlatDependencySort(#[source] DiGraphToposortError<SystemKey>),
     /// Tried to order a system (set) relative to a system set it belongs to.
     #[error("A system (set) has both `in_set` and `before`-`after` relationships with a set it belongs to (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(#[from] DagCrossDependencyError<NodeId>),

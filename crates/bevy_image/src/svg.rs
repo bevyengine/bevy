@@ -116,11 +116,12 @@ pub enum SvgLoaderError {
     #[error("failed to read SVG file")]
     Io(#[from] std::io::Error),
     /// The file could not be turned into an image.
-    #[error("failed to load SVG file {path}: {error}")]
+    #[error("failed to load SVG file {path}")]
     Svg {
         /// The asset path of the file.
         path: String,
         /// What went wrong.
+        #[source]
         error: SvgError,
     },
 }

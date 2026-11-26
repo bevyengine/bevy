@@ -109,8 +109,8 @@ pub enum GltfError {
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
     /// The buffer URI was unable to be resolved with respect to the asset path.
-    #[error("invalid buffer uri: {0}. asset path error={1}")]
-    InvalidBufferUri(String, ParseAssetPathError),
+    #[error("invalid buffer uri: {0}")]
+    InvalidBufferUri(String, #[source] ParseAssetPathError),
     /// Invalid image mime type.
     #[error("invalid image mime type: {0}")]
     #[from(ignore)]
@@ -119,8 +119,8 @@ pub enum GltfError {
     #[error("failed to load image, you may need to enable the feature for its file format")]
     ImageError(#[from] TextureError),
     /// The image URI was unable to be resolved with respect to the asset path.
-    #[error("invalid image uri: {0}. asset path error={1}")]
-    InvalidImageUri(String, ParseAssetPathError),
+    #[error("invalid image uri: {0}")]
+    InvalidImageUri(String, #[source] ParseAssetPathError),
     /// Failed to read bytes from an asset path.
     #[error("failed to read from an asset path")]
     ReadAssetError(#[from] ReadAssetError),

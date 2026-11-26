@@ -54,8 +54,8 @@ pub enum AssetReaderError {
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an I/O error while loading asset: {0}")]
-    Io(Arc<std::io::Error>),
+    #[error("Encountered an I/O error while loading asset")]
+    Io(#[source] Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
     /// - If the request returns a 404 error, expect [`AssetReaderError::NotFound`].

@@ -21,8 +21,8 @@ use thiserror::Error;
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
     #[error("Failed to prepare asset")]
     RetryNextUpdate(E),
-    #[error("Failed to build bind group: {0}")]
-    AsBindGroupError(AsBindGroupError),
+    #[error("Failed to build bind group")]
+    AsBindGroupError(#[source] AsBindGroupError),
 }
 
 /// The system set during which we extract modified assets to the render world.

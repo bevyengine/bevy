@@ -1937,7 +1937,10 @@ mod tests {
                                 );
                             }
                         }
-                        _ => panic!("Unexpected error type {}", read_error),
+                        _ => panic!(
+                            "Unexpected error type {}",
+                            bevy_ecs::error::ErrorReport::new(read_error)
+                        ),
                     },
                     _ => panic!(
                         "Unexpected error type {}",

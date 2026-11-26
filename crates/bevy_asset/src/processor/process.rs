@@ -150,10 +150,11 @@ pub enum ProcessError {
         ambiguous_processor_names: Vec<&'static str>,
     },
     /// Encountered an [`AssetReaderError`] for this path.
-    #[error("Encountered an AssetReader error for '{path}': {err}")]
+    #[error("Encountered an AssetReader error for '{path}'")]
     #[from(ignore)]
     AssetReaderError {
         path: AssetPath<'static>,
+        #[source]
         err: AssetReaderError,
     },
     /// Encountered an [`AssetWriterError`] for this path.
@@ -171,10 +172,11 @@ pub enum ProcessError {
     #[error(transparent)]
     MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
     /// Encountered an [`AssetReaderError`] when reading the asset metadata for this path.
-    #[error("Failed to read asset metadata for {path}: {err}")]
+    #[error("Failed to read asset metadata for {path}")]
     #[from(ignore)]
     ReadAssetMetaError {
         path: AssetPath<'static>,
+        #[source]
         err: AssetReaderError,
     },
     #[error(transparent)]

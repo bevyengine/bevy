@@ -928,7 +928,10 @@ impl AssetProcessor {
                 let meta_bytes = match processed_reader.read_meta_bytes(asset_path.path()).await {
                     Ok(meta_bytes) => meta_bytes,
                     Err(err) => {
-                        trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
+                        trace!(
+                            "Removing processed data for {asset_path} because meta failed to load: {}",
+                            ErrorReport::new(&err)
+                        );
                         self.remove_processed_asset_and_meta(source, asset_path.path())
                             .await;
                         continue;
