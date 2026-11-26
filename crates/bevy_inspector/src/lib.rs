@@ -66,7 +66,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::EditableTextSystems;
 use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
-use bevy_ui_widgets::SelectedTreeItem;
+use bevy_ui_widgets::{DockSystems, SelectedTreeItem};
 
 use crate::column_split::ColumnSplitPlugin;
 use crate::details_panel::{
@@ -528,6 +528,7 @@ impl Plugin for InspectorPlugin {
                 )
                     .chain()
                     .ambiguous_with_all()
+                    .after(DockSystems::Panels)
                     .before(UiSystems::Prepare)
                     .before(UiSystems::Stack)
                     .before(VisibilitySystems::VisibilityPropagate),

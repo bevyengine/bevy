@@ -22,23 +22,21 @@ use bevy_picking::{
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ui::{ComputedNode, ComputedUiTargetCamera, Display, Node, UiGlobalTransform};
-use bevy_ui_widgets::ValueChange;
+use bevy_ui_widgets::{DockChange, DockEdit, DockLeaf, DockPanelContent, DockTree, ValueChange};
 use bevy_window::{PrimaryWindow, Window};
 
 use crate::{
     entity_tree::{InspectorUi, TreeReveal},
+    overlay::{InspectorPanel, OverlayDock},
     world_tabs::{InspectorPage, InspectorPageBody, InspectorPageTab},
     InspectableEntity, InspectorMode, InspectorSelection, InspectorSource, InspectorSources,
 };
 
 #[derive(SystemParam)]
 pub(crate) struct InspectorPanels<'w, 's> {
-    inspector_ui: Query<
-        'w,
-        's,
-        (Entity, Option<&'static Pickable>, Option<&'static Children>),
-        With<InspectorUi>,
-    >,
+    inspector_ui: Query<'w, 's, Entity, With<InspectorUi>>,
+    pickables: Query<'w, 's, &'static Pickable>,
+    children: Query<'w, 's, &'static Children>,
     parents: Query<'w, 's, &'static ChildOf>,
     nodes: Query<
         'w,
@@ -62,16 +60,20 @@ impl InspectorPanels<'_, '_> {
     }
 
     fn under(&self, location: &Location) -> bool {
-        self.inspector_ui.iter().any(|(root, pickable, children)| {
-            let passes_through = pickable.is_some_and(|pickable| *pickable == Pickable::IGNORE);
-            match (passes_through, children) {
-                (true, Some(children)) => children
-                    .iter()
-                    .copied()
-                    .any(|panel| self.panel_under(panel, location)),
-                (true, None) => false,
-                (false, _) => self.panel_under(root, location),
-            }
+        self.inspector_ui
+            .iter()
+            .any(|root| self.blocks(root, location))
+    }
+
+    fn blocks(&self, entity: Entity, location: &Location) -> bool {
+        if self.pickables.get(entity) != Ok(&Pickable::IGNORE) {
+            return self.panel_under(entity, location);
+        }
+        self.children.get(entity).is_ok_and(|children| {
+            children
+                .iter()
+                .copied()
+                .any(|child| self.blocks(child, location))
         })
     }
 
@@ -168,11 +170,34 @@ pub(crate) struct EntitiesPage<'w, 's> {
     tabs: Query<'w, 's, (Entity, &'static InspectorPageTab, &'static ChildOf)>,
     bodies: Query<'w, 's, (&'static InspectorPageBody, &'static Node, &'static ChildOf)>,
     parents: Query<'w, 's, &'static ChildOf>,
+    contents: Query<'w, 's, &'static DockPanelContent>,
+    docks: Query<'w, 's, &'static DockTree, With<OverlayDock>>,
     commands: Commands<'w, 's>,
 }
 
 impl EntitiesPage<'_, '_> {
     fn show(&mut self) {
+        for content in &self.contents {
+            if content.panel.as_str() != InspectorPanel::Entities.key() {
+                continue;
+            }
+            let Ok(tree) = self.docks.get(content.dock) else {
+                continue;
+            };
+            let Some(leaf) = tree.find_leaf_for_tab(content.tab) else {
+                continue;
+            };
+            if tree.leaf(leaf).and_then(DockLeaf::active) != Some(content.tab) {
+                self.commands.trigger(DockChange {
+                    dock: content.dock,
+                    edit: DockEdit::Activate {
+                        leaf,
+                        tab: content.tab,
+                    },
+                    is_final: true,
+                });
+            }
+        }
         for (body, node, root) in &self.bodies {
             if body.0 != InspectorPage::Entities || node.display != Display::None {
                 continue;
@@ -487,7 +512,7 @@ mod tests {
     };
     use bevy_ecs::{
         message::MessageWriter, name::Name, observer::On, resource::Resource,
-        schedule::IntoScheduleConfigs,
+        schedule::IntoScheduleConfigs, system::RunSystemOnce,
     };
     use bevy_input::{
         mouse::MouseButtonInput,
@@ -892,6 +917,125 @@ mod tests {
         spawn_mesh(&mut app, 4.0);
         click(&mut app, &[]);
         assert_eq!(selected(&app), None);
+    }
+
+    #[test]
+    fn see_through_inspector_ui_is_not_under_the_pointer() {
+        use bevy_camera::CameraPlugin;
+        use bevy_math::UVec2;
+        use bevy_ui::{px, PositionType, UiPlugin, UiTargetCamera};
+
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            bevy_time::TimePlugin,
+            AssetPlugin::default(),
+            bevy_transform::TransformPlugin,
+            CameraPlugin,
+            bevy_text::TextPlugin,
+            UiPlugin,
+        ));
+        app.init_asset::<bevy_image::Image>()
+            .init_asset::<bevy_image::TextureAtlasLayout>()
+            .init_asset::<Mesh>()
+            .init_asset::<bevy_mesh::skinning::SkinnedMeshInverseBindposes>()
+            .init_resource::<HoverMap>()
+            .init_resource::<PointerState>()
+            .init_resource::<bevy_input_focus::InputFocus>()
+            .add_message::<PointerInput>()
+            .add_message::<PointerHits>();
+        let size = UVec2::new(400, 200);
+        let camera = app
+            .world_mut()
+            .spawn((Camera::default(), RenderTarget::None { size }))
+            .id();
+        let side = || Node {
+            width: px(100),
+            ..Default::default()
+        };
+        let world = app.world_mut();
+        let root = world
+            .spawn((
+                InspectorUi,
+                Pickable::IGNORE,
+                UiTargetCamera(camera),
+                Node {
+                    width: px(size.x),
+                    height: px(size.y),
+                    ..Default::default()
+                },
+            ))
+            .id();
+        let dock = world
+            .spawn((
+                Pickable::IGNORE,
+                Node {
+                    flex_grow: 1.0,
+                    ..Default::default()
+                },
+                ChildOf(root),
+            ))
+            .id();
+        world.spawn((side(), ChildOf(dock)));
+        world.spawn((
+            Node {
+                width: px(4),
+                ..Default::default()
+            },
+            ChildOf(dock),
+        ));
+        let center = world
+            .spawn((
+                Pickable::IGNORE,
+                Node {
+                    flex_grow: 1.0,
+                    ..Default::default()
+                },
+                ChildOf(dock),
+            ))
+            .id();
+        world.spawn((
+            Pickable::IGNORE,
+            Node {
+                flex_grow: 1.0,
+                ..Default::default()
+            },
+            ChildOf(center),
+        ));
+        world.spawn((side(), ChildOf(dock)));
+        world.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(150),
+                top: px(10),
+                width: px(40),
+                height: px(20),
+                ..Default::default()
+            },
+            ChildOf(root),
+        ));
+        app.update();
+
+        let mut under = |x: f32, y: f32| {
+            let location = Location {
+                target: NormalizedRenderTarget::None {
+                    width: size.x,
+                    height: size.y,
+                },
+                position: Vec2::new(x, y),
+            };
+            app.world_mut()
+                .run_system_once_with(
+                    |In(location): In<Location>, panels: InspectorPanels| panels.under(&location),
+                    location,
+                )
+                .unwrap()
+        };
+        assert!(!under(250.0, 150.0));
+        assert!(under(50.0, 100.0));
+        assert!(under(102.0, 100.0));
+        assert!(under(350.0, 100.0));
+        assert!(under(160.0, 15.0));
     }
 
     #[test]
