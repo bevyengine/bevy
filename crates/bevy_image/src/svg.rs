@@ -1,15 +1,14 @@
-use std::path::{Path, PathBuf};
-
+use crate::{Image, ImageSampler};
 use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext, RenderAssetUsages};
+use bevy_math::Vec2;
 use bevy_reflect::TypePath;
 use resvg::{tiny_skia, usvg};
 use serde::{Deserialize, Serialize};
-use serde::ser::Impossible;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
-use bevy_math::Vec2;
-use crate::{Image, ImageSampler};
 
 /// Loads `.svg` files as [`Image`]s.
 ///
@@ -102,7 +101,7 @@ pub enum SvgError {
         height: u32,
     },
     #[error("failed to find element with id {0}")]
-    NotFound(String)
+    NotFound(String),
 }
 
 /// An error produced by [`SvgImageLoader`].
@@ -152,7 +151,7 @@ impl AssetLoader for SvgImageLoader {
 /// Load files with `asset_server.load::<Svg>("icons.svg").
 #[derive(Asset, TypePath, Clone)]
 pub struct Svg {
-    tree: usvg::Tree,
+    tree: Arc<usvg::Tree>,
     path: PathBuf,
 }
 
@@ -161,7 +160,10 @@ impl Svg {
         let options = usvg_options(path);
         let tree = usvg::Tree::from_data(bytes, &options)
             .map_err(|error| SvgError::Parse(error.to_string()))?;
-        Ok(Self { tree, path: path.to_path_buf() })
+        Ok(Self {
+            tree,
+            path: path.to_path_buf(),
+        })
     }
 
     pub fn size(&self) -> Vec2 {
@@ -173,17 +175,15 @@ impl Svg {
         self.tree.node_by_id(id).is_some()
     }
 
-    pub fn rasterize(
-        &self,
-        size: SvgRasterSize,
-    ) -> Result<Image, SvgError> {
+    pub fn rasterize(&self, size: SvgRasterSize) -> Result<Image, SvgError> {
         let document = self.tree.size();
         let (width, height) = raster_size(size, document.width(), document.height(), &self.path)?;
         let transform = tiny_skia::Transform::from_scale(
             width as f32 / document.width(),
             height as f32 / document.height(),
         );
-        let mut pixmap = tiny_skia::Pixmap::new(width, height).unwrap();
+        let mut pixmap =
+            tiny_skia::Pixmap::new(width, height).ok_or(SvgError::Allocation { width, height })?;
         resvg::render(&self.tree, transform, &mut pixmap.as_mut());
 
         let mut image = Image::new(
@@ -212,11 +212,11 @@ impl Svg {
             width as f32 / bounds.width(),
             height as f32 / bounds.height(),
         )
-            .pre_translate(-x, -y)
-            .pre_concat(parent_transform)
-            .pre_translate(x, y);
+        .pre_translate(-x, -y)
+        .pre_concat(parent_transform)
+        .pre_translate(x, y);
         let mut pixmap = tiny_skia::Pixmap::new(width, height).unwrap();
-        resvg::render(&self.tree, transform, &mut pixmap.as_mut());
+        resvg::render_node(node, transform, &mut pixmap.as_mut());
 
         let mut image = Image::new(
             Extent3d {
@@ -251,16 +251,16 @@ impl AssetLoader for SvgDocumentLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let path = load_context.path().path();
-        Svg::parse(&bytes, path) .map_err(|error|
-            SvgLoaderError::Svg {
-                path: path.display().to_string(),
-                error,
-            })
+        Svg::parse(&bytes, path).map_err(|error| SvgLoaderError::Svg {
+            path: path.display().to_string(),
+            error,
+        })
     }
 
-    fn extensions(&self) -> &[&str] {&["svg"]}
+    fn extensions(&self) -> &[&str] {
+        &["svg"]
+    }
 }
-
 
 /// Parses `bytes` as an SVG and renders it into an [`Image`].
 fn rasterize(bytes: &[u8], settings: &SvgLoaderSettings, path: &Path) -> Result<Image, SvgError> {
@@ -672,10 +672,7 @@ mod tests {
         let bytes = TWO_SQUARES.as_bytes();
         let path = Path::new("test.svg");
         let size = SvgRasterSize::Scale(2.0);
-        let from_asset = Svg::parse(bytes, path)
-            .unwrap()
-            .rasterize(size)
-            .unwrap();
+        let from_asset = Svg::parse(bytes, path).unwrap().rasterize(size).unwrap();
         let settings = crate::SvgLoaderSettings {
             size,
             ..Default::default()
@@ -689,8 +686,7 @@ mod tests {
     fn element_is_cropped_to_its_bounds() {
         let svg = svg(TWO_SQUARES);
         let image = svg
-            .rasterize_by_id(SvgRasterSize::Intrinsic, "blue",
-            )
+            .rasterize_by_id(SvgRasterSize::Intrinsic, "blue")
             .unwrap();
         assert_eq!((image.width(), image.height()), (10, 10));
         assert_eq!(rgba(&image, 0, 0), BLUE);
@@ -701,9 +697,7 @@ mod tests {
     fn ancestor_transforms_apply() {
         let svg = svg(TWO_SQUARES);
         for id in ["red", "moved"] {
-            let image = svg
-                .rasterize_by_id(SvgRasterSize::Intrinsic, id)
-                .unwrap();
+            let image = svg.rasterize_by_id(SvgRasterSize::Intrinsic, id).unwrap();
             assert_eq!((image.width(), image.height()), (10, 10), "{id}");
             assert_eq!(rgba(&image, 0, 0), RED, "{id}");
             assert_eq!(rgba(&image, 9, 9), RED, "{id}");
@@ -711,9 +705,7 @@ mod tests {
 
         let scaled = svg_with_scaled_parent();
         let image = scaled
-            .rasterize_by_id(
-                SvgRasterSize::Intrinsic, "dot"
-            )
+            .rasterize_by_id(SvgRasterSize::Intrinsic, "dot")
             .unwrap();
         assert_eq!((image.width(), image.height()), (8, 8));
         assert_eq!(rgba(&image, 0, 0), RED);
@@ -733,9 +725,7 @@ mod tests {
     #[test]
     fn element_sizes_follow_the_request() {
         let image = svg(TWO_SQUARES)
-            .rasterize_by_id(
-                SvgRasterSize::Height(32), "red"
-            )
+            .rasterize_by_id(SvgRasterSize::Height(32), "red")
             .unwrap();
         assert_eq!((image.width(), image.height()), (32, 32));
         assert_eq!(rgba(&image, 31, 31), RED);
