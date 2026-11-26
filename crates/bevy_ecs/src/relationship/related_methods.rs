@@ -595,11 +595,11 @@ impl<'w> EntityWorldMut<'w> {
                     RelationshipHookMode::Skip,
                     |r| {
                         r.collection_mut_risky()
-                            .extend_from_iter(sources.iter().copied())
+                            .extend_from_iter(sources.iter().copied());
                     },
                 )
                 .expect("entity access must be valid")
-                .expect("should contain the component")
+                .expect("should contain the component");
         });
     }
 
