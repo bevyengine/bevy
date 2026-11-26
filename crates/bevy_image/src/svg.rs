@@ -1,11 +1,11 @@
 use crate::{Image, ImageSampler};
+use alloc::sync::Arc;
 use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext, RenderAssetUsages};
 use bevy_math::Vec2;
 use bevy_reflect::TypePath;
 use resvg::{tiny_skia, usvg};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{Extent3d, TextureDataOrder, TextureDimension, TextureFormat};
@@ -106,7 +106,8 @@ pub enum SvgError {
         /// Requested height in pixels.
         height: u32,
     },
-    #[error("failed to find element with id {0}")]
+    /// The requested element could not be found.
+    #[error("failed to find element with id \"{0}\"")]
     NotFound(String),
 }
 
@@ -154,7 +155,7 @@ impl AssetLoader for SvgImageLoader {
 
 /// A parsed SVG document. Use this if you want to control rasterization yourself.
 ///
-/// Load files with `asset_server.load::<Svg>("icons.svg").
+/// Load files with `asset_server.load::<Svg>("icons.svg")`.
 #[derive(Asset, TypePath, Clone)]
 pub struct Svg {
     tree: Arc<usvg::Tree>,
@@ -172,15 +173,18 @@ impl Svg {
         })
     }
 
+    /// Returns the document's intrinsic size in pixels.
     pub fn size(&self) -> Vec2 {
         let size = self.tree.size();
         Vec2::new(size.width(), size.height())
     }
 
+    /// Check the tree for a node with an id.
     pub fn contains_element_by_id(&self, id: &str) -> bool {
         self.tree.node_by_id(id).is_some()
     }
 
+    /// Rasterize the document to a `Image`
     pub fn rasterize(&self, size: SvgRasterSize) -> Result<Image, SvgError> {
         let document = self.tree.size();
         let (width, height) = raster_size(size, document.width(), document.height(), &self.path)?;
@@ -207,6 +211,7 @@ impl Svg {
         Ok(image)
     }
 
+    /// Rasterize a node in the document to an `Image`
     pub fn rasterize_by_id(&self, id: &str, size: SvgRasterSize) -> Result<Image, SvgError> {
         let not_found = || SvgError::NotFound(id.into());
         let node = self.tree.node_by_id(id).ok_or_else(not_found)?;
@@ -240,6 +245,7 @@ impl Svg {
     }
 }
 
+/// Asset loader responsible for SVG documents.
 #[derive(Clone, Debug, Default, TypePath)]
 pub struct SvgDocumentLoader;
 

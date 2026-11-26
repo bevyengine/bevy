@@ -4,19 +4,20 @@ authors: ["@rossleonardy"]
 pull_requests: [26602]
 ---
 
-SVGs are the standard format for vector graphics. 
+SVGs are the standard format for vector graphics.
 There's a huge ecosystems of artists and designers that produce them,
 and a lot of already-existing assets that Bevy users should be able to leverage.
 
 Bevy can now load `.svg` files in two different ways, depending on how you want to use them:
 
-# 1. SVGs as Image Assets
+## 1. SVGs as Image Assets
+
 Bevy can load `.svg` files as images with the `svg` feature enabled.
 The `SVGImageLoader` will load an `.svg`, rasterize it, and return a handle to an `Image` containing it.
 This is the default loader for `.svg` files, and works like any other image format loader.
 You can immediately use these images in UI `ImageNode`s, textures, et cetera.
 
-In bsn! templates, you can use a path to an `.svg` file anywhere you can use an image:w
+In bsn! templates, you can use a path to an `.svg` file anywhere you can use an image.
 
 ```rust
 bsn! {
@@ -42,21 +43,24 @@ By default, the SVG image loader will generate mipmaps while rasterizing an SVG.
 ```rust
 let icon = asset_server
     .load_builder()
-    .with_settings(|settings: &mut SvgLoaderSettigns| {
+    .with_settings(|settings: &mut SvgLoaderSettings| {
         settings.generate_mipmaps = false
     })
     .load("branding/icon.svg");
 })
 ```
 
-#2. SVGs as SVG document assets
+## 2. SVGs as SVG document assets
+
 Bevy can load `.svg` files as SVG document assets with the `svg` feature enabled. This way, you can keep the SVG tree in memory and have more control.
 
 For example, you can load a single icon from a sheet of icons by using its ID:
+
 ```rust
 let icon_sheet: Svg = asset_server.load("icon_sheet.svg");
 let filter_icon = icon_sheet.rasterize_by_id("filter", SvgRasterSize::Intrinsic);
 ```
 
-# Caveats
+## Caveats
+
 `<text>`, `<image>` and other embedded elements are not supported.
