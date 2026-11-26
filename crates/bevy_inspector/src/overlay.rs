@@ -140,6 +140,29 @@ impl InspectorPanel {
             InspectorPanel::Details => "Details",
         }
     }
+
+    fn content(self) -> Box<dyn Scene> {
+        match self {
+            InspectorPanel::Entities => Box::new(bsn! {
+                Children [
+                    @entity_tree_body()
+                    Node { flex_grow: 1.0, min_width: px(0) }
+                ]
+            }),
+            InspectorPanel::Resources => Box::new(bsn! {
+                Children [
+                    @resource_list_body()
+                    Node { flex_grow: 1.0, min_width: px(0) }
+                ]
+            }),
+            InspectorPanel::Details => Box::new(bsn! {
+                Children [
+                    @details_body()
+                    Node { flex_grow: 1.0, min_width: px(0) }
+                ]
+            }),
+        }
+    }
 }
 
 #[derive(Component, Clone)]
@@ -209,28 +232,10 @@ fn build_overlay_panels(
         let Some(kind) = InspectorPanel::from_key(panel.panel.as_str()) else {
             continue;
         };
-        let mut entity = commands.entity(content);
-        entity.insert(DockPanelTitle::new(kind.title()));
-        match kind {
-            InspectorPanel::Entities => entity.apply_scene(bsn! {
-                Children [
-                    @entity_tree_body()
-                    Node { flex_grow: 1.0, min_width: px(0) }
-                ]
-            }),
-            InspectorPanel::Resources => entity.apply_scene(bsn! {
-                Children [
-                    @resource_list_body()
-                    Node { flex_grow: 1.0, min_width: px(0) }
-                ]
-            }),
-            InspectorPanel::Details => entity.apply_scene(bsn! {
-                Children [
-                    @details_body()
-                    Node { flex_grow: 1.0, min_width: px(0) }
-                ]
-            }),
-        };
+        commands
+            .entity(content)
+            .insert(DockPanelTitle::new(kind.title()))
+            .apply_scene(kind.content());
     }
 }
 
