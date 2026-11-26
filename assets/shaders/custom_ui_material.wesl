@@ -1,5 +1,6 @@
 //! Draws a progress bar with properties defined in CustomUiMaterial
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
+import bevy_render::writer_encode::writer_encode;
 
 @group(1) @binding(0) var<uniform> color: vec4<f32>;
 @group(1) @binding(1) var<uniform> slider: vec4<f32>;
@@ -31,29 +32,22 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // distance along each axis from the corner
     let d = half_size - abs(p);
 
+    // fully transparent unless a branch below picks a color
+    var out = vec4(0.0);
+
     // if the distance to the edge from the current position on any axis
     // is less than the border width on that axis then the position is within
-    // the border and we return the border color
+    // the border and we use the border color
     if d.x < b.x || d.y < b.y {
-        // select radius for the nearest corner
-        let rs = select(in.border_radius_x.xy, in.border_radius_x.wz, 0.0 < p.y);
-        let radius = select(rs.x, rs.y, 0.0 < p.x);
-
-        // determine if the point is inside the curved corner and return the corresponding color
+        // determine if the point is inside the curved corner
         let q = radius - d;
-        if radius < min(max(q.x, q.y), 0.0) + length(vec2(max(q.x, 0.0), max(q.y, 0.0))) {
-            return vec4(0.0);
-        } else {
-            return border_color;
+        if radius >= min(max(q.x, q.y), 0.0) + length(vec2(max(q.x, 0.0), max(q.y, 0.0))) {
+            out = border_color;
         }
+    } else if in.uv.x < slider.x {
+        // sample the texture at this position if it's to the left of the slider value
+        out = output_color;
     }
 
-    // sample the texture at this position if it's to the left of the slider value
-    // otherwise return a fully transparent color
-    if in.uv.x < slider.x {
-        let output_color = textureSample(material_color_texture, material_color_sampler, in.uv) * color;
-        return output_color;
-    } else {
-        return vec4(0.0);
-    }
+    return writer_encode(out);
 }

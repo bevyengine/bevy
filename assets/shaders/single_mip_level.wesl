@@ -1,6 +1,7 @@
 //! A shader that displays only one mip level of a texture.
 
 import bevy_sprite_render::mesh2d::vertex_output::VertexOutput;
+import bevy_render::writer_encode::writer_encode;
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(0) var<uniform> mip_level: u32;
 @group(constants::MATERIAL_BIND_GROUP) @binding(1) var base_color_texture: texture_2d<f32>;
@@ -8,5 +9,6 @@ import bevy_sprite_render::mesh2d::vertex_output::VertexOutput;
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSampleLevel(base_color_texture, base_color_sampler, mesh.uv, f32(mip_level));
+    let color = textureSampleLevel(base_color_texture, base_color_sampler, mesh.uv, f32(mip_level));
+    return writer_encode(color);
 }
