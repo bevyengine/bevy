@@ -16,7 +16,7 @@ use bevy_ecs::{
     reflect::ReflectResource,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, If, Query, Res, ResMut},
 };
 use bevy_input::{prelude::KeyCode, ButtonInput};
 use bevy_log::info;
@@ -416,7 +416,9 @@ struct RenderDebugOverlayPipeline {
 fn init_render_debug_overlay_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    mesh_view_layouts: Res<MeshPipelineViewLayouts>,
+    // `PbrPlugin` inserts this. `dev` does not require `3d`, so skip instead of
+    // failing startup when the resource is absent.
+    If(mesh_view_layouts): If<Res<MeshPipelineViewLayouts>>,
     asset_server: Res<AssetServer>,
     fullscreen_shader: Res<FullscreenShader>,
 ) {
@@ -587,9 +589,9 @@ impl SpecializedRenderPipeline for RenderDebugOverlayPipeline {
 fn prepare_debug_overlay_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    view_key_cache: Res<ViewKeyCache>,
+    If(view_key_cache): If<Res<ViewKeyCache>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<RenderDebugOverlayPipeline>>,
-    pipeline: Res<RenderDebugOverlayPipeline>,
+    If(pipeline): If<Res<RenderDebugOverlayPipeline>>,
     views: Query<(Entity, &ExtractedView, &RenderDebugOverlay)>,
 ) {
     for (entity, view, config) in &views {
@@ -664,7 +666,7 @@ fn render_debug_overlay(
         Option<&ViewDepthPyramid>,
     )>,
     pipeline_cache: Res<PipelineCache>,
-    pipeline_res: Res<RenderDebugOverlayPipeline>,
+    If(pipeline_res): If<Res<RenderDebugOverlayPipeline>>,
     uniforms: Res<RenderDebugOverlayUniforms>,
     fallback_image: Res<FallbackImage>,
     mut ctx: RenderContext,
@@ -733,4 +735,65 @@ fn render_debug_overlay(
     render_pass.set_bind_group(1, &debug_bind_group, &[uniform_offset.offset]);
 
     render_pass.draw(0..3, 0..1);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::{App, TaskPoolPlugin};
+    use bevy_asset::AssetPlugin;
+    use bevy_camera::CameraPlugin;
+    use bevy_core_pipeline::CorePipelinePlugin;
+    use bevy_diagnostic::FrameCountPlugin;
+    use bevy_image::ImagePlugin;
+    use bevy_input::InputPlugin;
+    use bevy_mesh::MeshPlugin;
+    use bevy_render::{renderer::RenderDevice, RenderApp, RenderPlugin};
+    use bevy_time::TimePlugin;
+    use bevy_window::{ExitCondition, WindowPlugin};
+
+    /// `dev` can be enabled without `3d`, which does not insert [`MeshPipelineViewLayouts`].
+    /// Starting the overlay plugin in that state must not panic. See bevyengine/bevy#26618.
+    #[test]
+    fn render_debug_overlay_starts_without_mesh_pipeline_view_layouts() {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            FrameCountPlugin,
+            TimePlugin,
+            AssetPlugin::default(),
+            WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..Default::default()
+            },
+            InputPlugin,
+            MeshPlugin,
+            CameraPlugin,
+            RenderPlugin::default(),
+            ImagePlugin::default(),
+            CorePipelinePlugin,
+            RenderDebugOverlayPlugin,
+        ));
+        app.finish();
+        app.cleanup();
+        app.update();
+
+        let render_world = app
+            .get_sub_app(RenderApp)
+            .expect("render app should exist when a GPU backend is available")
+            .world();
+        assert!(
+            render_world.contains_resource::<RenderDevice>(),
+            "renderer startup should run"
+        );
+        assert!(
+            !render_world.contains_resource::<MeshPipelineViewLayouts>(),
+            "PbrPlugin is not added, so mesh view layouts must be absent"
+        );
+        assert!(
+            !render_world.contains_resource::<RenderDebugOverlayPipeline>(),
+            "the overlay pipeline must not be created without mesh view layouts"
+        );
+    }
 }
