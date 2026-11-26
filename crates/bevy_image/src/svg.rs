@@ -161,7 +161,7 @@ impl Svg {
         let tree = usvg::Tree::from_data(bytes, &options)
             .map_err(|error| SvgError::Parse(error.to_string()))?;
         Ok(Self {
-            tree,
+            tree: Arc::new(tree),
             path: path.to_path_buf(),
         })
     }
@@ -201,7 +201,7 @@ impl Svg {
         Ok(image)
     }
 
-    pub fn rasterize_by_id(&self, size: SvgRasterSize, id: &str) -> Result<Image, SvgError> {
+    pub fn rasterize_by_id(&self, id: &str, size: SvgRasterSize) -> Result<Image, SvgError> {
         let not_found = || SvgError::NotFound(id.into());
         let node = self.tree.node_by_id(id).ok_or_else(not_found)?;
         let bounds = node.abs_layer_bounding_box().ok_or_else(not_found)?;
@@ -686,7 +686,7 @@ mod tests {
     fn element_is_cropped_to_its_bounds() {
         let svg = svg(TWO_SQUARES);
         let image = svg
-            .rasterize_by_id(SvgRasterSize::Intrinsic, "blue")
+            .rasterize_by_id("blue", SvgRasterSize::Intrinsic)
             .unwrap();
         assert_eq!((image.width(), image.height()), (10, 10));
         assert_eq!(rgba(&image, 0, 0), BLUE);
@@ -697,7 +697,7 @@ mod tests {
     fn ancestor_transforms_apply() {
         let svg = svg(TWO_SQUARES);
         for id in ["red", "moved"] {
-            let image = svg.rasterize_by_id(SvgRasterSize::Intrinsic, id).unwrap();
+            let image = svg.rasterize_by_id(id, SvgRasterSize::Intrinsic).unwrap();
             assert_eq!((image.width(), image.height()), (10, 10), "{id}");
             assert_eq!(rgba(&image, 0, 0), RED, "{id}");
             assert_eq!(rgba(&image, 9, 9), RED, "{id}");
@@ -705,7 +705,7 @@ mod tests {
 
         let scaled = svg_with_scaled_parent();
         let image = scaled
-            .rasterize_by_id(SvgRasterSize::Intrinsic, "dot")
+            .rasterize_by_id("dot", SvgRasterSize::Intrinsic)
             .unwrap();
         assert_eq!((image.width(), image.height()), (8, 8));
         assert_eq!(rgba(&image, 0, 0), RED);
@@ -725,7 +725,7 @@ mod tests {
     #[test]
     fn element_sizes_follow_the_request() {
         let image = svg(TWO_SQUARES)
-            .rasterize_by_id(SvgRasterSize::Height(32), "red")
+            .rasterize_by_id("red", SvgRasterSize::Height(32))
             .unwrap();
         assert_eq!((image.width(), image.height()), (32, 32));
         assert_eq!(rgba(&image, 31, 31), RED);
@@ -737,7 +737,7 @@ mod tests {
         assert!(svg.contains_element_by_id("red"));
         assert!(!svg.contains_element_by_id("green"));
         assert!(matches!(
-            svg.rasterize_by_id(SvgRasterSize::Intrinsic, "green"),
+            svg.rasterize_by_id("green", SvgRasterSize::Intrinsic),
             Err(SvgError::NotFound(id)) if id == "green"
         ));
     }

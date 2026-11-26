@@ -55,7 +55,7 @@ Bevy can load `.svg` files as SVG document assets with the `svg` feature enabled
 For example, you can load a single icon from a sheet of icons by using its ID:
 ```rust
 let icon_sheet: Svg = asset_server.load("icon_sheet.svg");
-let filter_icon = icon_sheet.rasterize_by_id(SvgRasterSize::Intrinsic, "filter");
+let filter_icon = icon_sheet.rasterize_by_id("filter", SvgRasterSize::Intrinsic);
 ```
 
 # Caveats
