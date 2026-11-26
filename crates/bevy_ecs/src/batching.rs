@@ -9,12 +9,13 @@ use core::ops::Range;
 /// chunks of at most a certain batch size. Similarly, a parallel event
 /// reader will chunk up the remaining events.
 ///
-/// By default, this batch size is automatically determined by dividing
-/// the size of the largest matched archetype by the number
-/// of threads (rounded up). This attempts to minimize the overhead of scheduling
-/// tasks onto multiple threads, but assumes each entity has roughly the
-/// same amount of work to be done, which may not hold true in every
-/// workload.
+/// By default, this batch size is automatically determined by dividing the
+/// number of items to process by the number of threads (rounded up). Per-entity
+/// query iteration uses the largest matched archetype as its item count, while
+/// contiguous query iteration uses the total matched rows so that batches can
+/// span tables. This attempts to minimize the overhead of scheduling tasks onto
+/// multiple threads, but assumes each item has roughly the same amount of work
+/// to be done, which may not hold true in every workload.
 ///
 /// See [`Query::par_iter`], [`MessageReader::par_read`] for more information.
 ///
@@ -84,14 +85,18 @@ impl BatchingStrategy {
         self
     }
 
-    /// Calculate the batch size according to the given thread count and max item count.
+    /// Calculate the batch size according to the given thread count and item count.
     /// The count is provided as a closure so that it can be calculated only if needed.
     ///
     /// # Panics
     ///
     /// Panics if `thread_count` is 0.
     #[inline]
-    pub fn calc_batch_size(&self, max_items: impl FnOnce() -> usize, thread_count: usize) -> usize {
+    pub fn calc_batch_size(
+        &self,
+        item_count: impl FnOnce() -> usize,
+        thread_count: usize,
+    ) -> usize {
         if self.batch_size_limits.is_empty() {
             return self.batch_size_limits.start;
         }
@@ -101,7 +106,7 @@ impl BatchingStrategy {
         );
         let batches = thread_count * self.batches_per_thread;
         // Round up to the nearest batch size.
-        let batch_size = max_items().div_ceil(batches);
+        let batch_size = item_count().div_ceil(batches);
         batch_size.clamp(self.batch_size_limits.start, self.batch_size_limits.end)
     }
 }
