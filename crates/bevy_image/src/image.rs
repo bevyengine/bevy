@@ -220,7 +220,9 @@ impl Plugin for ImagePlugin {
         app.init_asset_loader::<crate::HdrTextureLoader>();
 
         #[cfg(feature = "svg")]
-        app.init_asset_loader::<crate::SvgLoader>();
+        app.init_asset_loader::<crate::SvgImageLoader>();
+        #[cfg(feature = "svg")]
+        app.init_asset_loader::<crate::SvgDocumentLoader>();
 
         app.init_asset::<Image>();
         #[cfg(feature = "bevy_reflect")]
