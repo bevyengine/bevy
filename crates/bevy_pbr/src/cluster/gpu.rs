@@ -355,8 +355,6 @@ struct ViewClusteringReadbackData {
     /// This starts out at the default size as specified by the allocation and
     /// can grow based on the results of GPU readback.
     max_index_list_capacity: usize,
-    /// Buffers corresponding to GPU readback operations in progress.
-    metadata_staging_pending_buffers: Vec<Buffer>,
     /// Buffers corresponding to GPU readback operations that are finished.
     ///
     /// These buffers are ready for reuse.
@@ -387,24 +385,20 @@ impl ViewClusteringReadbackData {
         ViewClusteringReadbackData {
             z_slice_list_capacity: settings.initial_z_slice_list_capacity,
             max_index_list_capacity: settings.initial_index_list_capacity,
-            metadata_staging_pending_buffers: vec![],
             metadata_staging_free_buffers: vec![],
             last_frame_statistics: None,
         }
     }
 
     fn get_or_create_staging_buffer(&mut self, render_device: &RenderDevice) -> Buffer {
-        let staging_buffer = self.metadata_staging_free_buffers.pop().unwrap_or_else(|| {
+        self.metadata_staging_free_buffers.pop().unwrap_or_else(|| {
             render_device.create_buffer(&BufferDescriptor {
                 label: Some("clustering metadata staging buffer"),
                 size: ClusterMetadata::min_size().into(),
                 usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
                 mapped_at_creation: false,
             })
-        });
-        self.metadata_staging_pending_buffers
-            .push(staging_buffer.clone());
-        staging_buffer
+        })
     }
 
     /// Updates this [`ViewClusteringReadbackData`] with new information from
