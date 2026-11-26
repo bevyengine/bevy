@@ -79,6 +79,8 @@ impl dyn Reflect {
             KindRef::Array(value) => f.debug_list().entries(value.iter()).finish(),
             KindRef::Map(value) => f.debug_map().entries(value.iter()).finish(),
             KindRef::Set(value) => f.debug_set().entries(value.iter()).finish(),
+            // Pointers are formatted like the value they point to, like the `Debug` impl of `Box`
+            KindRef::Pointer(value) => value.get().reflect_debug(f),
             KindRef::Primitive(_) => write!(f, "Reflect({})", ty.type_path().full()),
         }
     }

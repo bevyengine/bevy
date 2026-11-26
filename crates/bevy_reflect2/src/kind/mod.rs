@@ -5,6 +5,7 @@ mod array;
 mod enum_;
 mod list;
 mod map;
+mod pointer;
 mod primitive;
 mod set;
 mod struct_;
@@ -13,6 +14,7 @@ pub use array::*;
 pub use enum_::*;
 pub use list::*;
 pub use map::*;
+pub use pointer::*;
 pub use primitive::*;
 pub use set::*;
 pub use struct_::*;
@@ -34,6 +36,8 @@ pub enum Kind {
     Map(Map),
     /// A [`Set`].
     Set(Set),
+    /// A [`Pointer`].
+    Pointer(Pointer),
 }
 
 /// A reference to a reflected value, split by its [`Kind`].
@@ -50,6 +54,8 @@ pub enum KindRef<'a> {
     Map(&'a dyn MapAccess),
     /// The [`SetAccess`] of a [`Set`].
     Set(&'a dyn SetAccess),
+    /// A [`PointerRef`], corresponding to a [`Pointer`].
+    Pointer(PointerRef<'a>),
     /// A [`Primitive`].
     Primitive(&'static Primitive),
 }
@@ -68,6 +74,8 @@ pub enum KindMut<'a> {
     Map(&'a mut dyn MapAccess),
     /// The mutable [`SetAccess`] of a [`Set`].
     Set(&'a mut dyn SetAccess),
+    /// A [`PointerMut`], corresponding to a [`Pointer`].
+    Pointer(PointerMut<'a>),
     /// A [`Primitive`].
     Primitive(&'static Primitive),
 }
