@@ -5,6 +5,7 @@ use core::{
     any::TypeId,
     marker::PhantomData,
     mem,
+    num::NonZeroU32,
     ops::Range,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -849,7 +850,7 @@ impl MeshClassIndirectParameters for IndirectParametersNonIndexed {
 /// A GPU type that specifies the range of batches that each
 /// `build_indirect_params` shader invocation is to process.
 ///
-/// There's one `build_indirect_params` invocation per phase of each view.
+/// Each job covers consecutive batches from one view, phase, and mesh class.
 #[derive(Clone, Copy, Default, Debug, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct IndirectParametersBuildJob {
@@ -1009,17 +1010,17 @@ pub struct IndirectParametersBuildJobs {
     /// Each job in this buffer must be aligned to
     /// [`wgpu::Limits::min_uniform_buffer_offset_alignment`] bytes.
     buffer: RawBufferVec<IndirectParametersBuildJob>,
+    // Bound each dispatch even for a shader processing only one batch per workgroup.
+    max_batches_per_job: Option<NonZeroU32>,
 }
 
 impl FromWorld for IndirectParametersBuildJobs {
     fn from_world(world: &mut World) -> IndirectParametersBuildJobs {
-        debug_assert!(size_of::<IndirectParametersBuildJob>().is_multiple_of(
-            world
-                .resource::<RenderDevice>()
-                .limits()
-                .min_uniform_buffer_offset_alignment as usize
-        ));
+        let limits = world.resource::<RenderDevice>().limits();
+        debug_assert!(size_of::<IndirectParametersBuildJob>()
+            .is_multiple_of(limits.min_uniform_buffer_offset_alignment as usize));
         IndirectParametersBuildJobs {
+            max_batches_per_job: NonZeroU32::new(limits.max_compute_workgroups_per_dimension),
             buffer: RawBufferVec::new(
                 BufferUsages::UNIFORM | BufferUsages::COPY_DST | BufferUsages::COPY_SRC,
             ),
@@ -1028,11 +1029,13 @@ impl FromWorld for IndirectParametersBuildJobs {
 }
 
 impl IndirectParametersBuildJobs {
-    /// Pushes a new [`IndirectParametersBuildJob`] onto the buffer and returns
-    /// the offset of the newly pushed job *in bytes*.
-    fn push(&mut self, job: IndirectParametersBuildJob) -> u32 {
-        let index = self.buffer.push(job);
-        (index * size_of::<IndirectParametersBuildJob>()) as u32
+    fn push(&mut self, range: Range<u32>) -> MeshClassBuildIndirectParametersMetadata {
+        let batch_count = range.end - range.start;
+        let index = self.buffer.push(IndirectParametersBuildJob::new(range));
+        MeshClassBuildIndirectParametersMetadata {
+            uniform_offset: (index * size_of::<IndirectParametersBuildJob>()) as u32,
+            batch_count,
+        }
     }
 
     /// Clears out all jobs in preparation for a new frame.
@@ -2653,6 +2656,23 @@ pub fn collect_buffers_for_phase<PI, GFBD>(
     }
 }
 
+// A single dispatch can prepare consecutive batches that share the same bindings.
+// Gaps may belong to a different view. Keep them and the input order intact.
+fn coalesced_batch_ranges(
+    ranges: &[Range<u32>],
+    max_batches: NonZeroU32,
+) -> impl Iterator<Item = Range<u32>> + '_ {
+    let max_batches = max_batches.get();
+    ranges
+        .chunk_by(|previous, next| previous.end == next.start)
+        .flat_map(move |run| {
+            let end = run[run.len() - 1].end;
+            (run[0].start..end)
+                .step_by(max_batches as usize)
+                .map(move |start| start..start.saturating_add(max_batches).min(end))
+        })
+}
+
 /// A system, part of the render world, that gathers up the batch ranges from
 /// [`IndirectParametersBuffers`] and prepares the
 /// [`BuildIndirectParametersMetadata`] that describes the range of batches that
@@ -2667,6 +2687,10 @@ pub fn prepare_indirect_parameters_build_jobs(
     indirect_parameters_build_jobs.clear();
     build_indirect_parameters_metadata.clear();
 
+    let Some(max_batches) = indirect_parameters_build_jobs.max_batches_per_job else {
+        return;
+    };
+
     // Prepare the build jobs for all views.
     for (phase_type_id, phase_indirect_parameters_buffers) in indirect_parameters_buffers.iter() {
         // Prepare the indexed indirect parameters build jobs.
@@ -2675,21 +2699,14 @@ pub fn prepare_indirect_parameters_build_jobs(
             .view_to_indirect_parameters_batch_ranges
             .iter()
         {
-            for indirect_parameters_range in indirect_parameters_ranges {
-                let uniform_offset = indirect_parameters_build_jobs.push(
-                    IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
-                );
+            for range in coalesced_batch_ranges(indirect_parameters_ranges, max_batches) {
                 build_indirect_parameters_metadata
                     .entry(*retained_view_entity)
                     .or_default()
                     .entry(*phase_type_id)
                     .or_default()
                     .indexed
-                    .push(MeshClassBuildIndirectParametersMetadata {
-                        uniform_offset,
-                        batch_count: indirect_parameters_range.end
-                            - indirect_parameters_range.start,
-                    });
+                    .push(indirect_parameters_build_jobs.push(range));
             }
         }
 
@@ -2699,21 +2716,14 @@ pub fn prepare_indirect_parameters_build_jobs(
             .view_to_indirect_parameters_batch_ranges
             .iter()
         {
-            for indirect_parameters_range in indirect_parameters_ranges {
-                let uniform_offset = indirect_parameters_build_jobs.push(
-                    IndirectParametersBuildJob::new(indirect_parameters_range.clone()),
-                );
+            for range in coalesced_batch_ranges(indirect_parameters_ranges, max_batches) {
                 build_indirect_parameters_metadata
                     .entry(*retained_view_entity)
                     .or_default()
                     .entry(*phase_type_id)
                     .or_default()
                     .non_indexed
-                    .push(MeshClassBuildIndirectParametersMetadata {
-                        uniform_offset,
-                        batch_count: indirect_parameters_range.end
-                            - indirect_parameters_range.start,
-                    });
+                    .push(indirect_parameters_build_jobs.push(range));
             }
         }
     }
@@ -3182,6 +3192,77 @@ mod tests {
     struct TestData(u32);
 
     impl_atomic_pod!(TestData, TestDataBlob);
+
+    #[test]
+    fn coalesces_only_adjacent_batch_ranges() {
+        let limit = NonZeroU32::new(64).unwrap();
+        let ranges = [4..5, 5..6, 6..8, 10..10, 12..14, 2..5, 3..7];
+        assert_eq!(
+            coalesced_batch_ranges(&ranges, limit).collect::<Vec<_>>(),
+            [4..8, 12..14, 2..5, 3..7]
+        );
+        assert!(coalesced_batch_ranges(&[], limit).next().is_none());
+    }
+
+    #[test]
+    fn splits_indirect_jobs_at_the_device_limit() {
+        let limit = NonZeroU32::new(4).unwrap();
+        let end = u32::MAX;
+        let ranges = [1..3, 3..10, 19..24, end - 2..end];
+        let expected = [1..5, 5..9, 9..10, 19..23, 23..24, end - 2..end];
+        assert_eq!(
+            coalesced_batch_ranges(&ranges, limit).collect::<Vec<_>>(),
+            expected
+        );
+    }
+
+    #[test]
+    fn indirect_build_jobs_stay_with_their_view_phase_and_mesh_class() {
+        use bevy_ecs::system::RunSystemOnce;
+
+        let view = RetainedViewEntity::new(Entity::PLACEHOLDER.into(), None, 0);
+        let other_view = RetainedViewEntity {
+            subview_index: 1,
+            ..view
+        };
+        let phases = [(TypeId::of::<u8>(), 0), (TypeId::of::<u16>(), 100)];
+        let mut buffers = IndirectParametersBuffers::default();
+        for (id, base) in phases {
+            let mut phase = UntypedPhaseIndirectParametersBuffers::new(false);
+            phase.add_batch_set(true, &view, base..base + 1);
+            phase.add_batch_set(true, &view, base + 1..base + 3);
+            phase.add_batch_set(true, &other_view, base + 3..base + 4);
+            phase.add_batch_set(false, &view, base..base + 1);
+            buffers.insert(id, phase);
+        }
+
+        let mut world = World::new();
+        world.insert_resource(crate::test_utils::create_dummy_device().0);
+        world.init_resource::<IndirectParametersBuildJobs>();
+        world.init_resource::<BuildIndirectParametersMetadata>();
+        world.insert_resource(buffers);
+        world
+            .run_system_once(prepare_indirect_parameters_build_jobs)
+            .unwrap();
+        let jobs = world.resource::<IndirectParametersBuildJobs>();
+        let metadata = world.resource::<BuildIndirectParametersMetadata>();
+        for (id, base) in phases {
+            for (entries, expected) in [
+                (&metadata[&view][&id].indexed, base..base + 3),
+                (&metadata[&other_view][&id].indexed, base + 3..base + 4),
+                (&metadata[&view][&id].non_indexed, base..base + 1),
+            ] {
+                let [entry] = entries.as_slice() else {
+                    panic!("expected one build job")
+                };
+                let index = entry.uniform_offset as usize / size_of::<IndirectParametersBuildJob>();
+                let job = jobs.buffer.values()[index];
+                assert_eq!(entry.batch_count, expected.end - expected.start);
+                assert_eq!(job.first_batch_index..job.last_batch_index, expected);
+            }
+            assert!(metadata[&other_view][&id].non_indexed.is_empty());
+        }
+    }
 
     #[test]
     fn instance_buffer_correct_behavior() {
