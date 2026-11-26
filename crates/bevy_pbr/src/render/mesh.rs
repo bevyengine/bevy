@@ -37,6 +37,7 @@ use bevy_mesh::{
 };
 use bevy_platform::collections::HashSet;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_platform::hash::FixedHasher;
 use bevy_render::batching::gpu_preprocessing::{
     BufferDataInput, PreviousInstanceInputUniformBuffer,
 };
@@ -75,6 +76,7 @@ use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdHashMap};
 use core::any::TypeId;
+use core::hash::{BuildHasher, Hash};
 use core::iter;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -572,6 +574,12 @@ pub struct MeshUniform {
     pub morph_descriptor_index: u32,
     /// The index of the mesh metadata buffer.
     pub metadata_index: u32,
+    /// A value that is stable for the lifetime of the mesh instance and differs
+    /// between instances.
+    ///
+    /// Shaders use this to decorrelate per-instance effects, such as the
+    /// dithering pattern of `AlphaMode::Dither`.
+    pub instance_seed: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -642,7 +650,9 @@ pub struct MeshInputUniform {
     /// If the mesh has no morph targets, this is `u32::MAX`.
     pub morph_descriptor_index: u32,
     pub metadata_index: u32,
-    pub pad1: u32,
+    /// A value that is stable for the lifetime of the mesh instance and differs
+    /// between instances. See [`MeshUniform::instance_seed`].
+    pub instance_seed: u32,
     pub pad2: u32,
     pub pad3: u32,
 }
@@ -688,7 +698,17 @@ pub struct MeshCullingDataBuffer(AtomicSparseBufferVec<MeshCullingData>);
 
 impl_atomic_pod!(MeshCullingData, MeshCullingDataBlob);
 
+#[inline]
+fn hash_instance_seed(seed: impl Hash) -> u32 {
+    FixedHasher.hash_one(seed) as u32
+}
+
 impl MeshUniform {
+    /// Creates a new [`MeshUniform`].
+    ///
+    /// The [`MeshUniform::instance_seed`] is set to 0, so that every instance
+    /// created this way shares the same dithering pattern. Use
+    /// [`MeshUniform::with_instance_seed`] to give each instance its own.
     pub fn new(
         mesh_transforms: &MeshTransforms,
         first_vertex_index: u32,
@@ -730,7 +750,19 @@ impl MeshUniform {
                 None => u32::MAX,
             },
             metadata_index: metadata_index.unwrap_or(0),
+            instance_seed: 0,
         }
+    }
+
+    /// Sets the [`MeshUniform::instance_seed`] to a hash of `seed`.
+    ///
+    /// The seed should be unique to the mesh instance and stable for its whole
+    /// lifetime, so that per-instance effects (such as the dithering pattern of
+    /// `AlphaMode::Dither`) don't flicker.
+    #[inline]
+    pub fn with_instance_seed(mut self, seed: impl Hash) -> Self {
+        self.instance_seed = hash_instance_seed(seed);
+        self
     }
 }
 
@@ -1550,6 +1582,7 @@ impl RenderMeshInstanceGpuBuilder {
             tag: self.shared.tag,
             morph_descriptor_index,
             metadata_index,
+            instance_seed: hash_instance_seed(entity),
             ..Default::default()
         };
 
@@ -2954,7 +2987,8 @@ impl GetBatchData for MeshPipeline {
                 morph_descriptor_index,
                 Some(mesh_instance.tag()),
                 metadata_index,
-            ),
+            )
+            .with_instance_seed(main_entity),
             mesh_instance.should_batch().then_some((
                 MeshBatchSetCompareData {
                     material_bind_group_index: material_bind_group_index.group,
@@ -3031,16 +3065,19 @@ impl GetFullBatchData for MeshPipeline {
             .mesh_metadata_slice(&mesh_asset_id)
             .map(|mesh_metadata_slice| mesh_metadata_slice.range.start);
 
-        Some(MeshUniform::new(
-            &mesh_instance.transforms,
-            first_vertex_index,
-            mesh_instance.material_bindings_index().slot,
-            maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
-            current_skin_index,
-            morph_descriptor_index,
-            Some(mesh_instance.tag()),
-            metadata_index,
-        ))
+        Some(
+            MeshUniform::new(
+                &mesh_instance.transforms,
+                first_vertex_index,
+                mesh_instance.material_bindings_index().slot,
+                maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
+                current_skin_index,
+                morph_descriptor_index,
+                Some(mesh_instance.tag()),
+                metadata_index,
+            )
+            .with_instance_seed(main_entity),
+        )
     }
 
     fn get_binned_index(

@@ -7,6 +7,7 @@ import package::{
         mesh_bindings::mesh,
         mesh_view_bindings::view,
         pbr_bindings,
+        pbr_functions,
         pbr_types,
     },
 };
@@ -21,7 +22,8 @@ const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 /// We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
 fn prepass_alpha_discard(material_flags: u32, alpha_cutoff: f32, output_color: vec4<f32>) {
     let alpha_mode = material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_DITHER {
         if output_color.a < alpha_cutoff {
             discard;
         }
@@ -84,6 +86,16 @@ fn prepass_sample_color_and_alpha_discard(in: VertexOutput) {
         );
     }
 }
+
+    // Resolve the dithering pattern, so `prepass_alpha_discard` can use it as a mask.
+    if (flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS) ==
+            pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_DITHER {
+        output_color.a = pbr_functions::dither_mask(
+            output_color.a,
+            in.position.xy,
+            mesh[in.instance_index].instance_seed,
+        );
+    }
 
     prepass_alpha_discard(flags, alpha_cutoff, output_color);
 }

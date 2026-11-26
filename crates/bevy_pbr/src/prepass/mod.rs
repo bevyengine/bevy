@@ -1152,7 +1152,10 @@ pub(crate) fn specialize_prepass_material_meshes(
 
                 let alpha_mode = material.properties.alpha_mode;
                 match alpha_mode {
-                    AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
+                    AlphaMode::Opaque
+                    | AlphaMode::AlphaToCoverage
+                    | AlphaMode::Mask(_)
+                    | AlphaMode::Dither => {
                         mesh_key |= alpha_mode_pipeline_key(alpha_mode, msaa);
                     }
                     AlphaMode::Blend

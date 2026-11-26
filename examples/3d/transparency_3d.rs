@@ -14,6 +14,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -73,6 +74,18 @@ fn setup(
         Transform::from_xyz(-1.5, 0.5, 0.0),
     ));
 
+    // Textured transparent cube, uses `alpha_mode: Dither`
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgba(1.0, 1.0, 1.0, 0.0),
+            base_color_texture: Some(asset_server.load("textures/slice_square.png")),
+            alpha_mode: AlphaMode::Dither,
+            ..default()
+        })),
+        Transform::from_xyz(1.5, 0.5, 0.0),
+    ));
+
     // Opaque sphere
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap())),
@@ -107,6 +120,8 @@ fn setup(
 ///   samples in use. For example, assuming 8xMSAA, the object will be
 ///   completely opaque, then will be 7/8 opaque (1/8 transparent), then will be
 ///   6/8 opaque, then 5/8, etc.
+/// - [`Dither`](AlphaMode::Dither): Object fades in and out in 16 steps, by
+///   discarding a growing fraction of its pixels in a 4x4 dithering pattern.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (ops::sin(time.elapsed_secs()) / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {

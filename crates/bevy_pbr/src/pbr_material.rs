@@ -1018,11 +1018,12 @@ bitflags::bitflags! {
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
-        const ALPHA_MODE_BLEND           = 2 << Self::ALPHA_MODE_SHIFT_BITS;                          //
-        const ALPHA_MODE_PREMULTIPLIED   = 3 << Self::ALPHA_MODE_SHIFT_BITS;                          //
-        const ALPHA_MODE_ADD             = 4 << Self::ALPHA_MODE_SHIFT_BITS;                          //   Right now only values 0–5 are used, which still gives
-        const ALPHA_MODE_MULTIPLY        = 5 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← us "room" for two more modes without adding more bits
+        const ALPHA_MODE_BLEND           = 2 << Self::ALPHA_MODE_SHIFT_BITS;
+        const ALPHA_MODE_PREMULTIPLIED   = 3 << Self::ALPHA_MODE_SHIFT_BITS;
+        const ALPHA_MODE_ADD             = 4 << Self::ALPHA_MODE_SHIFT_BITS;
+        const ALPHA_MODE_MULTIPLY        = 5 << Self::ALPHA_MODE_SHIFT_BITS;
         const ALPHA_MODE_ALPHA_TO_COVERAGE = 6 << Self::ALPHA_MODE_SHIFT_BITS;
+        const ALPHA_MODE_DITHER          = 7 << Self::ALPHA_MODE_SHIFT_BITS;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -1214,6 +1215,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             AlphaMode::AlphaToCoverage => {
                 flags |= StandardMaterialFlags::ALPHA_MODE_ALPHA_TO_COVERAGE;
             }
+            AlphaMode::Dither => flags |= StandardMaterialFlags::ALPHA_MODE_DITHER,
         };
 
         if self.attenuation_distance.is_finite() {
