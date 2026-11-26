@@ -1,6 +1,9 @@
 //! Lightweight storage of per-mesh-instance data.
 
-use crate::storage::{ShaderBuffer, ShaderBufferData};
+use crate::{
+    render_resource::GpuElement,
+    storage::{ShaderBuffer, ShaderBufferView},
+};
 
 use alloc::borrow::Cow;
 use bevy_app::{App, Plugin, PostUpdate};
@@ -16,8 +19,6 @@ use bevy_ecs::{
 };
 use bevy_log::warn;
 use bevy_mesh::MeshTag;
-use bevy_platform::collections::AlignedVec;
-use bytemuck::{AnyBitPattern, NoUninit};
 use core::marker::PhantomData;
 use wgpu::BufferUsages;
 
@@ -39,7 +40,7 @@ pub trait GpuComponentArrayBuffer: Component + Send + Sync + 'static {
     /// An optional filter to apply to the query.
     type QueryFilter: QueryFilter;
     /// The packed GPU data.
-    type Out: NoUninit + AnyBitPattern;
+    type Out: GpuElement;
 
     /// Packs the component into a form suitable for the GPU.
     ///
@@ -105,14 +106,14 @@ where
     /// Creates a new [`GpuComponentArray`] and the [`ShaderBuffer`] it writes
     /// into.
     pub fn new(shader_buffer_assets: &mut Assets<ShaderBuffer>) -> Self {
-        let data = AlignedVec::from(bytemuck::zeroed_vec::<C::Out>(1));
-        let buffer_size = data.len() as u64;
         let buffer = shader_buffer_assets.add(ShaderBuffer {
-            data: ShaderBufferData::Initialized { data, buffer_size },
             label: C::label(),
             buffer_usage: C::buffer_usage(),
-            asset_usage: RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
             copy_on_resize: true,
+            ..ShaderBuffer::from_elements(
+                bytemuck::zeroed_vec::<C::Out>(1),
+                RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+            )
         });
 
         GpuComponentArray {
@@ -239,35 +240,31 @@ where
     ///
     /// Data for the given entity must not already be present in the buffer.
     fn push(&mut self, buffer: &mut ShaderBuffer, entity: Entity, data: C::Out) {
-        let ShaderBufferData::Initialized {
-            data: ref mut data_buffer,
-            ref mut buffer_size,
-        } = buffer.data
-        else {
-            panic!(
-                "Shader buffers created for use in a `GpuComponentArrayBuffer` must have been \
-                created with `ShaderBufferData::Initialized`"
-            );
-        };
         if self.is_empty() {
-            data_buffer.clear();
+            buffer.clear();
         }
 
         let tag = self.tag_to_entity.len() as u32;
 
         let needed_buffer_len = tag as usize + 1;
-        let current_buffer_len = data_buffer.len() / size_of::<C::Out>();
+        let current_buffer_len = buffer.cast_slice::<C::Out>().map_or(0, <[_]>::len);
         if needed_buffer_len > current_buffer_len {
             let next_buffer_len = round_buffer_size_up(needed_buffer_len);
-            data_buffer.resize(next_buffer_len * size_of::<C::Out>(), 0);
-            *buffer_size = data_buffer.len() as u64;
+            buffer.resize((next_buffer_len * size_of::<C::Out>()) as u64);
         }
-        data_buffer.cast_slice_mut()[tag as usize] = data;
+        Self::records(buffer)[tag as usize] = data;
 
         let prev_tag = self.entity_to_tag.insert(entity, tag);
         self.tag_to_entity.push(entity);
 
         debug_assert!(prev_tag.is_none());
+    }
+
+    /// The buffer's records. The buffer must have been created for this array.
+    fn records(buffer: &mut ShaderBuffer) -> ShaderBufferView<'_, C::Out> {
+        buffer.view().expect(
+            "Shader buffers created for use in a `GpuComponentArrayBuffer` must be built with `ShaderBuffer::from_elements`",
+        )
     }
 
     fn get<'a>(&'_ self, buffer: &'a ShaderBuffer, tag: u32) -> &'a C::Out {
@@ -281,13 +278,7 @@ where
     }
 
     fn set(&mut self, buffer: &mut ShaderBuffer, tag: u32, data: C::Out) {
-        let Some(data_buffer) = buffer.cast_slice_mut() else {
-            panic!(
-                "Shader buffers created for use in a `GpuComponentArrayBuffer` must have been \
-                created with `ShaderBufferData::Initialized`"
-            );
-        };
-        data_buffer[tag as usize] = data;
+        Self::records(buffer)[tag as usize] = data;
     }
 
     /// Removes the data corresponding to the given entity from the component
@@ -410,7 +401,10 @@ mod tests {
                     tag_to_entity: vec![],
                     phantom: PhantomData,
                 },
-                buffer: ShaderBuffer::new::<MockComponentData>(vec![], RenderAssetUsages::all()),
+                buffer: ShaderBuffer::from_elements::<MockComponentData>(
+                    vec![],
+                    RenderAssetUsages::all(),
+                ),
 
                 // Create some entities.
                 entity_a: Entity::from_index(EntityIndex::new(NonMaxU32::new(1).unwrap())),

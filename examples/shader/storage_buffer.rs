@@ -25,15 +25,15 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Example data for the storage buffer
-    let color_data: Vec<[f32; 4]> = vec![
-        [1.0, 0.0, 0.0, 1.0],
-        [0.0, 1.0, 0.0, 1.0],
-        [0.0, 0.0, 1.0, 1.0],
-        [1.0, 1.0, 0.0, 1.0],
-        [0.0, 1.0, 1.0, 1.0],
+    let color_data = vec![
+        Vec4::new(1.0, 0.0, 0.0, 1.0),
+        Vec4::new(0.0, 1.0, 0.0, 1.0),
+        Vec4::new(0.0, 0.0, 1.0, 1.0),
+        Vec4::new(1.0, 1.0, 0.0, 1.0),
+        Vec4::new(0.0, 1.0, 1.0, 1.0),
     ];
 
-    let colors = buffers.add(ShaderBuffer::from(color_data));
+    let colors = buffers.add(ShaderBuffer::from_elements(color_data, default()));
 
     let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.3)));
     // Create the custom material with the storage buffer
@@ -74,16 +74,18 @@ fn update(
     let material = materials.get_mut(&material_handles.0).unwrap();
 
     let mut buffer = buffers.get_mut(&material.colors).unwrap();
-    buffer.clear();
-    buffer.extend((0..5).map(|i| {
-        let t = time.elapsed_secs() * 5.0;
-        [
-            ops::sin(t + i as f32) / 2.0 + 0.5,
-            ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
-            ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
+    // A typed view of the records, edited in place.
+    let mut colors = buffer.view::<Vec4>().unwrap();
+    let t = time.elapsed_secs() * 5.0;
+    for (i, color) in colors.iter_mut().enumerate() {
+        let i = i as f32;
+        *color = Vec4::new(
+            ops::sin(t + i) / 2.0 + 0.5,
+            ops::sin(t + i + 2.0) / 2.0 + 0.5,
+            ops::sin(t + i + 4.0) / 2.0 + 0.5,
             1.0,
-        ]
-    }));
+        );
+    }
 }
 
 // Holds handles to the custom materials

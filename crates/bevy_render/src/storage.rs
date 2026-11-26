@@ -1,6 +1,9 @@
 //! [`ShaderBuffer`], an asset that encapsulates arbitrary data that will be
 //! extracted and uploaded to the GPU for use in shaders.
 
+mod element;
+pub use element::ShaderBufferView;
+
 use alloc::borrow::Cow;
 
 use crate::{
@@ -72,6 +75,8 @@ pub struct ShaderBuffer {
     /// This has no effect if data is [`ShaderBufferData::Initialized`], where GPU buffer is always populated
     /// using CPU data when GPU buffer is resized.
     pub copy_on_resize: bool,
+    /// Size in bytes of one record, set by [`ShaderBuffer::from_elements`]; 0 if untyped.
+    pub element_size: u32,
 }
 
 /// Optional data used to initialize a [`ShaderBuffer`].
@@ -103,6 +108,7 @@ impl Default for ShaderBuffer {
             buffer_usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC | BufferUsages::COPY_DST,
             asset_usage: RenderAssetUsages::default(),
             copy_on_resize: false,
+            element_size: 0,
         }
     }
 }

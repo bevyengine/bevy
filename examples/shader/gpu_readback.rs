@@ -89,7 +89,7 @@ fn setup(
 ) {
     // Create a storage buffer with some data
     let buffer: Vec<u32> = (0..BUFFER_LEN as u32).collect();
-    let mut buffer = ShaderBuffer::from(buffer);
+    let mut buffer = ShaderBuffer::from_elements(buffer, default());
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
@@ -119,9 +119,8 @@ fn setup(
     commands
         .spawn(Readback::buffer(buffer.clone()))
         .observe(|event: On<ReadbackComplete>| {
-            // This matches the type which was used to create the `ShaderBuffer` above,
-            // and is a convenient way to interpret the data.
-            let data: Vec<u32> = event.to_shader_type();
+            // This matches the type which was used to create the `ShaderBuffer` above.
+            let data = event.to_elements::<u32>();
             info!("Buffer {:?}", data);
         });
 
@@ -133,7 +132,7 @@ fn setup(
             8 * u32::SHADER_SIZE.get(), // read eight elements
         ))
         .observe(|event: On<ReadbackComplete>| {
-            let data: Vec<u32> = event.to_shader_type();
+            let data = event.to_elements::<u32>();
             info!("Buffer range {:?}", data);
         });
 
