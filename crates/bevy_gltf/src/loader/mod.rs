@@ -97,7 +97,7 @@ pub enum GltfError {
         mode: Mode,
     },
     /// Invalid glTF file.
-    #[error("invalid glTF file: {0}")]
+    #[error("invalid glTF file")]
     Gltf(#[from] gltf::Error),
     /// Binary blob is missing.
     #[error("binary blob is missing")]
@@ -109,40 +109,40 @@ pub enum GltfError {
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
     /// The buffer URI was unable to be resolved with respect to the asset path.
-    #[error("invalid buffer uri: {0}. asset path error={1}")]
-    InvalidBufferUri(String, ParseAssetPathError),
+    #[error("invalid buffer uri: {0}")]
+    InvalidBufferUri(String, #[source] ParseAssetPathError),
     /// Invalid image mime type.
     #[error("invalid image mime type: {0}")]
     #[from(ignore)]
     InvalidImageMimeType(String),
     /// Error when loading a texture. Might be due to a disabled image file format feature.
-    #[error("You may need to add the feature for the file format: {0}")]
+    #[error("failed to load image, you may need to enable the feature for its file format")]
     ImageError(#[from] TextureError),
     /// The image URI was unable to be resolved with respect to the asset path.
-    #[error("invalid image uri: {0}. asset path error={1}")]
-    InvalidImageUri(String, ParseAssetPathError),
+    #[error("invalid image uri: {0}")]
+    InvalidImageUri(String, #[source] ParseAssetPathError),
     /// Failed to read bytes from an asset path.
-    #[error("failed to read from an asset path: {0}")]
+    #[error("failed to read from an asset path")]
     ReadAssetError(#[from] ReadAssetError),
     /// Failed to load asset from an asset path.
-    #[error("failed to load asset from an asset path: {0}")]
+    #[error("failed to load asset from an asset path")]
     AssetLoadError(#[from] AssetLoadError),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     #[from(ignore)]
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
-    #[error("failed to generate tangents: {0}")]
+    #[error("failed to generate tangents")]
     GenerateTangentsError(#[from] bevy_mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
-    #[error("failed to generate morph targets: {0}")]
+    #[error("failed to generate morph targets")]
     MorphTarget(#[from] bevy_mesh::morph::MorphBuildError),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
     #[from(ignore)]
     CircularChildren(String),
     /// Failed to load a file.
-    #[error("failed to load file: {0}")]
+    #[error("failed to load file")]
     Io(#[from] Error),
     /// A buffer view's meshopt compression data is malformed.
     #[error("invalid meshopt compression data on buffer view {buffer_view}: {message}")]
@@ -920,7 +920,7 @@ impl GltfLoader {
                         if let Err(err) = mesh.generate_tangents() {
                             warn!(
                                 "Failed to generate vertex tangents using the mikktspace algorithm: {}",
-                                err
+                                bevy_ecs::error::ErrorReport::new(&err)
                             );
                         }
                     });
@@ -2402,7 +2402,7 @@ mod test {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
             match load_state {
                 LoadState::Loaded => Some(()),
-                LoadState::Failed(err) => panic!("{err}"),
+                LoadState::Failed(err) => panic!("{}", bevy_ecs::error::ErrorReport::new(&err)),
                 _ => None,
             }
         });
@@ -2824,7 +2824,7 @@ mod test {
             let load_state = asset_server.get_load_state(handle.id()).unwrap();
             match load_state {
                 LoadState::Loaded => Some(()),
-                LoadState::Failed(err) => panic!("{err}"),
+                LoadState::Failed(err) => panic!("{}", bevy_ecs::error::ErrorReport::new(&err)),
                 _ => None,
             }
         });
@@ -2972,7 +2972,8 @@ mod test {
                     // Depending on the `image` crate's feature flags, we may get different errors.
                     // Specifically, either the `image/png` mime type is warned about, or the buffer
                     // is not big enough to be valid PNG data.
-                    err.contains("failed to load an image: unexpected end of file")
+                    (err.contains("failed to load an image")
+                        && err.contains("unexpected end of file"))
                         || err.contains("invalid image mime type: image/png"),
                     "incorrect error message: {err}"
                 );

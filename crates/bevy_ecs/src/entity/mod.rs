@@ -1188,8 +1188,8 @@ impl Entities {
 pub enum SpawnError {
     /// The [`Entity`] to spawn was invalid.
     /// It probably had the wrong generation or was created erroneously.
-    #[error("Invalid id: {0}")]
-    Invalid(InvalidEntityError),
+    #[error("Invalid id")]
+    Invalid(#[source] InvalidEntityError),
     /// The [`Entity`] to spawn was already spawned.
     #[error("The entity can not be spawned as it already has a location.")]
     AlreadySpawned,
@@ -1236,10 +1236,10 @@ impl fmt::Display for EntityValidButNotSpawnedError {
 #[derive(thiserror::Error, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EntityNotSpawnedError {
     /// The entity was invalid.
-    #[error("Entity despawned: {0}\nNote that interacting with a despawned entity is the most common cause of this error but there are others")]
+    #[error("Entity despawned\nNote that interacting with a despawned entity is the most common cause of this error but there are others")]
     Invalid(#[from] InvalidEntityError),
     /// The entity was valid but was not spawned.
-    #[error("Entity not yet spawned: {0}\nNote that interacting with a not-yet-spawned entity is the most common cause of this error but there are others")]
+    #[error("Entity not yet spawned\nNote that interacting with a not-yet-spawned entity is the most common cause of this error but there are others")]
     ValidButNotSpawned(#[from] EntityValidButNotSpawnedError),
 }
 

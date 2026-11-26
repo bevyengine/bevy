@@ -27,6 +27,7 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_diagnostic::{DiagnosticPath, Diagnostics};
+use bevy_ecs::error::ErrorReport;
 use bevy_ecs::prelude::*;
 use bevy_platform::{
     collections::HashSet,
@@ -395,7 +396,7 @@ impl AssetServer {
         if let Err(err) = validate_path(&path, override_unapproved, self.data.unapproved_path_mode)
         {
             // Log whatever we get, and then return a default handle.
-            error!("{err}");
+            error!("{}", ErrorReport::new(&err));
             return UntypedHandle::default_for_type(type_id);
         }
 
@@ -439,7 +440,7 @@ impl AssetServer {
                 .load_internal(Some(owned_handle), path, false, None)
                 .await
             {
-                error!("{}", err);
+                error!("{}", ErrorReport::new(&err));
             }
             drop(guard);
         });
@@ -468,7 +469,7 @@ impl AssetServer {
         if let Err(err) = validate_path(&path, override_unapproved, self.data.unapproved_path_mode)
         {
             // Log whatever we get, and then return a default handle.
-            error!("{err}");
+            error!("{}", ErrorReport::new(&err));
             return Handle::default();
         }
 
@@ -515,7 +516,7 @@ impl AssetServer {
                         .into(),
                 }),
                 Err(err) => {
-                    error!("{err}");
+                    error!("{}", ErrorReport::new(&err));
                     server.send_asset_event(InternalAssetEvent::Failed {
                         index,
                         path: path_clone,
@@ -807,7 +808,7 @@ impl AssetServer {
                     server.write_infos().stats.started_load_tasks += 1;
                     match result.await {
                         Ok(_) => reloaded = true,
-                        Err(err) => error!("{}", err),
+                        Err(err) => error!("{}", ErrorReport::new(&err)),
                     }
                 }
 
@@ -823,7 +824,7 @@ impl AssetServer {
                     server.write_infos().stats.started_load_tasks += 1;
                     match server.load_internal(None, path.clone(), true, None).await {
                         Ok(_) => reloaded = true,
-                        Err(err) => error!("{}", err),
+                        Err(err) => error!("{}", ErrorReport::new(&err)),
                     }
                 }
 
@@ -920,7 +921,7 @@ impl AssetServer {
                     let error = AddAsyncError {
                         error: Arc::new(error),
                     };
-                    error!("{error}");
+                    error!("{}", ErrorReport::new(&error));
                     event_sender
                         .send(InternalAssetEvent::Failed {
                             index,
@@ -1047,7 +1048,7 @@ impl AssetServer {
                         .into(),
                     }),
                     Err(err) => {
-                        error!("Failed to load folder. {err}");
+                        error!("Failed to load folder. {}", ErrorReport::new(&err));
                         server.send_asset_event(InternalAssetEvent::Failed { index, error: err, path });
                     },
                 }
@@ -2271,9 +2272,10 @@ pub enum AssetLoadError {
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     #[error("Encountered an error while reading asset metadata bytes")]
     AssetMetaReadError,
-    #[error("Failed to deserialize meta for asset {path}: {error}")]
+    #[error("Failed to deserialize meta for asset {path}")]
     DeserializeMeta {
         path: AssetPath<'static>,
+        #[source]
         error: Box<DeserializeMetaError>,
     },
     #[error("Asset '{path}' is configured to be processed. It cannot be loaded directly.")]
@@ -2329,8 +2331,9 @@ impl AssetLoaderError {
 
 /// An error that occurs while resolving an asset added by `add_async`.
 #[derive(Error, Debug, Clone)]
-#[error("An error occurred while resolving an asset added by `add_async`: {error}")]
+#[error("An error occurred while resolving an asset added by `add_async`")]
 pub struct AddAsyncError {
+    #[source]
     error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
@@ -2403,12 +2406,12 @@ pub enum WriteDefaultMetaError {
     MissingAssetSource(#[from] MissingAssetSourceError),
     #[error(transparent)]
     MissingAssetWriter(#[from] MissingAssetWriterError),
-    #[error("failed to write default asset meta file: {0}")]
+    #[error("failed to write default asset meta file")]
     FailedToWriteMeta(#[from] AssetWriterError),
     #[error("asset meta file already exists, so avoiding overwrite")]
     MetaAlreadyExists,
-    #[error("encountered an I/O error while reading the existing meta file: {0}")]
-    IoErrorFromExistingMetaCheck(Arc<std::io::Error>),
+    #[error("encountered an I/O error while reading the existing meta file")]
+    IoErrorFromExistingMetaCheck(#[source] Arc<std::io::Error>),
     #[error("encountered HTTP status {0} when reading the existing meta file")]
     HttpErrorFromExistingMetaCheck(u16),
 }

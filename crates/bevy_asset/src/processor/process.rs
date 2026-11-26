@@ -150,17 +150,19 @@ pub enum ProcessError {
         ambiguous_processor_names: Vec<&'static str>,
     },
     /// Encountered an [`AssetReaderError`] for this path.
-    #[error("Encountered an AssetReader error for '{path}': {err}")]
+    #[error("Encountered an AssetReader error for '{path}'")]
     #[from(ignore)]
     AssetReaderError {
         path: AssetPath<'static>,
+        #[source]
         err: AssetReaderError,
     },
     /// Encountered an [`AssetWriterError`] for this path.
-    #[error("Encountered an AssetWriter error for '{path}': {err}")]
+    #[error("Encountered an AssetWriter error for '{path}'")]
     #[from(ignore)]
     AssetWriterError {
         path: AssetPath<'static>,
+        #[source]
         err: AssetWriterError,
     },
     #[error(transparent)]
@@ -170,10 +172,11 @@ pub enum ProcessError {
     #[error(transparent)]
     MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
     /// Encountered an [`AssetReaderError`] when reading the asset metadata for this path.
-    #[error("Failed to read asset metadata for {path}: {err}")]
+    #[error("Failed to read asset metadata for {path}")]
     #[from(ignore)]
     ReadAssetMetaError {
         path: AssetPath<'static>,
+        #[source]
         err: AssetReaderError,
     },
     #[error(transparent)]
@@ -189,9 +192,9 @@ pub enum ProcessError {
     #[from(ignore)]
     AssetSaveError(BevyError),
     /// Encountered an error while transforming the asset.
-    #[error("Encountered an error while transforming the asset: {0}")]
+    #[error("Encountered an error while transforming the asset")]
     #[from(ignore)]
-    AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    AssetTransformError(#[source] Box<dyn core::error::Error + Send + Sync + 'static>),
     /// Assets without extensions are not supported.
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,

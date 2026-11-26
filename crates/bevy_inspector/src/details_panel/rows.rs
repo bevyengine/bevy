@@ -6,6 +6,7 @@ use alloc::{
 };
 
 use bevy_color::{Color, Srgba};
+use bevy_ecs::error::ErrorReport;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
@@ -744,7 +745,10 @@ pub(super) fn spawn_child_scene(
             Some(entity.id())
         }
         Err(error) => {
-            warn!("failed to spawn an inspector details widget: {error}");
+            warn!(
+                "failed to spawn an inspector details widget: {}",
+                ErrorReport::new(&error)
+            );
             None
         }
     }

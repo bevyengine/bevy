@@ -3215,7 +3215,7 @@ pub enum MeshAttributeCompressionError {
 pub enum MeshMergeDuplicateVerticesError {
     #[error("Index attribute already set.")]
     IndicesAlreadySet,
-    #[error("Mesh access error: {0}")]
+    #[error(transparent)]
     MeshAccessError(#[from] MeshAccessError),
 }
 
@@ -3236,7 +3236,7 @@ pub enum MeshMergeError {
         self_primitive_topology: PrimitiveTopology,
         other_primitive_topology: PrimitiveTopology,
     },
-    #[error("Mesh access error: {0}")]
+    #[error(transparent)]
     MeshAccessError(#[from] MeshAccessError),
 }
 

@@ -353,11 +353,12 @@ pub enum LoadDirectError {
     #[error("Requested to load an asset path ({0:?}) with a subasset, but this is unsupported. See issue #18291")]
     RequestedSubasset(AssetPath<'static>),
     /// A general [`AssetLoadError`] for an asset dependency.
-    #[error("Failed to load dependency {dependency:?} {error}")]
+    #[error("Failed to load dependency {dependency:?}")]
     LoadError {
         /// Which dependency failed.
         dependency: AssetPath<'static>,
         /// The original error for that dependency.
+        #[source]
         error: Box<AssetLoadError>,
     },
 }
@@ -366,11 +367,11 @@ pub enum LoadDirectError {
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
     /// Failed to deserialize the asset metadata.
-    #[error("Failed to deserialize asset meta: {0:?}")]
+    #[error("Failed to deserialize asset meta")]
     DeserializeSettings(#[from] SpannedError),
     /// Failed to deserialize the minimal asset metadata.
-    #[error("Failed to deserialize minimal asset meta: {0:?}")]
-    DeserializeMinimal(SpannedError),
+    #[error("Failed to deserialize minimal asset meta")]
+    DeserializeMinimal(#[source] SpannedError),
 }
 
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
@@ -764,7 +765,7 @@ pub enum ReadAssetBytesError {
     #[error(transparent)]
     ReadAssetError(#[from] ReadAssetError),
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an io error while loading asset at `{}`: {source}", path.display())]
+    #[error("Encountered an io error while loading asset at `{}`", path.display())]
     Io {
         path: PathBuf,
         source: std::io::Error,

@@ -616,11 +616,12 @@ pub enum ApplySceneError {
     #[error("Failed to build a Template in the current Scene: {0}")]
     TemplateBuildError(BevyError),
     /// Caused when the cached [`ResolvedScene`] fails to apply a [`ResolvedScene`].
-    #[error("Failed to apply the cached Scene (asset path: \"{cached:?}\"): {error}")]
+    #[error("Failed to apply the cached Scene (asset path: \"{cached:?}\")")]
     CachedSceneApplyError {
         /// The asset path of the cached scene that failed to apply.
         cached: Option<AssetPath<'static>>,
         /// The error that occurred while applying the cached scene.
+        #[source]
         error: Box<ApplySceneError>,
     },
     /// Caused when an cached scene is not present.
@@ -640,15 +641,14 @@ pub enum ApplySceneError {
         id: AssetId<ScenePatch>,
     },
     /// Caused when a related [`ResolvedScene`] fails to apply.
-    #[error(
-        "Failed to apply the related {relationship_type_name} Scene at index {index}: {error}"
-    )]
+    #[error("Failed to apply the related {relationship_type_name} Scene at index {index}")]
     RelatedSceneError {
         /// The type name of the relationship.
         relationship_type_name: &'static str,
         /// The index of the related scene that failed to apply.
         index: usize,
         /// The error that occurred when applying the related scene.
+        #[source]
         error: Box<ApplySceneError>,
     },
 }

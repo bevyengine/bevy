@@ -7,6 +7,7 @@ use alloc::{
 };
 
 use bevy_app::{Propagate, PropagateOver};
+use bevy_ecs::error::ErrorReport;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::{Component, ComponentId, ComponentInfo},
@@ -326,7 +327,10 @@ pub fn sync_resource_list(world: &mut World) {
                     row.id()
                 }
                 Err(error) => {
-                    warn!("failed to spawn an inspector resource row: {error}");
+                    warn!(
+                        "failed to spawn an inspector resource row: {}",
+                        ErrorReport::new(&error)
+                    );
                     continue;
                 }
             },
@@ -391,7 +395,10 @@ fn sync_overflow_row(world: &mut World, list: Entity, hidden: usize) {
             Ok(mut row) => {
                 row.insert(ChildOf(list));
             }
-            Err(error) => warn!("failed to spawn an inspector resource row: {error}"),
+            Err(error) => warn!(
+                "failed to spawn an inspector resource row: {}",
+                ErrorReport::new(&error)
+            ),
         },
     }
 }

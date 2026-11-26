@@ -752,7 +752,9 @@ pub fn process_remote_get_resources_request(
     let entity = get_resource_entity_pair(&type_registry, &resource_path, world)
         .map_err(BrpError::resource_error)?
         .0;
-    let entity_ref = world.get_entity(entity).map_err(BrpError::resource_error)?;
+    let entity_ref = world
+        .get_entity(entity)
+        .map_err(|err| BrpError::resource_error(bevy_ecs::error::ErrorReport::new(&err)))?;
 
     let Some(reflected) = reflect_component.reflect(entity_ref) else {
         return Err(BrpError::resource_not_present(&resource_path));
@@ -2065,7 +2067,8 @@ pub fn schedule_graph(In(params): In<Option<Value>>, world: &mut World) -> BrpRe
             }
             Err(err) => {
                 return Err(BrpError::internal(format!(
-                    "Failed to initialize schedule with label={label:?}: {err}"
+                    "Failed to initialize schedule with label={label:?}: {}",
+                    bevy_ecs::error::ErrorReport::new(&err)
                 )))
             }
         }

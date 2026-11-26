@@ -187,13 +187,13 @@ impl Default for ImageLoaderSettings {
 #[derive(Debug, Error)]
 pub enum ImageLoaderError {
     /// An error occurred while trying to load the image bytes.
-    #[error("Failed to load image bytes: {0}")]
+    #[error("Failed to load image bytes")]
     Io(#[from] std::io::Error),
     /// An error occurred while trying to decode the image bytes.
-    #[error("Could not load texture file: {0}")]
+    #[error("Could not load texture file")]
     FileTexture(#[from] FileTextureError),
     /// An error occurred while trying to interpret the image bytes as an array texture.
-    #[error("Invalid array layout: {0}")]
+    #[error("Invalid array layout")]
     ArrayLayout(#[from] TextureReinterpretationError),
 }
 
@@ -289,8 +289,9 @@ impl AssetLoader for ImageLoader {
 
 /// An error that occurs when loading a texture from a file.
 #[derive(Error, Debug)]
-#[error("Error reading image file {path}: {error}.")]
+#[error("Error reading image file {path}")]
 pub struct FileTextureError {
+    #[source]
     error: TextureError,
     path: String,
 }

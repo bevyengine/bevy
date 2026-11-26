@@ -15,7 +15,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
-    error::EntityCommandOutput,
+    error::{BevyError, EntityCommandOutput},
     name::Name,
     observer::IntoEntityObserver,
     relationship::RelationshipHookMode,
@@ -107,14 +107,31 @@ pub trait EntityCommand: Send + 'static {
 }
 
 /// An error that occurs when running an [`EntityCommand`] on a specific entity.
-#[derive(thiserror::Error, Debug)]
+///
+/// Converting this into a [`BevyError`] converts the inner error directly,
+/// preserving its [`Severity`](crate::error::Severity), context and sources.
+/// This does not implement [`Error`](core::error::Error), which would conflict with that conversion.
+#[derive(Debug)]
 pub enum EntityCommandError<E> {
     /// The entity this [`EntityCommand`] tried to run on could not be fetched.
-    #[error(transparent)]
-    EntityFetchError(#[from] EntityMutableFetchError),
+    EntityFetchError(EntityMutableFetchError),
     /// An error that occurred while running the [`EntityCommand`].
-    #[error("{0}")]
     CommandFailed(E),
+}
+
+impl<E> From<EntityMutableFetchError> for EntityCommandError<E> {
+    fn from(error: EntityMutableFetchError) -> Self {
+        Self::EntityFetchError(error)
+    }
+}
+
+impl<E: Into<BevyError>> From<EntityCommandError<E>> for BevyError {
+    fn from(error: EntityCommandError<E>) -> Self {
+        match error {
+            EntityCommandError::EntityFetchError(error) => error.into(),
+            EntityCommandError::CommandFailed(error) => error.into(),
+        }
+    }
 }
 
 impl<Out, F> EntityCommand for F

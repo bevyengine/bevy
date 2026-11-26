@@ -1,5 +1,6 @@
 //! This example demonstrates how to save assets that include subassets.
 
+use bevy::ecs::error::ErrorReport;
 use bevy::{
     asset::{
         io::{Reader, Writer},
@@ -80,7 +81,7 @@ fn perform_save(boxes: Query<(&Sprite, &Transform), With<Box>>, asset_server: Re
             .await
             {
                 Ok(()) => info!("Completed save of {ASSET_PATH}"),
-                Err(err) => error!("Failed to save asset: {err}"),
+                Err(err) => error!("Failed to save asset: {}", ErrorReport::new(&err)),
             }
         })
         .detach();

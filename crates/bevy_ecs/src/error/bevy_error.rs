@@ -1,4 +1,10 @@
-use alloc::{borrow::Cow, boxed::Box};
+use super::ErrorReport;
+use alloc::{
+    borrow::Cow,
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 use bevy_platform::cell::SyncCell;
 use core::{
     any::Any,
@@ -117,7 +123,7 @@ impl BevyError {
             inner: Box::new(InnerBevyError {
                 error: error.into(),
                 severity,
-                context: alloc::vec![],
+                context: Vec::new(),
                 panic_payload: None,
                 #[cfg(feature = "backtrace")]
                 backtrace,
@@ -240,8 +246,7 @@ impl BevyError {
     /// assert_eq!(messages, ["disk on fire"]);
     /// ```
     pub fn chain(&self) -> impl Iterator<Item = &(dyn Error + 'static)> {
-        let inner: &(dyn Error + 'static) = self.inner();
-        core::iter::successors(Some(inner), |&error| error.source())
+        ErrorReport::new(self.inner()).chain()
     }
 
     fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -253,7 +258,7 @@ impl BevyError {
                 // TODO: Cache
                 let full_backtrace = std::env::var("BEVY_BACKTRACE").is_ok_and(|val| val == "full");
 
-                let backtrace_str = alloc::string::ToString::to_string(backtrace);
+                let backtrace_str = backtrace.to_string();
                 let mut skip_next_location_line = false;
                 for line in backtrace_str.split('\n') {
                     if !full_backtrace {
@@ -309,7 +314,7 @@ impl BevyError {
 /// of the current impl is nice.
 struct InnerBevyError {
     error: Box<dyn Error + Send + Sync + 'static>,
-    context: alloc::vec::Vec<Cow<'static, str>>,
+    context: Vec<Cow<'static, str>>,
     severity: Severity,
     // The panic payload from `catch_unwind` is a `Box<dyn Any + Send>`. We need `BevyError` to be `Sync` so we store that
     // in a `SyncCell`. We store it in an `Option` because we ownership of the payload to do things with it.
@@ -582,7 +587,7 @@ where
             inner: Box::new(InnerBevyError {
                 error: error.into(),
                 severity: Severity::Panic,
-                context: alloc::vec![],
+                context: Vec::new(),
                 panic_payload: None,
                 #[cfg(feature = "backtrace")]
                 backtrace: std::backtrace::Backtrace::capture(),
@@ -593,25 +598,23 @@ where
 
 impl Display for BevyError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match &self.inner.context {
-            context if context.is_empty() => writeln!(f, "{}", self.inner.error)?,
-            context if context.len() == 1 => {
-                writeln!(f, "{}: {}", context[0].trim(), self.inner.error)?;
+        // context is stored oldest first, so reverse it to lead with the most recent,
+        // then follow with the wrapped error and its `source` chain
+        let messages: Vec<String> = self
+            .inner
+            .context
+            .iter()
+            .rev()
+            .map(|message| message.trim().to_string())
+            .chain(self.chain().map(ToString::to_string))
+            .collect();
+        match messages.as_slice() {
+            [context, error] if self.inner.context.len() == 1 => {
+                write!(f, "{context}: {error}")?;
             }
-            context => {
-                // The most recent message is the last one in the `Vec`
-                // so we need to reverse the iterator
-                let mut reversed = context.iter().rev();
-                let first = reversed.next().unwrap().trim();
-
-                writeln!(f, "{first}\n\nCaused by:")?;
-                for message in reversed {
-                    let message = message.trim();
-                    writeln!(f, "\t{message}")?;
-                }
-                writeln!(f, "\t{}", self.inner.error)?;
-            }
+            messages => ErrorReport::fmt_messages(f, messages)?,
         }
+        writeln!(f)?;
         self.format_backtrace(f)?;
         Ok(())
     }
@@ -1024,8 +1027,12 @@ Caused by:
     impl core::error::Error for ConnectorError {}
 
     fn dispatch_failure() -> BevyError {
+        dispatch_failure_with("no credentials provided")
+    }
+
+    fn dispatch_failure_with(reason: &'static str) -> BevyError {
         BevyError::from(DispatchFailure {
-            source: ConnectorError("no credentials provided"),
+            source: ConnectorError(reason),
         })
     }
 
@@ -1043,5 +1050,44 @@ Caused by:
             .map(ToString::to_string)
             .collect();
         assert_eq!(messages, ["dispatch failure", "no credentials provided"]);
+    }
+
+    #[test]
+    fn display_source_chain() {
+        assert!(dispatch_failure().to_string().starts_with(
+            "dispatch failure
+
+Caused by:
+\tno credentials provided
+"
+        ));
+
+        let with_context = Err::<(), _>(dispatch_failure())
+            .context("failed to upload")
+            .unwrap_err();
+        assert!(with_context.to_string().starts_with(
+            "failed to upload
+
+Caused by:
+\tdispatch failure
+\tno credentials provided
+"
+        ));
+    }
+
+    #[test]
+    fn display_multiline_cause() {
+        assert!(
+            dispatch_failure_with("no credentials provided\ncheck your profile")
+                .to_string()
+                .starts_with(
+                    "dispatch failure
+
+Caused by:
+\tno credentials provided
+\tcheck your profile
+"
+                )
+        );
     }
 }

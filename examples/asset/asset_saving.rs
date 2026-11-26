@@ -1,6 +1,7 @@
 //! This example demonstrates how to save assets in the common case where the asset contains no
 //! subassets.
 
+use bevy::ecs::error::ErrorReport;
 use bevy::{
     asset::{
         saver::{save_using_saver, SavedAsset},
@@ -56,7 +57,7 @@ fn perform_save(
             .await
             {
                 Ok(()) => info!("Completed save of {ASSET_PATH}"),
-                Err(err) => error!("Failed to save asset: {err}"),
+                Err(err) => error!("Failed to save asset: {}", ErrorReport::new(&err)),
             }
         })
         .detach();

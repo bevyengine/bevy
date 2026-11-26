@@ -71,12 +71,12 @@ pub enum ComputeGlobalTransformError {
     #[error("The entity {0:?} or one of its ancestors is missing the `Transform` component")]
     MissingTransform(Entity),
     /// The entity does not exist.
-    #[error("The entity does not exist: {0}")]
-    NoSuchEntity(EntityNotSpawnedError),
+    #[error("The entity does not exist")]
+    NoSuchEntity(#[source] EntityNotSpawnedError),
     /// An ancestor is missing.
     /// This probably means that your hierarchy has been improperly maintained.
-    #[error("The ancestor is missing: {0}")]
-    MalformedHierarchy(EntityNotSpawnedError),
+    #[error("The ancestor is missing")]
+    MalformedHierarchy(#[source] EntityNotSpawnedError),
 }
 
 #[cfg(test)]

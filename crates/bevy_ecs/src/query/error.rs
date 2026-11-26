@@ -15,7 +15,7 @@ pub enum QueryEntityError {
     #[error("The query does not match entity {0}")]
     QueryDoesNotMatch(Entity, ArchetypeId),
     /// The given [`Entity`] is not spawned.
-    #[error("{0}")]
+    #[error(transparent)]
     NotSpawned(#[from] EntityNotSpawnedError),
     /// The [`Entity`] was requested mutably more than once.
     ///

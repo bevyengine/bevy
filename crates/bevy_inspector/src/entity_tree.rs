@@ -12,6 +12,7 @@ use bevy_camera::visibility::Visibility;
 use bevy_dev_tools::inspection::label_resolution::{
     resolve_label, ComponentLabelData, LabelDefinitionPriority, LabelResolutionRegistry,
 };
+use bevy_ecs::error::ErrorReport;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::{Component, ComponentId, ComponentInfo},
@@ -1148,7 +1149,10 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
                 row.id()
             }
             Err(error) => {
-                warn!("failed to spawn an inspector tree row: {error}");
+                warn!(
+                    "failed to spawn an inspector tree row: {}",
+                    ErrorReport::new(&error)
+                );
                 continue;
             }
         };
@@ -1182,7 +1186,10 @@ fn apply_sync(world: &mut World, plan: SyncPlan) -> bool {
                 row.id()
             }
             Err(error) => {
-                warn!("failed to spawn an inspector tree row: {error}");
+                warn!(
+                    "failed to spawn an inspector tree row: {}",
+                    ErrorReport::new(&error)
+                );
                 continue;
             }
         };
@@ -1714,7 +1721,10 @@ fn spawn_eye(world: &mut World, row: Entity, inspected: Entity, hidden: bool) {
             ))
             .observe(toggle_visibility);
         }
-        Err(error) => warn!("failed to spawn an inspector visibility toggle: {error}"),
+        Err(error) => warn!(
+            "failed to spawn an inspector visibility toggle: {}",
+            ErrorReport::new(&error)
+        ),
     }
 }
 

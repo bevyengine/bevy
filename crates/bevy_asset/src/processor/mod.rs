@@ -41,6 +41,7 @@ mod log;
 mod process;
 
 use async_lock::RwLockReadGuardArc;
+use bevy_ecs::error::ErrorReport;
 pub use log::*;
 pub use process::*;
 
@@ -927,7 +928,10 @@ impl AssetProcessor {
                 let meta_bytes = match processed_reader.read_meta_bytes(asset_path.path()).await {
                     Ok(meta_bytes) => meta_bytes,
                     Err(err) => {
-                        trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
+                        trace!(
+                            "Removing processed data for {asset_path} because meta failed to load: {}",
+                            ErrorReport::new(&err)
+                        );
                         self.remove_processed_asset_and_meta(source, asset_path.path())
                             .await;
                         continue;
@@ -973,11 +977,17 @@ impl AssetProcessor {
     /// does it remove existing in-memory metadata.
     async fn remove_processed_asset_and_meta(&self, source: &AssetSource, path: &Path) {
         if let Err(err) = source.processed_writer().unwrap().remove(path).await {
-            warn!("Failed to remove non-existent asset {path:?}: {err}");
+            warn!(
+                "Failed to remove non-existent asset {path:?}: {}",
+                ErrorReport::new(&err)
+            );
         }
 
         if let Err(err) = source.processed_writer().unwrap().remove_meta(path).await {
-            warn!("Failed to remove non-existent meta {path:?}: {err}");
+            warn!(
+                "Failed to remove non-existent meta {path:?}: {}",
+                ErrorReport::new(&err)
+            );
         }
 
         self.clean_empty_processed_ancestor_folders(source, path)
@@ -1334,7 +1344,7 @@ impl AssetProcessor {
                         .remove_assets_in_directory(Path::new(""))
                         .await
                     {
-                        panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}");
+                        panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {}", ErrorReport::new(&err));
                     }
                 }
             }
@@ -1681,7 +1691,10 @@ impl ProcessorAssetInfos {
                 trace!("No need to process asset {asset_path} because it does not exist");
             }
             Err(err) => {
-                error!("Failed to process asset {asset_path}: {err}");
+                error!(
+                    "Failed to process asset {asset_path}: {}",
+                    ErrorReport::new(&err)
+                );
                 // if this failed because a dependency could not be loaded, make sure it is reprocessed if that dependency is reprocessed
                 if let ProcessError::AssetLoadError(AssetLoadError::AssetLoaderError(dependency)) =
                     err
@@ -1832,7 +1845,7 @@ pub enum InitializeError {
     FailedToReadSourcePaths(AssetReaderError),
     #[error(transparent)]
     FailedToReadDestinationPaths(AssetReaderError),
-    #[error("Failed to validate asset log: {0}")]
+    #[error("Failed to validate asset log")]
     ValidateLogError(#[from] ValidateLogError),
 }
 

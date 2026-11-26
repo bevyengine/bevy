@@ -18,7 +18,7 @@ pub enum DynamicTextureAtlasBuilderError {
     #[error("cannot add uninitialized texture to atlas")]
     UninitializedSourceTexture,
     /// A texture access error occurred
-    #[error("texture access error: {0}")]
+    #[error(transparent)]
     TextureAccess(#[from] TextureAccessError),
 }
 

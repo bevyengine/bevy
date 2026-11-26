@@ -25,10 +25,10 @@ struct CustomAssetLoader;
 #[derive(Debug, Error)]
 enum CustomAssetLoaderError {
     /// An [IO](std::io) Error
-    #[error("Could not load asset: {0}")]
+    #[error("Could not load asset")]
     Io(#[from] std::io::Error),
     /// A [RON](ron) Error
-    #[error("Could not parse RON: {0}")]
+    #[error("Could not parse RON")]
     RonSpannedError(#[from] ron::error::SpannedError),
 }
 
@@ -66,7 +66,7 @@ struct BlobAssetLoader;
 #[derive(Debug, Error)]
 enum BlobAssetLoaderError {
     /// An [IO](std::io) Error
-    #[error("Could not load file: {0}")]
+    #[error("Could not load file")]
     Io(#[from] std::io::Error),
 }
 

@@ -21,19 +21,19 @@ use crate::{
 #[derive(Error, Debug)]
 pub enum ScheduleBuildError {
     /// Tried to topologically sort the hierarchy of system sets.
-    #[error("Failed to topologically sort the hierarchy of system sets: {0}")]
-    HierarchySort(DiGraphToposortError<NodeId>),
+    #[error("Failed to topologically sort the hierarchy of system sets")]
+    HierarchySort(#[source] DiGraphToposortError<NodeId>),
     /// Tried to topologically sort the dependency graph.
-    #[error("Failed to topologically sort the dependency graph: {0}")]
-    DependencySort(DiGraphToposortError<NodeId>),
+    #[error("Failed to topologically sort the dependency graph")]
+    DependencySort(#[source] DiGraphToposortError<NodeId>),
     /// Tried to topologically sort the flattened dependency graph.
-    #[error("Failed to topologically sort the flattened dependency graph: {0}")]
-    FlatDependencySort(DiGraphToposortError<SystemKey>),
+    #[error("Failed to topologically sort the flattened dependency graph")]
+    FlatDependencySort(#[source] DiGraphToposortError<SystemKey>),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[error("`{:?}` and `{:?}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.", .0.0, .0.1)]
+    #[error("A system (set) has both `in_set` and `before`-`after` relationships with a set it belongs to (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(#[from] DagCrossDependencyError<NodeId>),
     /// Tried to order system sets that share systems.
-    #[error("`{:?}` and `{:?}` have a `before`-`after` relationship (which may be transitive) but share systems.", .0.0, .0.1)]
+    #[error("Two system sets have a `before`-`after` relationship (which may be transitive) but share systems.")]
     SetsHaveOrderButIntersect(#[from] DagOverlappingGroupError<SystemSetKey>),
     /// Tried to order a system (set) relative to all instances of some system function.
     #[error(transparent)]
@@ -59,7 +59,7 @@ pub enum ScheduleBuildWarning {
     /// [`ScheduleBuildSettings::hierarchy_detection`]: crate::schedule::ScheduleBuildSettings::hierarchy_detection
     /// [`LogLevel::Ignore`]: crate::schedule::LogLevel::Ignore
     /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
-    #[error("The hierarchy of system sets contains redundant edges: {0:?}")]
+    #[error("The hierarchy of system sets contains redundant edges")]
     HierarchyRedundancy(#[from] DagRedundancyError<NodeId>),
     /// Systems with conflicting access have indeterminate run order.
     ///
@@ -292,7 +292,7 @@ pub enum ScheduleError {
     #[error("Schedule not found.")]
     ScheduleNotFound,
     /// Error initializing schedule
-    #[error("{0}")]
+    #[error(transparent)]
     ScheduleBuildError(ScheduleBuildError),
 }
 

@@ -248,9 +248,9 @@ pub struct ShaderLoader;
 #[derive(Debug, Error)]
 #[expect(missing_docs, reason = "The variants are self-explanatory.")]
 pub enum ShaderLoaderError {
-    #[error("Could not load shader: {0}")]
+    #[error("Could not load shader")]
     Io(#[from] std::io::Error),
-    #[error("Could not parse shader: {0}")]
+    #[error("Could not parse shader")]
     Parse(#[from] alloc::string::FromUtf8Error),
 }
 
