@@ -15,7 +15,7 @@ is an unambiguous default loader.
 This however breaks some uses. The most common is using a generic extension and then providing
 asset loaders for those particular asset types. So for example, you may have files:
 
-```
+```text
 level1.ron
 monster_snake.ron
 ```
@@ -29,7 +29,7 @@ Now, these two would conflict (and we'd use whichever loader was registered last
 one thing to do is to give a unique extension. A good pattern is to add the type name as the
 extension, for example:
 
-```
+```text
 level1.LevelDefinition.ron
 monster_snake.Monster.ron
 ```
@@ -39,7 +39,7 @@ monster_snake.Monster.ron
 Another approach is to use meta files. Meta files allow you to explicitly say which loader to use.
 For example, we could write the following meta file at `level1.ron.meta`:
 
-```
+```ron
 (
     meta_format_version: "1.0",
     asset: Load(
