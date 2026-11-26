@@ -1,6 +1,6 @@
 ---
 title: AssetLoaders are no longer chosen by the asset type.
-pull_requests: []
+pull_requests: [25664]
 ---
 
 Previously, when picking which asset loader to use, the first step was looking up the asset loader
