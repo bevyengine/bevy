@@ -937,7 +937,11 @@ pub fn add_visibility_class<C>(
     C: 'static,
 {
     if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<C>());
+        let ty = TypeId::of::<C>();
+
+        if !visibility_class.contains(&ty) {
+            visibility_class.push(ty);
+        }
     }
 }
 
@@ -1308,6 +1312,42 @@ mod test {
         let entity_clone_visibility_class =
             world.entity(entity_clone).get::<VisibilityClass>().unwrap();
         assert_eq!(entity_clone_visibility_class.len(), 1);
+    }
+
+    #[test]
+    fn test_add_visibility_class_hook_unique_multi_insert() {
+        let mut world = World::new();
+        let entity = world.spawn(TestVisibilityClassHook).id();
+
+        world
+            .entity_mut(entity)
+            .insert(TestVisibilityClassHook)
+            .insert(TestVisibilityClassHook)
+            .insert(TestVisibilityClassHook)
+            .insert(TestVisibilityClassHook);
+
+        let visibility_class = world.entity(entity).get::<VisibilityClass>().unwrap();
+
+        assert_eq!(visibility_class.len(), 1);
+        assert!(visibility_class.contains(&TypeId::of::<TestVisibilityClassHook>()));
+    }
+
+    #[test]
+    fn test_add_visibility_class_hook_unique_insert_remove() {
+        let mut world = World::new();
+        let entity = world.spawn(TestVisibilityClassHook).id();
+
+        for _ in 0..10 {
+            world
+                .entity_mut(entity)
+                .remove::<TestVisibilityClassHook>()
+                .insert(TestVisibilityClassHook);
+
+            let visibility_class = world.entity(entity).get::<VisibilityClass>().unwrap();
+
+            assert_eq!(visibility_class.len(), 1);
+            assert!(visibility_class.contains(&TypeId::of::<TestVisibilityClassHook>()));
+        }
     }
 
     #[test]
