@@ -21,6 +21,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_math::FloatOrd;
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
@@ -101,6 +102,7 @@ impl Plugin for WireframePlugin {
         .register_type::<WireframeLineWidth>()
         .register_type::<WireframeTopology>()
         .register_type::<WireframeXray>()
+        .register_type::<WireframeDepthBias>()
         .add_systems(Startup, setup_global_wireframe_material)
         .add_systems(
             PostUpdate,
@@ -110,6 +112,7 @@ impl Plugin for WireframePlugin {
                 wireframe_line_width_changed,
                 wireframe_topology_changed,
                 wireframe_xray_changed,
+                wireframe_depth_bias_changed,
                 // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
                 // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
                 (apply_wireframe_material, apply_global_wireframe_material).chain(),
@@ -733,6 +736,33 @@ pub fn init_wireframe_3d_pipeline(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WireframeDepthBiasKey {
+    pub constant: i32,
+    pub slope_scale: FloatOrd,
+    pub clamp: FloatOrd,
+}
+
+impl From<DepthBiasState> for WireframeDepthBiasKey {
+    fn from(bias: DepthBiasState) -> Self {
+        Self {
+            constant: bias.constant,
+            slope_scale: FloatOrd(bias.slope_scale),
+            clamp: FloatOrd(bias.clamp),
+        }
+    }
+}
+
+impl From<WireframeDepthBiasKey> for DepthBiasState {
+    fn from(key: WireframeDepthBiasKey) -> Self {
+        Self {
+            constant: key.constant,
+            slope_scale: key.slope_scale.0,
+            clamp: key.clamp.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct WireframePipelineKey {
     pub mesh_key: MeshPipelineKey,
     pub wide: bool,
@@ -740,6 +770,7 @@ pub struct WireframePipelineKey {
     pub line_mode: bool,
     pub xray_mode: bool,
     pub cull_mode: Option<Face>,
+    pub depth_bias: WireframeDepthBiasKey,
 }
 
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
@@ -763,7 +794,7 @@ impl SpecializedMeshPipeline for Wireframe3dPipeline {
         }
 
         if descriptor.primitive.topology.is_triangles() {
-            descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
+            descriptor.depth_stencil.as_mut().unwrap().bias = key.depth_bias.into();
         }
 
         if key.wide {
@@ -905,6 +936,55 @@ pub enum WireframeTopology {
 #[reflect(Component, Default, Debug)]
 pub struct WireframeXray(pub bool);
 
+/// Sets the depth bias state of the wireframe.
+///
+/// Overrides [`WireframeConfig::default_depth_bias`].
+#[derive(Component, Debug, Clone, Copy, PartialEq, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
+pub struct WireframeDepthBias(pub DepthBiasState);
+
+impl Default for WireframeDepthBias {
+    fn default() -> Self {
+        Self(DepthBiasState {
+            constant: 0,
+            slope_scale: 1.0,
+            clamp: 0.0,
+        })
+    }
+}
+
+impl WireframeDepthBias {
+    /// Creates a new [`WireframeDepthBias`] with the specified constant, slope scale, and zero clamp.
+    pub const fn new(constant: i32, slope_scale: f32) -> Self {
+        Self(DepthBiasState {
+            constant,
+            slope_scale,
+            clamp: 0.0,
+        })
+    }
+
+    /// Creates a new [`WireframeDepthBias`] with a constant bias and default slope scale (`1.0`).
+    pub const fn constant(constant: i32) -> Self {
+        Self(DepthBiasState {
+            constant,
+            slope_scale: 1.0,
+            clamp: 0.0,
+        })
+    }
+}
+
+impl From<DepthBiasState> for WireframeDepthBias {
+    fn from(bias: DepthBiasState) -> Self {
+        Self(bias)
+    }
+}
+
+impl From<WireframeDepthBias> for DepthBiasState {
+    fn from(bias: WireframeDepthBias) -> Self {
+        bias.0
+    }
+}
+
 #[derive(Resource, Debug, Clone, ExtractResource, Reflect)]
 #[reflect(Resource, Debug, Default)]
 #[extract_app(RenderApp)]
@@ -928,6 +1008,10 @@ pub struct WireframeConfig {
     /// `None` draws the edges of every face, like a classic wireframe. Ignored in
     /// [`Self::xray_mode`], which never culls.
     pub cull_mode: Option<Face>,
+    /// Default depth bias state for wireframes.
+    ///
+    /// Can be overridden for individual meshes by adding a [`WireframeDepthBias`] component.
+    pub default_depth_bias: DepthBiasState,
 }
 
 impl Default for WireframeConfig {
@@ -939,6 +1023,7 @@ impl Default for WireframeConfig {
             default_topology: WireframeTopology::default(),
             xray_mode: false,
             cull_mode: Some(Face::Back),
+            default_depth_bias: WireframeDepthBias::default().0,
         }
     }
 }
@@ -950,6 +1035,7 @@ pub struct WireframeMaterial {
     pub line_width: f32,
     pub topology: WireframeTopology,
     pub xray_mode: bool,
+    pub depth_bias: DepthBiasState,
 }
 
 impl Default for WireframeMaterial {
@@ -959,6 +1045,7 @@ impl Default for WireframeMaterial {
             line_width: 1.0,
             topology: WireframeTopology::default(),
             xray_mode: false,
+            depth_bias: WireframeDepthBias::default().0,
         }
     }
 }
@@ -968,6 +1055,7 @@ pub struct RenderWireframeMaterial {
     pub line_width: f32,
     pub topology: WireframeTopology,
     pub xray_mode: bool,
+    pub depth_bias: DepthBiasState,
 }
 
 #[derive(
@@ -999,6 +1087,7 @@ impl RenderAsset for RenderWireframeMaterial {
             line_width: source_asset.line_width,
             topology: source_asset.topology,
             xray_mode: source_asset.xray_mode,
+            depth_bias: source_asset.depth_bias,
         })
     }
 }
@@ -1028,6 +1117,7 @@ pub struct SpecializedWireframePipelineCache {
             bool,
             bool,
             Option<Face>,
+            WireframeDepthBiasKey,
         ),
         CachedRenderPipelineId,
     >,
@@ -1089,6 +1179,7 @@ fn setup_global_wireframe_material(
             line_width: config.default_line_width,
             topology: config.default_topology,
             xray_mode: config.xray_mode,
+            depth_bias: config.default_depth_bias,
         }),
     });
 }
@@ -1104,6 +1195,7 @@ fn wireframe_config_changed(
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
             Option<&WireframeXray>,
+            Option<&WireframeDepthBias>,
         ),
         With<Wireframe>,
     >,
@@ -1113,9 +1205,10 @@ fn wireframe_config_changed(
         mat.line_width = config.default_line_width;
         mat.topology = config.default_topology;
         mat.xray_mode = config.xray_mode;
+        mat.depth_bias = config.default_depth_bias;
     }
 
-    for (mut handle, maybe_color, maybe_width, maybe_topology, maybe_xray) in
+    for (mut handle, maybe_color, maybe_width, maybe_topology, maybe_xray, maybe_depth_bias) in
         &mut per_entity_wireframes
     {
         if handle.0 == global_material.handle {
@@ -1128,6 +1221,9 @@ fn wireframe_config_changed(
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
             xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            depth_bias: maybe_depth_bias
+                .map(|b| b.0)
+                .unwrap_or(config.default_depth_bias),
         });
     }
 }
@@ -1141,12 +1237,13 @@ fn wireframe_color_changed(
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
             Option<&WireframeXray>,
+            Option<&WireframeDepthBias>,
         ),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, wireframe_color, maybe_width, maybe_topology, maybe_xray) in
+    for (mut handle, wireframe_color, maybe_width, maybe_topology, maybe_xray, maybe_depth_bias) in
         &mut colors_changed
     {
         handle.0 = materials.add(WireframeMaterial {
@@ -1156,6 +1253,9 @@ fn wireframe_color_changed(
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
             xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            depth_bias: maybe_depth_bias
+                .map(|b| b.0)
+                .unwrap_or(config.default_depth_bias),
         });
     }
 }
@@ -1169,12 +1269,13 @@ fn wireframe_line_width_changed(
             Option<&WireframeColor>,
             Option<&WireframeTopology>,
             Option<&WireframeXray>,
+            Option<&WireframeDepthBias>,
         ),
         (With<Wireframe>, Changed<WireframeLineWidth>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, wireframe_width, maybe_color, maybe_topology, maybe_xray) in
+    for (mut handle, wireframe_width, maybe_color, maybe_topology, maybe_xray, maybe_depth_bias) in
         &mut widths_changed
     {
         handle.0 = materials.add(WireframeMaterial {
@@ -1182,6 +1283,9 @@ fn wireframe_line_width_changed(
             line_width: wireframe_width.width,
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
             xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            depth_bias: maybe_depth_bias
+                .map(|b| b.0)
+                .unwrap_or(config.default_depth_bias),
         });
     }
 }
@@ -1195,12 +1299,15 @@ fn wireframe_topology_changed(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeXray>,
+            Option<&WireframeDepthBias>,
         ),
         (With<Wireframe>, Changed<WireframeTopology>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, topology, maybe_color, maybe_width, maybe_xray) in &mut topology_changed {
+    for (mut handle, topology, maybe_color, maybe_width, maybe_xray, maybe_depth_bias) in
+        &mut topology_changed
+    {
         handle.0 = materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
@@ -1208,6 +1315,9 @@ fn wireframe_topology_changed(
                 .unwrap_or(config.default_line_width),
             topology: *topology,
             xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            depth_bias: maybe_depth_bias
+                .map(|b| b.0)
+                .unwrap_or(config.default_depth_bias),
         });
     }
 }
@@ -1221,12 +1331,15 @@ fn wireframe_xray_changed(
             Option<&WireframeColor>,
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
+            Option<&WireframeDepthBias>,
         ),
         (With<Wireframe>, Changed<WireframeXray>),
     >,
     config: Res<WireframeConfig>,
 ) {
-    for (mut handle, xray, maybe_color, maybe_width, maybe_topology) in &mut xray_changed {
+    for (mut handle, xray, maybe_color, maybe_width, maybe_topology, maybe_depth_bias) in
+        &mut xray_changed
+    {
         handle.0 = materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
             line_width: maybe_width
@@ -1234,6 +1347,39 @@ fn wireframe_xray_changed(
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
             xray_mode: xray.0,
+            depth_bias: maybe_depth_bias
+                .map(|b| b.0)
+                .unwrap_or(config.default_depth_bias),
+        });
+    }
+}
+
+fn wireframe_depth_bias_changed(
+    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut depth_bias_changed: Query<
+        (
+            &mut Mesh3dWireframe,
+            &WireframeDepthBias,
+            Option<&WireframeColor>,
+            Option<&WireframeLineWidth>,
+            Option<&WireframeTopology>,
+            Option<&WireframeXray>,
+        ),
+        (With<Wireframe>, Changed<WireframeDepthBias>),
+    >,
+    config: Res<WireframeConfig>,
+) {
+    for (mut handle, depth_bias, maybe_color, maybe_width, maybe_topology, maybe_xray) in
+        &mut depth_bias_changed
+    {
+        handle.0 = materials.add(WireframeMaterial {
+            color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
+            line_width: maybe_width
+                .map(|w| w.width)
+                .unwrap_or(config.default_line_width),
+            topology: maybe_topology.copied().unwrap_or(config.default_topology),
+            xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            depth_bias: depth_bias.0,
         });
     }
 }
@@ -1250,6 +1396,7 @@ fn apply_wireframe_material(
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
             Option<&WireframeXray>,
+            Option<&WireframeDepthBias>,
         ),
         (With<Wireframe>, Without<Mesh3dWireframe>),
     >,
@@ -1265,12 +1412,13 @@ fn apply_wireframe_material(
     }
 
     let mut material_to_spawn = vec![];
-    for (e, maybe_color, maybe_width, maybe_topology, maybe_xray) in &wireframes {
+    for (e, maybe_color, maybe_width, maybe_topology, maybe_xray, maybe_depth_bias) in &wireframes {
         let material = get_wireframe_material(
             maybe_color,
             maybe_width,
             maybe_topology,
             maybe_xray,
+            maybe_depth_bias,
             &mut materials,
             &global_material,
             &config,
@@ -1293,6 +1441,7 @@ fn apply_global_wireframe_material(
             Option<&WireframeLineWidth>,
             Option<&WireframeTopology>,
             Option<&WireframeXray>,
+            Option<&WireframeDepthBias>,
         ),
         (WireframeFilter, Without<Mesh3dWireframe>),
     >,
@@ -1302,12 +1451,15 @@ fn apply_global_wireframe_material(
 ) {
     if config.global {
         let mut material_to_spawn = vec![];
-        for (e, maybe_color, maybe_width, maybe_topology, maybe_xray) in &meshes_without_material {
+        for (e, maybe_color, maybe_width, maybe_topology, maybe_xray, maybe_depth_bias) in
+            &meshes_without_material
+        {
             let material = get_wireframe_material(
                 maybe_color,
                 maybe_width,
                 maybe_topology,
                 maybe_xray,
+                maybe_depth_bias,
                 &mut materials,
                 &global_material,
                 &config,
@@ -1330,6 +1482,7 @@ fn get_wireframe_material(
     maybe_width: Option<&WireframeLineWidth>,
     maybe_topology: Option<&WireframeTopology>,
     maybe_xray: Option<&WireframeXray>,
+    maybe_depth_bias: Option<&WireframeDepthBias>,
     wireframe_materials: &mut Assets<WireframeMaterial>,
     global_material: &GlobalWireframeMaterial,
     config: &WireframeConfig,
@@ -1338,6 +1491,7 @@ fn get_wireframe_material(
         || maybe_width.is_some()
         || maybe_topology.is_some()
         || maybe_xray.is_some()
+        || maybe_depth_bias.is_some()
     {
         wireframe_materials.add(WireframeMaterial {
             color: maybe_color.map(|c| c.color).unwrap_or(config.default_color),
@@ -1346,6 +1500,9 @@ fn get_wireframe_material(
                 .unwrap_or(config.default_line_width),
             topology: maybe_topology.copied().unwrap_or(config.default_topology),
             xray_mode: maybe_xray.map(|xray| xray.0).unwrap_or(config.xray_mode),
+            depth_bias: maybe_depth_bias
+                .map(|b| b.0)
+                .unwrap_or(config.default_depth_bias),
         })
     } else {
         // If there's no color specified we can use the global material since it's already set to use the default_color
@@ -1420,6 +1577,7 @@ pub fn check_wireframe_entities_needing_specialization(
             Changed<WireframeLineWidth>,
             Changed<WireframeTopology>,
             Changed<WireframeXray>,
+            Changed<WireframeDepthBias>,
         )>,
     >,
     wireframe_entities: Query<Entity, With<Mesh3dWireframe>>,
@@ -1598,6 +1756,10 @@ pub fn specialize_wireframes(
                 .unwrap_or(false);
             let thick = mat.map(|m| m.line_width > 1.0).unwrap_or(false);
             let xray_mode = mat.map(|m| m.xray_mode).unwrap_or(false);
+            let depth_bias: WireframeDepthBiasKey = mat
+                .map(|m| m.depth_bias)
+                .unwrap_or_else(|| WireframeDepthBias::default().0)
+                .into();
             let wide = thick || quads;
             let line_mode = wide && !thick;
 
@@ -1609,6 +1771,7 @@ pub fn specialize_wireframes(
                     line_mode,
                     xray_mode,
                     config.cull_mode,
+                    depth_bias,
                 );
                 *wide_pipeline_cache.entry(cache_key).or_insert_with(|| {
                     let wireframe_key = WireframePipelineKey {
@@ -1618,6 +1781,7 @@ pub fn specialize_wireframes(
                         line_mode,
                         xray_mode,
                         cull_mode: config.cull_mode,
+                        depth_bias,
                     };
                     match pipeline.specialize(wireframe_key, &mesh.layout) {
                         Ok(descriptor) => pipeline_cache.queue_render_pipeline(descriptor),
@@ -1635,6 +1799,7 @@ pub fn specialize_wireframes(
                     line_mode: false,
                     xray_mode,
                     cull_mode: config.cull_mode,
+                    depth_bias,
                 };
                 match pipelines.specialize(&pipeline_cache, &pipeline, wireframe_key, &mesh.layout)
                 {
@@ -1779,5 +1944,54 @@ fn queue_wireframes(
                 ),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wireframe_depth_bias_defaults() {
+        let default_bias = WireframeDepthBias::default();
+        assert_eq!(default_bias.constant, 0);
+        assert_eq!(default_bias.slope_scale, 1.0);
+        assert_eq!(default_bias.clamp, 0.0);
+
+        let config = WireframeConfig::default();
+        assert_eq!(config.default_depth_bias, default_bias.0);
+    }
+
+    #[test]
+    fn test_wireframe_depth_bias_conversions() {
+        let bias = WireframeDepthBias::new(100, 2.5);
+        let wgpu_bias: DepthBiasState = bias.into();
+        assert_eq!(wgpu_bias.constant, 100);
+        assert_eq!(wgpu_bias.slope_scale, 2.5);
+        assert_eq!(wgpu_bias.clamp, 0.0);
+
+        let roundtrip: WireframeDepthBias = wgpu_bias.into();
+        assert_eq!(roundtrip, bias);
+
+        let key: WireframeDepthBiasKey = wgpu_bias.into();
+        let key_roundtrip: DepthBiasState = key.into();
+        assert_eq!(key_roundtrip.constant, 100);
+        assert_eq!(key_roundtrip.slope_scale, 2.5);
+        assert_eq!(key_roundtrip.clamp, 0.0);
+
+        // Verify signed zero equivalence via FloatOrd in pipeline keys.
+        let pos_zero: WireframeDepthBiasKey = DepthBiasState {
+            constant: 0,
+            slope_scale: 0.0,
+            clamp: 0.0,
+        }
+        .into();
+        let neg_zero: WireframeDepthBiasKey = DepthBiasState {
+            constant: 0,
+            slope_scale: -0.0,
+            clamp: -0.0,
+        }
+        .into();
+        assert_eq!(pos_zero, neg_zero);
     }
 }

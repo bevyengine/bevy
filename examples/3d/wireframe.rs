@@ -11,8 +11,8 @@
 use bevy::{
     color::palettes::css::*,
     pbr::wireframe::{
-        NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframeLineWidth,
-        WireframePlugin, WireframeTopology, WireframeXray,
+        NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframeDepthBias,
+        WireframeLineWidth, WireframePlugin, WireframeTopology, WireframeXray,
     },
     prelude::*,
     render::{
@@ -167,6 +167,7 @@ fn update_colors(
         .map(|w| w.width)
         .unwrap_or(1.0);
     let green_cube_xray = xray_cubes.iter().any(|xray| xray.0);
+    let depth_bias = config.default_depth_bias;
 
     text.0 = format!(
         "Controls
@@ -179,16 +180,22 @@ B - Toggle topology (current: {:?})
 N - Toggle global x-ray mode (current: {:?})
 M - Toggle x-ray mode for the green cube (current: {green_cube_xray})
 K - Toggle back-face culling (current: {:?})
+D - Cycle depth bias (current: constant: {}, slope_scale: {:.1})
 
 WireframeConfig
 -------------
 Global: {}
-Color: {}",
+Color: {}
+Depth Bias: constant: {}, slope_scale: {:.1}",
         config.default_topology,
         config.xray_mode,
         config.cull_mode,
+        depth_bias.constant,
+        depth_bias.slope_scale,
         config.global,
         color_name(config.default_color),
+        depth_bias.constant,
+        depth_bias.slope_scale,
     );
 
     // Toggle showing a wireframe on all meshes
@@ -248,6 +255,16 @@ Color: {}",
         config.cull_mode = match config.cull_mode {
             Some(_) => None,
             None => Some(Face::Back),
+        };
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyD) {
+        config.default_depth_bias = match config.default_depth_bias.constant {
+            0 if config.default_depth_bias.slope_scale > 0.0 => WireframeDepthBias::new(100, 1.0).0,
+            100 => WireframeDepthBias::new(1000, 2.0).0,
+            1000 => WireframeDepthBias::new(-100, 1.0).0,
+            -100 => WireframeDepthBias::new(0, 0.0).0,
+            _ => WireframeDepthBias::default().0,
         };
     }
 }
