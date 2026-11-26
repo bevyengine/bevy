@@ -29,7 +29,7 @@ use bevy_ecs::{
 };
 use bevy_feathers::{
     constants::icons,
-    controls::{ButtonVariant, FeathersDock, FeathersToolButton},
+    controls::{ButtonVariant, FeathersButton, FeathersDock},
     dark_theme::create_dark_theme,
     display::{caption, icon},
     rounded_corners::RoundedCorners,
@@ -377,14 +377,14 @@ fn toolbar() -> impl Scene {
                 column_gap: px(1),
             }
             Children [
-                @FeathersToolButton {
+                @FeathersButton {
                     @caption: bsn! { @caption("Edit") },
                     @corners: RoundedCorners::Left,
                 }
                 ModeToggle(InspectorMode::Edit)
                 on(on_mode_toggle)
                 --
-                @FeathersToolButton {
+                @FeathersButton {
                     @caption: bsn! { @caption("Preview") },
                     @corners: RoundedCorners::Right,
                 }
