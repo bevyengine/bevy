@@ -14,6 +14,7 @@ mod sparse_buffer_vec;
 mod specializer;
 mod storage_buffer;
 mod texture;
+mod tiny_u32_immediates;
 mod uniform_buffer;
 
 pub use atomic_pod::*;
@@ -31,6 +32,7 @@ pub use sparse_buffer_vec::*;
 pub use specializer::*;
 pub use storage_buffer::*;
 pub use texture::*;
+pub use tiny_u32_immediates::TinyU32Immediates;
 pub use uniform_buffer::*;
 
 // TODO: decide where re-exports should go

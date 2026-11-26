@@ -26,6 +26,9 @@
 @group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
 @group(0) @binding(13) var samplr: sampler;
 struct Constants { max_mip_level: u32 }
+@if(UNIFORM_IMMEDIATES)
+@group(1) @binding(0) var<uniform> constants: Constants;
+@else
 var<immediate> constants: Constants;
 
 // TODO:
