@@ -91,3 +91,64 @@ pub struct Tooltip(pub &'static str);
 /// `@DisplayName("Jump Height")`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DisplayName(pub &'static str);
+
+/// Describes what an opaque type serializes to.
+///
+/// Opaque types have no reflected structure, so tools that read serialized values, such as
+/// `bevy_remote`, use this to describe them. It is ignored on types that are not opaque.
+///
+/// ```ignore
+/// use bevy_annotations::SerializedAs;
+/// use bevy_reflect::Reflect;
+///
+/// #[derive(Reflect, Clone)]
+/// #[reflect(opaque, @SerializedAs::STRING)]
+/// struct Tag(u64);
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SerializedAs {
+    /// A fixed-length array with one labeled item per entry.
+    Array {
+        /// The type path of the items.
+        item: &'static str,
+        /// The label of each item.
+        labels: &'static [&'static str],
+    },
+    /// A map with these fields and no others.
+    Object {
+        /// The name and type path of each field.
+        fields: &'static [(&'static str, &'static str)],
+    },
+    /// A string.
+    String {
+        /// The JSON Schema format of the string, such as `uuid`.
+        format: Option<&'static str>,
+        /// A regular expression that matches the string.
+        pattern: Option<&'static str>,
+    },
+    /// An integer.
+    Integer {
+        /// The lowest allowed value.
+        minimum: Option<i64>,
+        /// Whether zero is excluded.
+        non_zero: bool,
+    },
+}
+
+impl SerializedAs {
+    /// A string with no further constraints.
+    pub const STRING: Self = Self::String {
+        format: None,
+        pattern: None,
+    };
+    /// An integer of at least one.
+    pub const POSITIVE_INTEGER: Self = Self::Integer {
+        minimum: Some(1),
+        non_zero: false,
+    };
+    /// An integer other than zero.
+    pub const NON_ZERO_INTEGER: Self = Self::Integer {
+        minimum: None,
+        non_zero: true,
+    };
+}

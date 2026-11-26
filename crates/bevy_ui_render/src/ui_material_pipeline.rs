@@ -424,6 +424,10 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             commands.entity(render_entity).despawn();
         }
 
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
+
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
@@ -453,7 +457,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiMaterialNode {
-                    stack_index: stack_index.0,
+                    stack_index,
                     transform: transform.into(),
                     material: handle.id(),
                     rect: Rect {

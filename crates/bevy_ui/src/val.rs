@@ -62,6 +62,77 @@ impl Default for ValContext {
     }
 }
 
+/// The unit of a numeric [`Val`].
+///
+/// The variants should match the numeric variants of `Val`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[repr(u8)]
+pub enum ValUnit {
+    /// Use `Val::Px` units.
+    Px = 0,
+    /// Use `Val::Percent` units.
+    Percent = 1,
+    /// Use `Val::Vw` units.
+    Vw = 2,
+    /// Use `Val::Vh` units.
+    Vh = 3,
+    /// Use `Val::VMin` units.
+    VMin = 4,
+    /// Use `Val::VMax` units.
+    VMax = 5,
+    /// Use `Val::Em` units.
+    Em = 6,
+    /// Use `Val::Rem` units.
+    Rem = 7,
+}
+
+impl ValUnit {
+    /// List of all the units in discriminant order.
+    pub const ALL: [Self; 8] = [
+        Self::Px,
+        Self::Percent,
+        Self::Vw,
+        Self::Vh,
+        Self::VMin,
+        Self::VMax,
+        Self::Em,
+        Self::Rem,
+    ];
+
+    /// Constructs a numeric [`Val`] using this unit and the given value.
+    pub const fn with_value(self, value: f32) -> Val {
+        match self {
+            ValUnit::Percent => Val::Percent(value),
+            ValUnit::Px => Val::Px(value),
+            ValUnit::Vw => Val::Vw(value),
+            ValUnit::Vh => Val::Vh(value),
+            ValUnit::VMin => Val::VMin(value),
+            ValUnit::VMax => Val::VMax(value),
+            ValUnit::Em => Val::Em(value),
+            ValUnit::Rem => Val::Rem(value),
+        }
+    }
+}
+
+impl core::str::FromStr for ValUnit {
+    type Err = ValParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim() {
+            "%" => Ok(ValUnit::Percent),
+            unit if unit.eq_ignore_ascii_case("px") => Ok(ValUnit::Px),
+            unit if unit.eq_ignore_ascii_case("vw") => Ok(ValUnit::Vw),
+            unit if unit.eq_ignore_ascii_case("vh") => Ok(ValUnit::Vh),
+            unit if unit.eq_ignore_ascii_case("vmin") => Ok(ValUnit::VMin),
+            unit if unit.eq_ignore_ascii_case("vmax") => Ok(ValUnit::VMax),
+            unit if unit.eq_ignore_ascii_case("rem") => Ok(ValUnit::Rem),
+            unit if unit.eq_ignore_ascii_case("em") => Ok(ValUnit::Em),
+            _ => Err(ValParseError::InvalidUnit),
+        }
+    }
+}
+
 /// Represents the possible value types for layout properties.
 ///
 /// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
@@ -179,6 +250,16 @@ impl core::str::FromStr for Val {
 
         if s.eq_ignore_ascii_case("auto") {
             return Ok(Val::Auto);
+        } else if s.eq_ignore_ascii_case("min-content") || s.eq_ignore_ascii_case("mincontent") {
+            return Ok(Val::MinContent);
+        } else if s.eq_ignore_ascii_case("max-content") || s.eq_ignore_ascii_case("maxcontent") {
+            return Ok(Val::MaxContent);
+        } else if s.eq_ignore_ascii_case("fit-content") || s.eq_ignore_ascii_case("fitcontent") {
+            return Ok(Val::FitContent);
+        } else if s.eq_ignore_ascii_case("stretch") {
+            return Ok(Val::Stretch);
+        } else if s.eq_ignore_ascii_case("content") {
+            return Ok(Val::Content);
         }
 
         let Some(end_of_number) = s
@@ -196,59 +277,18 @@ impl core::str::FromStr for Val {
 
         let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
 
-        let unit = unit.trim();
+        let unit = ValUnit::from_str(unit)?;
 
-        if unit.eq_ignore_ascii_case("px") {
-            Ok(Val::Px(value))
-        } else if unit.eq_ignore_ascii_case("%") {
-            Ok(Val::Percent(value))
-        } else if unit.eq_ignore_ascii_case("vw") {
-            Ok(Val::Vw(value))
-        } else if unit.eq_ignore_ascii_case("vh") {
-            Ok(Val::Vh(value))
-        } else if unit.eq_ignore_ascii_case("vmin") {
-            Ok(Val::VMin(value))
-        } else if unit.eq_ignore_ascii_case("vmax") {
-            Ok(Val::VMax(value))
-        } else if unit.eq_ignore_ascii_case("rem") {
-            Ok(Val::Rem(value))
-        } else if unit.eq_ignore_ascii_case("em") {
-            Ok(Val::Em(value))
-        } else {
-            Err(ValParseError::InvalidUnit)
-        }
+        Ok(unit.with_value(value))
     }
 }
 
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
-        let same_unit = matches!(
-            (self, other),
-            (Self::Auto, Self::Auto)
-                | (Self::MinContent, Self::MinContent)
-                | (Self::MaxContent, Self::MaxContent)
-                | (Self::FitContent, Self::FitContent)
-                | (Self::Stretch, Self::Stretch)
-                | (Self::Content, Self::Content)
-                | (Self::Px(_), Self::Px(_))
-                | (Self::Percent(_), Self::Percent(_))
-                | (Self::Vw(_), Self::Vw(_))
-                | (Self::Vh(_), Self::Vh(_))
-                | (Self::VMin(_), Self::VMin(_))
-                | (Self::VMax(_), Self::VMax(_))
-                | (Self::Em(_), Self::Em(_))
-                | (Self::Rem(_), Self::Rem(_))
-        );
-
-        // as long as the units are the same comparing `inner`
-        // is valid.
-        let left = self.inner();
-        let right = other.inner();
-
-        match (same_unit, left, right) {
-            (true, a, b) => a == b,
+        match (self.unit_value(), other.unit_value()) {
             // All zero-value variants are considered equal.
-            (false, Some(a), Some(b)) => a == 0. && b == 0.,
+            (Ok((u, a)), Ok((v, b))) => (u, a) == (v, b) || (a == 0. && b == 0.),
+            (Err(_), Err(_)) => core::mem::discriminant(self) == core::mem::discriminant(other),
             _ => false,
         }
     }
@@ -263,21 +303,37 @@ impl Val {
     /// The largest finite [`Val::Px`] value.
     pub const MAX: Self = Self::Px(f32::MAX);
 
-    /// Returns the number this `Val` wraps, whatever its unit, or `None` for non-numeric variants.
+    /// Returns the unit and value of a numeric `Val`.
+    pub const fn unit_value(self) -> Result<(ValUnit, f32), ValArithmeticError> {
+        match self {
+            Self::Px(v) => Ok((ValUnit::Px, v)),
+            Self::Percent(v) => Ok((ValUnit::Percent, v)),
+            Self::Vw(v) => Ok((ValUnit::Vw, v)),
+            Self::Vh(v) => Ok((ValUnit::Vh, v)),
+            Self::VMin(v) => Ok((ValUnit::VMin, v)),
+            Self::VMax(v) => Ok((ValUnit::VMax, v)),
+            Self::Em(v) => Ok((ValUnit::Em, v)),
+            Self::Rem(v) => Ok((ValUnit::Rem, v)),
+            _ => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+
+    /// Returns the unit of this `Val` if it is a numeric variant.
+    pub const fn unit(self) -> Result<ValUnit, ValArithmeticError> {
+        match self.unit_value() {
+            Ok((unit, _)) => Ok(unit),
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Returns the number this `Val` wraps, whatever its unit, or an error if it's a non-numeric variant.
     ///
     /// The number is meaningless without the variant it came from — `Val::Px(4.0)` and
     /// `Val::Rem(4.0)` both return `4.0`. Use [`Val::resolve`] for a length in pixels.
-    const fn inner(self) -> Option<f32> {
-        match self {
-            Self::Px(v)
-            | Self::Percent(v)
-            | Self::Vw(v)
-            | Self::Vh(v)
-            | Self::VMin(v)
-            | Self::VMax(v)
-            | Self::Em(v)
-            | Self::Rem(v) => Some(v),
-            _ => None,
+    pub const fn value(self) -> Result<f32, ValArithmeticError> {
+        match self.unit_value() {
+            Ok((_, value)) => Ok(value),
+            Err(err) => Err(err),
         }
     }
 
@@ -430,16 +486,13 @@ impl Val {
     /// );
     /// ```
     pub const fn try_add(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u + v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u + v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u + v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u + v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u + v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u + v)),
-            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u + v)),
-            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u + v)),
-            _ => Err(ValArithmeticError::IncompatibleUnits),
+        if let Ok((u, x)) = self.unit_value()
+            && let Ok((v, y)) = val.unit_value()
+            && (u as u8) == (v as u8)
+        {
+            Ok(u.with_value(x + y))
+        } else {
+            Err(ValArithmeticError::IncompatibleUnits)
         }
     }
 
@@ -456,16 +509,13 @@ impl Val {
     /// );
     /// ```
     pub const fn try_sub(self, val: Val) -> Result<Val, ValArithmeticError> {
-        match (self, val) {
-            (Val::Px(u), Val::Px(v)) => Ok(Val::Px(u - v)),
-            (Val::Percent(u), Val::Percent(v)) => Ok(Val::Percent(u - v)),
-            (Val::Vw(u), Val::Vw(v)) => Ok(Val::Vw(u - v)),
-            (Val::Vh(u), Val::Vh(v)) => Ok(Val::Vh(u - v)),
-            (Val::VMin(u), Val::VMin(v)) => Ok(Val::VMin(u - v)),
-            (Val::VMax(u), Val::VMax(v)) => Ok(Val::VMax(u - v)),
-            (Val::Em(u), Val::Em(v)) => Ok(Val::Em(u - v)),
-            (Val::Rem(u), Val::Rem(v)) => Ok(Val::Rem(u - v)),
-            _ => Err(ValArithmeticError::IncompatibleUnits),
+        if let Ok((u, x)) = self.unit_value()
+            && let Ok((v, y)) = val.unit_value()
+            && (u as u8) == (v as u8)
+        {
+            Ok(u.with_value(x - y))
+        } else {
+            Err(ValArithmeticError::IncompatibleUnits)
         }
     }
 }
@@ -479,18 +529,9 @@ impl Default for Val {
 impl Mul<f32> for Val {
     type Output = Val;
 
-    fn mul(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
-            Val::Em(value) => Val::Em(value * rhs),
-            Val::Rem(value) => Val::Rem(value * rhs),
-            non_numeric => non_numeric,
-        }
+    fn mul(mut self, rhs: f32) -> Self::Output {
+        self *= rhs;
+        self
     }
 }
 
@@ -521,19 +562,9 @@ impl MulAssign<f32> for Val {
 impl Div<f32> for Val {
     type Output = Val;
 
-    fn div(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
-            Val::Em(value) => Val::Em(value / rhs),
-            Val::Rem(value) => Val::Rem(value / rhs),
-            non_numeric => non_numeric,
-        }
+    fn div(mut self, rhs: f32) -> Self::Output {
+        self /= rhs;
+        self
     }
 }
 
@@ -557,16 +588,9 @@ impl Neg for Val {
     type Output = Val;
 
     fn neg(self) -> Self::Output {
-        match self {
-            Val::Px(value) => Val::Px(-value),
-            Val::Percent(value) => Val::Percent(-value),
-            Val::Vw(value) => Val::Vw(-value),
-            Val::Vh(value) => Val::Vh(-value),
-            Val::VMin(value) => Val::VMin(-value),
-            Val::VMax(value) => Val::VMax(-value),
-            Val::Em(value) => Val::Em(-value),
-            Val::Rem(value) => Val::Rem(-value),
-            non_numeric => non_numeric,
+        match self.unit_value() {
+            Ok((unit, value)) => unit.with_value(-value),
+            Err(_) => self,
         }
     }
 }
@@ -638,17 +662,15 @@ impl TryStableInterpolate for Val {
     /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
     /// ```
     fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
-        match (self, other) {
-            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
-            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
-            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
-            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
-            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
-            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
-            (Val::Em(a), Val::Em(b)) => Ok(Val::Em(a.interpolate_stable(b, t))),
-            (Val::Rem(a), Val::Rem(b)) => Ok(Val::Rem(a.interpolate_stable(b, t))),
-            (a, b) if a == b => Ok(*a),
-            _ => Err(MismatchedUnitsError),
+        if let Ok((u, x)) = self.unit_value()
+            && let Ok((v, y)) = other.unit_value()
+            && u == v
+        {
+            Ok(u.with_value(x.interpolate_stable(&y, t)))
+        } else if self == other {
+            Ok(*self)
+        } else {
+            Err(MismatchedUnitsError)
         }
     }
 }
@@ -740,6 +762,39 @@ mod tests {
     use bevy_math::vec2;
 
     use super::*;
+
+    #[test]
+    fn val_numeric_equality() {
+        assert_eq!(Val::Px(1.), Val::Px(1.));
+        assert_ne!(Val::Px(1.), Val::Px(2.));
+        assert_ne!(Val::Px(1.), Val::Percent(1.));
+        assert_ne!(Val::Px(0.), Val::Percent(1.));
+        assert_eq!(Val::Px(0.), Val::Percent(-0.));
+        assert_eq!(Val::Px(f32::INFINITY), Val::Px(f32::INFINITY));
+        assert_ne!(Val::Px(f32::NAN), Val::Px(f32::NAN));
+    }
+
+    #[test]
+    fn val_non_numeric_equality() {
+        let values = [
+            Val::Auto,
+            Val::MinContent,
+            Val::MaxContent,
+            Val::FitContent,
+            Val::Stretch,
+            Val::Content,
+        ];
+
+        for (i, left) in values.iter().enumerate() {
+            for (j, right) in values.iter().enumerate() {
+                assert_eq!(left == right, i == j);
+            }
+            for unit in ValUnit::ALL {
+                assert_ne!(*left, unit.with_value(0.));
+                assert_ne!(unit.with_value(0.), *left);
+            }
+        }
+    }
 
     #[test]
     fn val_evaluate() {
@@ -900,6 +955,29 @@ mod tests {
         assert_eq!("Auto".parse::<Val>(), Ok(Val::Auto));
         assert_eq!("AUTO".parse::<Val>(), Ok(Val::Auto));
 
+        assert_eq!("min-content".parse::<Val>(), Ok(Val::MinContent));
+        assert_eq!("MIN-CONTENT".parse::<Val>(), Ok(Val::MinContent));
+        assert_eq!("mincontent".parse::<Val>(), Ok(Val::MinContent));
+        assert_eq!("MinContent".parse::<Val>(), Ok(Val::MinContent));
+
+        assert_eq!("max-content".parse::<Val>(), Ok(Val::MaxContent));
+        assert_eq!("MAX-CONTENT".parse::<Val>(), Ok(Val::MaxContent));
+        assert_eq!("maxcontent".parse::<Val>(), Ok(Val::MaxContent));
+        assert_eq!("MaxContent".parse::<Val>(), Ok(Val::MaxContent));
+
+        assert_eq!("fit-content".parse::<Val>(), Ok(Val::FitContent));
+        assert_eq!("FIT-CONTENT".parse::<Val>(), Ok(Val::FitContent));
+        assert_eq!("fitcontent".parse::<Val>(), Ok(Val::FitContent));
+        assert_eq!("FitContent".parse::<Val>(), Ok(Val::FitContent));
+
+        assert_eq!("stretch".parse::<Val>(), Ok(Val::Stretch));
+        assert_eq!("Stretch".parse::<Val>(), Ok(Val::Stretch));
+        assert_eq!("STRETCH".parse::<Val>(), Ok(Val::Stretch));
+
+        assert_eq!("content".parse::<Val>(), Ok(Val::Content));
+        assert_eq!("Content".parse::<Val>(), Ok(Val::Content));
+        assert_eq!("CONTENT".parse::<Val>(), Ok(Val::Content));
+
         assert_eq!("3px".parse::<Val>(), Ok(Val::Px(3.)));
         assert_eq!("3 px".parse::<Val>(), Ok(Val::Px(3.)));
         assert_eq!("3.5px".parse::<Val>(), Ok(Val::Px(3.5)));
@@ -954,5 +1032,29 @@ mod tests {
     #[test]
     fn default_val_equals_const_default_val() {
         assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn val_unit_all_matches_discriminants() {
+        for (i, u) in ValUnit::ALL.iter().enumerate() {
+            assert!(*u as usize == i);
+        }
+    }
+
+    #[test]
+    fn val_unit_value_round_trip() {
+        for val in [
+            Val::Px(3.5),
+            Val::Percent(3.5),
+            Val::Vw(3.5),
+            Val::Vh(3.5),
+            Val::VMin(3.5),
+            Val::VMax(3.5),
+            Val::Em(3.5),
+            Val::Rem(3.5),
+        ] {
+            let (unit, value) = val.unit_value().unwrap();
+            assert_eq!(unit.with_value(value), val);
+        }
     }
 }

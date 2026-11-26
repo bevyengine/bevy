@@ -189,7 +189,7 @@ fn apply_normal_mapping(
     if (standard_material_flags & pbr_types::STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
-        Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
+        Nt.z = sqrt(1.0 - saturate(Nt.x * Nt.x + Nt.y * Nt.y));
     } else {
         Nt = Nt * 2.0 - 1.0;
     }
@@ -598,10 +598,11 @@ fn apply_pbr_lighting(
         let enable_diffuse = true;
 
         var shadow: f32 = 1.0;
-        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z, in.frag_coord.xy);
-            shadow *= in.directional_shadow_factor;
+        if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u) {
+            shadow = in.directional_shadow_factor;
+            if ((view_bindings::lights.directional_lights[i].flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                shadow *= shadows::fetch_directional_shadow(i, in.world_position, in.world_normal, view_z, in.frag_coord.xy);
+            }
         }
 
         @if(CONTACT_SHADOWS && DEPTH_PREPASS)

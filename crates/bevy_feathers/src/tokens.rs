@@ -16,6 +16,8 @@ pub const FOCUS_RING: ThemeToken = ThemeToken::new_static("feathers.focus.ring")
 pub const TEXT_MAIN: ThemeToken = ThemeToken::new_static("feathers.text.main");
 /// Dim text
 pub const TEXT_DIM: ThemeToken = ThemeToken::new_static("feathers.text.dim");
+/// Accented text, such as the matched characters of a search result
+pub const TEXT_ACCENT: ThemeToken = ThemeToken::new_static("feathers.text.accent");
 
 // Normal buttons
 
@@ -150,6 +152,11 @@ pub const TAB_DRAG_PROXY_BORDER: ThemeToken = ThemeToken::new_static("feathers.t
 pub const TAB_DRAG_PROXY_OUTLINE: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.outline");
 /// Tab drag proxy text
 pub const TAB_DRAG_PROXY_TEXT: ThemeToken = ThemeToken::new_static("feathers.tab.proxy.text");
+
+// Dock
+
+/// Highlight over the part of a dock group where a dragged tab would be dropped
+pub const DOCK_DROP_PREVIEW: ThemeToken = ThemeToken::new_static("feathers.dock.drop.preview");
 
 // Checkbox
 
@@ -456,6 +463,14 @@ pub const LISTROW_TEXT: ThemeToken = ThemeToken::new_static("feathers.listrow.te
 pub const LISTROW_TEXT_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.listrow.text.disabled");
 
+/// Tree view row background (selected)
+pub const TREE_ROW_BG_SELECTED: ThemeToken =
+    ThemeToken::new_static("feathers.tree.row.bg.selected");
+/// Tree view indent guide
+pub const TREE_GUIDE: ThemeToken = ThemeToken::new_static("feathers.tree.guide");
+/// Tree view indent guide of the branch holding the selected row
+pub const TREE_GUIDE_SELECTED: ThemeToken = ThemeToken::new_static("feathers.tree.guide.selected");
+
 // Modal Dialog
 
 /// Dialog background
@@ -510,6 +525,8 @@ pub mod semantic {
     pub const TEXT_DEFAULT: SemanticToken = SemanticToken::new_static("text.default");
     /// Secondary / dim labels
     pub const TEXT_DIM: SemanticToken = SemanticToken::new_static("text.dim");
+    /// Accented labels, such as highlighted search matches
+    pub const TEXT_ACCENT: SemanticToken = SemanticToken::new_static("text.accent");
     /// Text on accent or saturated fills
     pub const TEXT_ON_ACCENT: SemanticToken = SemanticToken::new_static("text.onAccent");
     /// Disabled text
@@ -543,6 +560,8 @@ pub mod semantic {
     pub const FILL_ITEM_HOVER: SemanticToken = SemanticToken::new_static("fill.item.hover");
     /// Fill when pressed
     pub const FILL_ITEM_PRESSED: SemanticToken = SemanticToken::new_static("fill.item.pressed");
+    /// Fill when selected
+    pub const FILL_ITEM_SELECTED: SemanticToken = SemanticToken::new_static("fill.item.selected");
 
     /// Field fill - text inputs
     pub const FILL_FIELD_DEFAULT: SemanticToken = SemanticToken::new_static("fill.field.default");

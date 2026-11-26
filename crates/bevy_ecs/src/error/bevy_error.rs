@@ -205,6 +205,45 @@ impl BevyError {
         self.inner.error.downcast_ref::<E>()
     }
 
+    /// Returns the wrapped error, without any context messages or backtrace.
+    pub fn inner(&self) -> &(dyn Error + Send + Sync + 'static) {
+        &*self.inner.error
+    }
+
+    /// Consumes this error, returning the wrapped error.
+    ///
+    /// Any context messages, backtrace and panic payload are discarded.
+    pub fn into_inner(self) -> Box<dyn Error + Send + Sync + 'static> {
+        self.inner.error
+    }
+
+    /// Iterates over the wrapped error and its chain of [`Error::source`] causes,
+    /// starting with the wrapped error itself.
+    ///
+    /// Context messages are not included, see [`ContextExt`].
+    ///
+    /// This is useful for custom error handlers that want to report every cause.
+    /// See [`FallbackErrorHandler`](crate::error::FallbackErrorHandler).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::error::{BevyError, ErrorContext};
+    /// fn report_causes(error: BevyError, _ctx: ErrorContext) {
+    ///     for cause in error.chain() {
+    ///         println!("caused by: {cause}");
+    ///     }
+    /// }
+    ///
+    /// let error = BevyError::from("disk on fire");
+    /// let messages: Vec<String> = error.chain().map(ToString::to_string).collect();
+    /// assert_eq!(messages, ["disk on fire"]);
+    /// ```
+    pub fn chain(&self) -> impl Iterator<Item = &(dyn Error + 'static)> {
+        let inner: &(dyn Error + 'static) = self.inner();
+        core::iter::successors(Some(inner), |&error| error.source())
+    }
+
     fn format_backtrace(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         #[cfg(feature = "backtrace")]
         {
@@ -712,7 +751,7 @@ macro_rules! ensure {
 mod tests {
     use crate::error::BevyError;
     use crate::error::ContextExt;
-    use alloc::string::ToString;
+    use alloc::{string::ToString, vec::Vec};
 
     #[test]
     #[cfg(not(miri))] // miri backtraces are weird
@@ -953,5 +992,56 @@ Caused by:
             new_new_error.as_ref().unwrap_err().downcast_ref::<Fun>(),
             Some(&Fun(1))
         );
+    }
+
+    /// A terse error whose detail lives in its [`Error::source`](core::error::Error::source).
+    #[derive(Debug)]
+    struct DispatchFailure {
+        source: ConnectorError,
+    }
+
+    impl core::fmt::Display for DispatchFailure {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            f.write_str("dispatch failure")
+        }
+    }
+
+    impl core::error::Error for DispatchFailure {
+        fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+            Some(&self.source)
+        }
+    }
+
+    #[derive(Debug)]
+    struct ConnectorError(&'static str);
+
+    impl core::fmt::Display for ConnectorError {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+
+    impl core::error::Error for ConnectorError {}
+
+    fn dispatch_failure() -> BevyError {
+        BevyError::from(DispatchFailure {
+            source: ConnectorError("no credentials provided"),
+        })
+    }
+
+    #[test]
+    fn inner() {
+        let error = dispatch_failure();
+        assert!(error.inner().is::<DispatchFailure>());
+        assert!(error.into_inner().downcast::<DispatchFailure>().is_ok());
+    }
+
+    #[test]
+    fn chain() {
+        let messages: Vec<_> = dispatch_failure()
+            .chain()
+            .map(ToString::to_string)
+            .collect();
+        assert_eq!(messages, ["dispatch failure", "no credentials provided"]);
     }
 }

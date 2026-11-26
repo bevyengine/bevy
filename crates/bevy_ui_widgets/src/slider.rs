@@ -19,10 +19,13 @@ use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_log::warn_once;
 use bevy_math::ops;
-use bevy_picking::events::{
-    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+use bevy_picking::{
+    events::{
+        PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+    },
+    hover::PointerCaptureMap,
+    pointer::PointerButton,
 };
-use bevy_picking::hover::PointerCaptureMap;
 
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
@@ -282,6 +285,9 @@ pub(crate) fn slider_on_pointer_down(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
+    if press.button != PointerButton::Primary {
+        return;
+    }
     if q_thumb.contains(press.entity) {
         // Thumb click, stop propagation to prevent track click.
         press.propagate(false);
@@ -387,6 +393,9 @@ pub(crate) fn slider_on_drag_start(
     >,
     mut capture_map: ResMut<PointerCaptureMap>,
 ) {
+    if drag_start.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
         drag_start.propagate(false);
         if !disabled {
@@ -561,6 +570,9 @@ fn slider_on_pointer_up(
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
     mut commands: Commands,
 ) {
+    if release.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {

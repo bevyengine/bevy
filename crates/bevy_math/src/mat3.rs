@@ -13,7 +13,7 @@ use glam::{Mat3A, Vec3, Vec3A};
 /// origin, then apply the matrix that this function returns on top of that, and
 /// finally translate back to the original position.
 ///
-/// See the `mirror` example for a demonstration of how you might use this
+/// See the [`mirror` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/mirror.rs) for a demonstration of how you might use this
 /// function.
 ///
 /// [Householder matrix]: https://en.wikipedia.org/wiki/Householder_transformation

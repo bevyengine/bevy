@@ -6,7 +6,7 @@ use syn::{
     token::Paren, Attribute, Expr, Ident, MetaList, Path, Result, Token, WherePredicate,
 };
 
-use crate::reflect::type_data::TypeDataRegistration;
+use crate::reflect::{type_data::TypeDataRegistration, META_ATTRIBUTE_NAME};
 
 #[derive(Default)]
 pub(crate) struct ContainerAttributes {
@@ -16,6 +16,8 @@ pub(crate) struct ContainerAttributes {
     pub(crate) hash: TraitImpl,
     pub(crate) partial_eq: TraitImpl,
     pub(crate) partial_ord: TraitImpl,
+    /// Metadata (`#[reflect(@expr)]` or `#[meta(expr)]`).
+    pub(crate) metadata: Metadata,
     pub(crate) type_data: Vec<TypeDataRegistration>,
     pub(crate) no_auto_register: bool,
     /// Reflects the type as a `Kind::Primitive` with this `Primitive` variant, without reflecting
@@ -55,6 +57,9 @@ impl ContainerAttributes {
         }
         if input.peek(Token![where]) {
             return self.parse_where(input);
+        }
+        if input.peek(Token![@]) {
+            return self.metadata.parse_metadata_expr(input);
         }
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::Default) {
@@ -347,6 +352,52 @@ impl ContainerAttributes {
                 partial_eq: #partial_eq,
                 partial_cmp: #partial_cmp,
             }
+        }
+    }
+}
+
+/// Metadata values, registered with `#[reflect(@expr)]` or `#[meta(expr)]` on types, fields, and
+/// variants.
+///
+/// Examples:
+/// - `#[reflect(@Tooltip("hello"))]`
+/// - `#[reflect(@0.0..=1.0, @Step(0.5))]`
+#[derive(Default)]
+pub(crate) struct Metadata {
+    values: Vec<Expr>,
+}
+
+impl Metadata {
+    pub(crate) fn parse_metadata_expr(&mut self, input: ParseStream) -> Result<()> {
+        input.parse::<Token![@]>()?;
+        self.values.push(input.parse::<Expr>()?);
+        Ok(())
+    }
+
+    pub(crate) fn parse_meta_attribute(&mut self, attr: &Attribute) -> Result<bool> {
+        if !attr.path().is_ident(META_ATTRIBUTE_NAME) {
+            return Ok(false);
+        }
+        let exprs = attr.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
+        self.values.extend(exprs);
+        Ok(true)
+    }
+
+    pub(crate) fn first(&self) -> Option<&Expr> {
+        self.values.first()
+    }
+
+    pub(crate) fn to_tokens(&self, bevy_reflect: &Path) -> TokenStream {
+        if self.values.is_empty() {
+            return quote! { #bevy_reflect::metadata::Metadata::EMPTY };
+        }
+        let values = self.values.iter().map(|expr| {
+            quote_spanned! {expr.span()=>
+                &(#expr) as #bevy_reflect::metadata::MetadataValue
+            }
+        });
+        quote! {
+            #bevy_reflect::metadata::Metadata::new(&[#(#values),*])
         }
     }
 }

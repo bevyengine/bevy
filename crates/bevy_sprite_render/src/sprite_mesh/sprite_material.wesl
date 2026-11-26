@@ -19,10 +19,10 @@ import bevy_render::color_operations::linear_rgb_to_oklab;
 
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let instance_index = vertex.instance_index;
-
+    // Use vertex.instance_index at each use, not a copy of it, to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/wgpu/issues/4564
 @if(BINDLESS)
-    let slot = mesh2d_bindings::mesh[instance_index].material_bind_group_slot;
+    let slot = mesh2d_bindings::mesh[vertex.instance_index].material_bind_group_slot;
 @if(BINDLESS)
     let vertex_scale = material[material_indices[slot].material].vertex_scale;
 @else
@@ -33,12 +33,12 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let vertex_offset = material.vertex_offset;
 
     var out: VertexOutput;
-    let uncompressed_vertex = decompress_vertex(vertex, instance_index);
+    let uncompressed_vertex = decompress_vertex(vertex, vertex.instance_index);
 @if(VERTEX_UVS)
     out.uv = uncompressed_vertex.uv;
 
 @if(VERTEX_POSITIONS)
-    var world_from_local = mesh_functions::get_world_from_local(instance_index);
+    var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
 @if(VERTEX_POSITIONS)
     let position = vec4<f32>(uncompressed_vertex.position * vec3<f32>(vertex_scale, 1.0) + vec3<f32>(vertex_offset, 0.0), 1.0);
 
@@ -62,7 +62,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 @if(VERTEX_COLORS)
     out.color = uncompressed_vertex.color;
 
-    out.instance_index = instance_index;
+    out.instance_index = vertex.instance_index;
 
     return out;
 }
