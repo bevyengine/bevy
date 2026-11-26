@@ -61,7 +61,7 @@ impl<'a> ErrorReport<'a> {
 
 impl Display for ErrorReport<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        let messages: Vec<String> = self.chain().map(|error| error.to_string()).collect();
+        let messages: Vec<String> = self.chain().map(ToString::to_string).collect();
         Self::fmt_messages(f, &messages)
     }
 }

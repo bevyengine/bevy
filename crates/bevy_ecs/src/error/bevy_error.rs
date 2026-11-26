@@ -606,7 +606,7 @@ impl Display for BevyError {
             .iter()
             .rev()
             .map(|message| message.trim().to_string())
-            .chain(self.chain().map(|error| error.to_string()))
+            .chain(self.chain().map(ToString::to_string))
             .collect();
         match messages.as_slice() {
             [context, error] if self.inner.context.len() == 1 => {
