@@ -209,7 +209,7 @@ impl System for ApplyDeferred {
         SystemAccess::Exclusive
     }
 
-    fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
+    fn check_change_tick(&mut self, _check: &CheckChangeTicks) {}
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         vec![SystemTypeSet::<Self>::new().intern()]

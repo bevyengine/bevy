@@ -1989,7 +1989,7 @@ mod tests {
                 SystemAccess::None
             }
 
-            fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
+            fn check_change_tick(&mut self, _check: &CheckChangeTicks) {}
 
             fn get_last_run(&self) -> Tick {
                 unimplemented!()

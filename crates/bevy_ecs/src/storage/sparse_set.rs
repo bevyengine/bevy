@@ -464,9 +464,14 @@ impl ComponentSparseSet {
             .is_some()
     }
 
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    pub(crate) fn check_change_ticks<'a>(
+        &'a mut self,
+        check: &CheckChangeTicks,
+        ticks: &mut Vec<&'a mut [UnsafeCell<Tick>]>,
+    ) {
+        let len = self.len();
         // SAFETY: This is using the valid size of the column.
-        unsafe { self.dense.check_change_ticks(self.len(), check) };
+        unsafe { self.dense.check_change_ticks(len, check, ticks) };
     }
 }
 
@@ -848,9 +853,13 @@ impl SparseSets {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+    pub(crate) fn check_change_ticks<'a>(
+        &'a mut self,
+        check: &CheckChangeTicks,
+        ticks: &mut Vec<&'a mut [UnsafeCell<Tick>]>,
+    ) {
         for set in self.sets.values_mut() {
-            set.check_change_ticks(check);
+            set.check_change_ticks(check, ticks);
         }
     }
 }

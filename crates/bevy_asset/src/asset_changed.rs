@@ -9,9 +9,9 @@ use bevy_ecs::component::Components;
 use bevy_ecs::storage::TableId;
 use bevy_ecs::{
     archetype::Archetype,
-    change_detection::Tick,
+    change_detection::{CheckChangeTicks, Tick},
     component::ComponentId,
-    prelude::{Entity, Resource, World},
+    prelude::{Entity, On, ResMut, Resource, World},
     query::{FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, ReadFetch, WorldQuery},
     resource::IS_RESOURCE,
     storage::{Table, TableRow},
@@ -43,6 +43,16 @@ impl<A: Asset> AssetChanges<A> {
     }
     pub(crate) fn remove(&mut self, asset_id: &AssetId<A>) {
         self.change_ticks.remove(asset_id);
+    }
+}
+
+fn check_asset_change_ticks<A: Asset>(
+    check: On<CheckChangeTicks>,
+    mut changes: ResMut<AssetChanges<A>>,
+) {
+    changes.last_change_tick.check_tick(&check);
+    for tick in changes.change_ticks.values_mut() {
+        tick.check_tick(&check);
     }
 }
 
@@ -267,6 +277,9 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     fn init_state(world: &mut World) -> AssetChangedState<A> {
+        if !world.contains_resource::<AssetChanges<A::Asset>>() {
+            world.add_observer(check_asset_change_ticks::<A::Asset>);
+        }
         let resource_id = world.init_resource::<AssetChanges<A::Asset>>();
         let asset_id = world.register_component::<A>();
         AssetChangedState {

@@ -3,6 +3,7 @@ use crate::{
     component::ComponentInfo,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr, TableRow},
 };
+use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{cell::UnsafeCell, mem::needs_drop, num::NonZeroUsize, panic::Location};
 
@@ -312,26 +313,22 @@ impl Column {
         }
     }
 
-    /// Calls [`Tick::check_tick`] on all of the ticks stored in this column, as
-    /// well as the summary tick, if one is present.
+    /// Adds the ticks stored in this column to `ticks`, and calls [`Tick::check_tick`] on the
+    /// summary tick, if one is present.
     ///
     /// # Safety
     /// `len` is the actual length of this column
     #[inline]
-    pub(crate) unsafe fn check_change_ticks(&mut self, len: usize, check: CheckChangeTicks) {
-        for i in 0..len {
-            // SAFETY:
-            // - `i` < `len`
-            // we have a mutable reference to `self`
-            unsafe { self.added_ticks.get_unchecked_mut(i) }
-                .get_mut()
-                .check_tick(check);
-            // SAFETY:
-            // - `i` < `len`
-            // we have a mutable reference to `self`
-            unsafe { self.changed_ticks.get_unchecked_mut(i) }
-                .get_mut()
-                .check_tick(check);
+    pub(crate) unsafe fn check_change_ticks<'a>(
+        &'a mut self,
+        len: usize,
+        check: &CheckChangeTicks,
+        ticks: &mut Vec<&'a mut [UnsafeCell<Tick>]>,
+    ) {
+        // SAFETY: `len` is the actual length of this column
+        unsafe {
+            ticks.push(self.added_ticks.as_mut_slice(len));
+            ticks.push(self.changed_ticks.as_mut_slice(len));
         }
 
         // Update the summary tick, if one is present.
