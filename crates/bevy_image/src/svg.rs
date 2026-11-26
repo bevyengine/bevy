@@ -763,7 +763,7 @@ mod tests {
         for mime in ["image/png", "image/svg+xml"] {
             let resolved_data = (options.image_href_resolver.resolve_data)(
                 mime,
-                alloc::sync::Arc::new(Vec::new()),
+                Arc::new(Vec::new()),
                 &options,
             );
             assert!(resolved_data.is_none(), "{mime}");
@@ -819,11 +819,11 @@ mod tests {
         let path = Path::new("test.svg");
         let size = SvgRasterSize::Scale(2.0);
         let from_asset = Svg::parse(bytes, path).unwrap().rasterize(size).unwrap();
-        let settings = crate::SvgLoaderSettings {
+        let settings = SvgLoaderSettings {
             size,
             ..Default::default()
         };
-        let from_loader = crate::svg::rasterize(bytes, &settings, path).unwrap();
+        let from_loader = rasterize(bytes, &settings, path).unwrap();
         assert_eq!(from_asset.size(), from_loader.size());
         assert_eq!(from_asset.data, from_loader.data);
     }
