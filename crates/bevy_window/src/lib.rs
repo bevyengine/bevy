@@ -34,6 +34,8 @@ pub use monitor::*;
 pub use system::*;
 pub use window::*;
 
+pub use DisplayHandleResource;
+
 /// The windowing prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
