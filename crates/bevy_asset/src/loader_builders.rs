@@ -109,7 +109,7 @@ impl<'ctx, 'builder> NestedLoadBuilder<'ctx, 'builder> {
     /// file).
     ///
     /// This is a "deferred" load, meaning the caller will not have access to the loaded data; to
-    /// access the loaded data, use [`Self::load_untyped_value`].
+    /// access the loaded data, use [`Self::load_erased_value`].
     pub fn load_untyped<'a>(self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().to_owned();
         if path.path() == Path::new("") {
