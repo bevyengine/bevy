@@ -221,6 +221,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         &mut self,
         set: SystemSetKey,
         systems: &IndexSet<SystemKey, FixedHasher>,
+        _world: &mut World,
+        _graph: &mut ScheduleGraph,
         dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)> {
         if systems.is_empty() {
