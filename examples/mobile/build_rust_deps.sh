@@ -4,6 +4,8 @@
 
 set -eux
 
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 PATH=$PATH:$HOME/.cargo/bin
 
 PROFILE=debug
@@ -17,7 +19,7 @@ set -euvx
 
 # add homebrew bin path, as it's the most commonly used package manager on macOS
 # this is needed for cmake on apple arm processors as it's not available by default
-export PATH="$PATH:/opt/homebrew/bin"
+export PATH="$PATH:/opt/homebrew/bin:$HOME/Homebrew/bin"
 
 # Make Cargo output cache files in Xcode's directories
 export CARGO_TARGET_DIR="$DERIVED_FILE_DIR/cargo"
@@ -32,6 +34,12 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 IS_SIMULATOR=0
 if [ "${LLVM_TARGET_TRIPLE_SUFFIX-}" = "-simulator" ]; then
   IS_SIMULATOR=1
+fi
+
+# Xcode may choose an Apple Silicon simulator architecture even on an Intel host.
+# Build the simulator binary for the host architecture so it can run locally.
+if [ $IS_SIMULATOR -eq 1 ]; then
+  ARCHS="$(uname -m)"
 fi
 
 EXECUTABLES=

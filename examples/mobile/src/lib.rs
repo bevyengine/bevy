@@ -3,6 +3,7 @@
 use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
+    light::CascadeShadowConfigBuilder,
     log::{Level, LogPlugin},
     picking::hover::Hovered,
     platform::collections::HashSet,
@@ -15,10 +16,10 @@ use bevy::{
 
 // the `bevy_main` proc_macro generates the required boilerplate for Android
 #[bevy_main]
-/// The entry point for the application. Is `pub` so that it can be used from
-/// `main.rs`.
+/// The entry point for the application. Is `pub` so that it can be used from `main.rs`.
 pub fn main() {
     let mut app = App::new();
+    let is_mobile = cfg!(any(target_os = "ios", target_os = "android"));
     app.add_plugins(
         DefaultPlugins
             .set(LogPlugin {
@@ -29,8 +30,12 @@ pub fn main() {
             })
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    resizable: false,
-                    mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+                    resizable: !is_mobile,
+                    mode: if is_mobile {
+                        WindowMode::BorderlessFullscreen(MonitorSelection::Primary)
+                    } else {
+                        WindowMode::Windowed
+                    },
                     // on iOS, gestures must be enabled.
                     // This doesn't work on Android
                     recognize_rotation_gesture: true,
@@ -105,43 +110,54 @@ fn setup_scene(
 ) {
     bevy::log::info!("Configured wgpu adapter Limits: {:#?}", device.limits());
     bevy::log::info!("Configured wgpu adapter Features: {:#?}", device.features());
+    commands.insert_resource(GlobalAmbientLight {
+        color: Color::WHITE,
+        brightness: 250.0,
+        ..default()
+    });
 
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+        MeshMaterial3d(materials.add(Color::srgb(0.05, 0.65, 0.1))),
     ));
     // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::srgb(0.5, 0.4, 0.3))),
+        MeshMaterial3d(materials.add(Color::srgb(1.0, 0.2, 0.02))),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // sphere
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap())),
-        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.4, 0.8))),
+        MeshMaterial3d(materials.add(Color::srgb(0.02, 0.3, 1.0))),
         Transform::from_xyz(1.5, 1.5, 1.5),
     ));
-    // light
+    // directional light gives the scene consistent, well-defined shadows
     commands.spawn((
-        PointLight {
-            intensity: 1_000_000.0,
+        DirectionalLight {
+            illuminance: 8_000.0,
             // Shadows makes some Android devices segfault, this is under investigation
             // https://github.com/bevyengine/bevy/issues/8214
             #[cfg(not(target_os = "android"))]
             shadow_maps_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        CascadeShadowConfigBuilder {
+            num_cascades: 1,
+            maximum_distance: 20.0,
+            ..default()
+        }
+        .build(),
     ));
     // camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // MSAA makes some Android devices panic, this is under investigation
+        // MSAA can fail on mobile GPU configurations.
         // https://github.com/bevyengine/bevy/issues/8229
-        #[cfg(target_os = "android")]
+        #[cfg(any(target_os = "android", target_os = "ios"))]
         Msaa::Off,
     ));
 
