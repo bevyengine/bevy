@@ -536,10 +536,12 @@ const SUMMARY_TICK: &str = "summary_tick";
 const CLONE_BEHAVIOR: &str = "clone_behavior";
 
 /// All allowed attribute value expression kinds for component hooks.
-/// This doesn't simply use general expressions because of conflicting needs:
-/// - we want to be able to use `Self` & generic parameters in paths
-/// - call expressions producing a closure need to be wrapped in a function
-///   to turn them into function pointers, which prevents access to the outer generic params
+///
+/// A hook must be a function pointer, so only two kinds of expression are accepted,
+/// and each needs different code generation:
+/// - a path to a function is already usable as a function pointer and is emitted as is
+/// - a call returning a closure is not, so it is wrapped in a function that makes the call
+///   and invokes the result
 #[derive(Debug)]
 pub enum HookAttributeKind {
     /// expressions like function or struct names
@@ -584,12 +586,11 @@ impl HookAttributeKind {
         match self {
             HookAttributeKind::Path(path) => path.to_token_stream(),
             HookAttributeKind::Call(call) => {
-                quote!({
-                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::lifecycle::HookContext) {
-                        (#call)(world, ctx)
-                    }
-                    _internal_hook
-                })
+                // A non-capturing closure (rather than a nested `fn` item) so that the call
+                // expression can reference `Self` and the generic parameters of the impl.
+                quote!((|world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::lifecycle::HookContext| {
+                    (#call)(world, ctx)
+                }))
             }
         }
     }
@@ -710,7 +711,7 @@ fn hook_register_function_call(
         multiple => {
             quote! {
                 |mut world: #bevy_ecs_path::world::DeferredWorld, context: #bevy_ecs_path::lifecycle::HookContext| {
-                    #(#multiple(world.reborrow(), context.clone());)*
+                    #((#multiple)(world.reborrow(), context.clone());)*
                 }
             }
         }
