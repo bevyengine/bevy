@@ -16,6 +16,26 @@ use super::OrderedRelationshipCollection;
 impl World {
     // Add relations coming from the sources (in order) to the target
     pub(crate) fn add_relations<R: Relationship>(&mut self, sources: &[Entity], target: Entity) {
+        // deduplicate sources, order must be maintained (hence why we don't sort it first)
+        // also remove connections that already exist
+        let mut deduped = Vec::with_capacity(sources.len());
+        let existing_targets = self
+            .entity_mut(target)
+            .get::<R::RelationshipTarget>()
+            .map(|relationship_target| {
+                relationship_target
+                    .collection()
+                    .iter()
+                    .collect::<Vec<Entity>>()
+            })
+            .unwrap_or_default();
+        for &source in sources {
+            if !deduped.contains(source) && !existing_targets.contains(source) {
+                deduped.push(source);
+            }
+        }
+        let sources = deduped.as_slice();
+
         match (
             R::Collection::SINGLE,
             <R::RelationshipTarget as RelationshipTarget>::Collection::SINGLE,
@@ -38,34 +58,23 @@ impl World {
             }
             // one-to-many
             (true, false) => {
-                for source in sources {
-                    self.entity_mut(*source)
-                        .modify_or_insert_relation_with_relationship_hook_mode::<R>(
-                            target,
-                            RelationshipHookMode::Run,
-                        );
-                }
-                /*
                 for &source in sources {
-                    match self.entity_mut(source).add_relation_on_source::<R>(target) {
-                        AddRelationshipResult::Replace(old_target) => {
-                            let mut entity_mut = self.entity_mut(old_target);
-                            let mut relationship_target =
-                                entity_mut.get_mut::<R::RelationshipTarget>().unwrap();
-                            relationship_target.collection_mut_risky().remove(source);
-                            if relationship_target.collection().is_empty() {
-                                entity_mut
-                                    .remove_with_relationship_hook_mode::<R::RelationshipTarget>(
-                                        RelationshipHookMode::Skip,
-                                    );
-                            }
+                    if let AddRelationshipResult::Replace(old_target) =
+                        self.entity_mut(source).add_relation_on_source::<R>(target)
+                    {
+                        let mut entity_mut = self.entity_mut(old_target);
+                        let mut relationship_target =
+                            entity_mut.get_mut::<R::RelationshipTarget>().unwrap();
+                        relationship_target.collection_mut_risky().remove(source);
+                        if relationship_target.collection().is_empty() {
+                            entity_mut.remove_with_relationship_hook_mode::<R::RelationshipTarget>(
+                                RelationshipHookMode::Skip,
+                            );
                         }
-                        _ => {}
                     }
                 }
                 self.entity_mut(target)
                     .add_relations_on_target::<R>(sources);
-                */
             }
             // many-to-one
             (false, true) => {
@@ -1156,5 +1165,18 @@ mod tests {
         world.entity_mut(parent).despawn_related::<Children>();
 
         assert!(world.get::<ObserverResult>(result_entity).unwrap().success);
+    }
+
+    #[test]
+    fn duplicated_children() {
+        let mut world = World::new();
+        let child = world.spawn_empty().id();
+        let parent = world
+            .spawn_empty()
+            .add_children(&[child, child, child])
+            .id();
+        assert_eq!(world.entity_mut(parent).get::<Children>().unwrap().len(), 1);
+        world.entity_mut(child).remove::<ChildOf>();
+        assert!(!world.entity_mut(parent).contains::<Children>());
     }
 }
