@@ -100,7 +100,8 @@ mod tests {
         kind::FieldKind, kind::Kind, kind::KindRef, kind::StructKind,
         type_registry::CreateTypeData, type_registry::TypeRegistry, Reflect, Typed,
     };
-    use alloc::{boxed::Box, format, string::String, vec, vec::Vec};
+    use alloc::{boxed::Box, format, string::String, sync::Arc, vec, vec::Vec};
+    use bevy_platform::sync::Mutex;
     use core::{
         alloc::Layout,
         any::{Any, TypeId},
@@ -844,6 +845,7 @@ mod tests {
                     // SAFETY: `initialize_array_raw` guarantees that `item_ptr` is valid for
                     // writes of the item type.
                     item_ptr.as_ptr().cast::<Counted>().write(item);
+                    true
                 },
             );
         }
@@ -854,6 +856,82 @@ mod tests {
         // 3 assert values + 3 array values dropped.
         assert_eq!(DROPS.swap(0, Relaxed), 6);
     }
+
+    #[test]
+    fn initialize_array_raw_drops_on_return_false() {
+        let fake_channel = Arc::new(Mutex::default());
+
+        type TheArray = [DropNotif; 4];
+        let mut array = MaybeUninit::<TheArray>::uninit();
+
+        // SAFETY:
+        // 1) The type is an array type.
+        // 2) `array` is mutable, and has the correct layout for the array type.
+        // 3) The function only returns true if the value was initialized, and writes valid values
+        //    of type `DropNotif` (the item type.
+        let is_initialized = unsafe {
+            TheArray::TYPE.initialize_array_raw(
+                non_null_from_maybe_uninit(&mut array),
+                |index, _, dst| {
+                    if index >= 3 {
+                        return false;
+                    }
+                    let value = DropNotif(index as _, fake_channel.clone());
+                    #[expect(unused_unsafe, reason = "separate safety reasoning")]
+                    // SAFETY: `initialize_array_raw` guarantees the pointer is valid for writes of the
+                    // item type, and we are writing a valid value of DropNotif (the item type).
+                    unsafe {
+                        dst.cast::<DropNotif>().write(value);
+                    }
+                    true
+                },
+            )
+        };
+
+        assert!(!is_initialized);
+        assert_eq!(*fake_channel.lock().unwrap(), [2, 1, 0]);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn initialize_array_raw_drops_on_panic() {
+        use std::panic::catch_unwind;
+
+        let fake_channel = Arc::new(Mutex::default());
+
+        type TheArray = [DropNotif; 4];
+        let result = catch_unwind(|| {
+            let mut array = MaybeUninit::<TheArray>::uninit();
+
+            // SAFETY:
+            // 1) The type is an array type.
+            // 2) `array` is mutable, and has the correct layout for the array type.
+            // 3) The function only returns true if the value was initialized, and writes valid
+            //    values of type `DropNotif` (the item type.
+            unsafe {
+                TheArray::TYPE.initialize_array_raw(
+                    non_null_from_maybe_uninit(&mut array),
+                    |index, _, dst| {
+                        if index >= 3 {
+                            panic!()
+                        }
+                        let value = DropNotif(index as _, fake_channel.clone());
+                        #[expect(unused_unsafe, reason = "separate safety reasoning")]
+                        // SAFETY: `initialize_array_raw` guarantees the pointer is valid for writes of the
+                        // item type, and we are writing a valid value of DropNotif (the item type).
+                        unsafe {
+                            dst.cast::<DropNotif>().write(value);
+                        }
+                        true
+                    },
+                );
+            }
+        });
+
+        assert!(result.is_err());
+        assert_eq!(*fake_channel.lock().unwrap(), [2, 1, 0]);
+    }
+
     #[test]
     fn custom_type_data() {
         #[derive(Clone)]
@@ -923,6 +1001,7 @@ mod tests {
                 let (name, value) = values.next().unwrap();
                 assert_eq!(*name, field.name);
                 ptr.as_ptr().cast::<u32>().write(*value);
+                true
             })
         }
         .unwrap();
@@ -964,6 +1043,7 @@ mod tests {
                         // SAFETY: We've checked the type matches, and we have write access.
                         ptr.as_ptr().cast::<String>().write(String::from("hello"));
                     }
+                    true
                 },
             );
         }
@@ -978,6 +1058,117 @@ mod tests {
                 b: String::from("hello")
             }
         );
+    }
+
+    #[derive(Reflect)]
+    #[reflect(opaque)]
+    struct DropNotif(u32, Arc<Mutex<Vec<u32>>>);
+
+    impl Drop for DropNotif {
+        fn drop(&mut self) {
+            self.1.lock().unwrap().push(self.0);
+        }
+    }
+
+    #[test]
+    fn initialize_struct_raw_drops_on_return_false() {
+        #[derive(Reflect)]
+        struct Foo {
+            a: DropNotif,
+            b: DropNotif,
+            c: DropNotif,
+            d: DropNotif,
+        }
+
+        let fake_channel = Arc::new(Mutex::default());
+
+        let mut value = MaybeUninit::<Foo>::uninit();
+        // SAFETY:
+        // 1) Foo is a struct.
+        // 2) Foo is sized, so the layout is some.
+        // 3) `value` is mutable, and has the correct layout for `Foo`.
+        // 4) `func` only returns true if it initializes the pointer, and initializes a valid
+        //    `DropNotif` value.
+        // 5) There are no ignored fields.
+        // 6) `uncovered_initialized` is false.
+        let is_initialized = unsafe {
+            Foo::TYPE.initialize_struct_raw(
+                non_null_from_maybe_uninit(&mut value),
+                /*uncovered_initialized=*/ false,
+                |field, ptr| {
+                    let value = match field.name {
+                        "a" => 1,
+                        "b" => 2,
+                        "c" => 3,
+                        _ => return false,
+                    };
+                    let notif = DropNotif(value, fake_channel.clone());
+                    #[expect(unused_unsafe, reason = "separate safety reasoning")]
+                    // SAFETY: `initialize_struct_raw` guarantees `ptr` is valid for writes of the
+                    // field type, and all the fields have type `DropNotif`.
+                    unsafe {
+                        ptr.cast::<DropNotif>().write(notif);
+                    }
+                    true
+                },
+            )
+        };
+
+        assert!(!is_initialized);
+        assert_eq!(*fake_channel.lock().unwrap(), [3, 2, 1]);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn initialize_struct_raw_drops_fields_on_panic() {
+        use std::panic::catch_unwind;
+
+        #[derive(Reflect)]
+        struct Foo {
+            a: DropNotif,
+            b: DropNotif,
+            c: DropNotif,
+            d: DropNotif,
+        }
+
+        let fake_channel = Arc::new(Mutex::default());
+
+        let result = catch_unwind(|| {
+            let mut value = MaybeUninit::<Foo>::uninit();
+            // SAFETY:
+            // 1) Foo is a struct.
+            // 2) Foo is sized, so the layout is some.
+            // 3) `value` is mutable, and has the correct layout for `Foo`.
+            // 4) `func` only returns true if it initializes the pointer, and initializes a valid
+            //    `DropNotif` value.
+            // 5) There are no ignored fields.
+            // 6) `uncovered_initialized` is false.
+            unsafe {
+                Foo::TYPE.initialize_struct_raw(
+                    non_null_from_maybe_uninit(&mut value),
+                    /*uncovered_initialized=*/ false,
+                    |field, ptr| {
+                        let value = match field.name {
+                            "a" => 1,
+                            "b" => 2,
+                            "c" => 3,
+                            _ => panic!(),
+                        };
+                        let notif = DropNotif(value, fake_channel.clone());
+                        #[expect(unused_unsafe, reason = "separate safety reasoning")]
+                        // SAFETY: `initialize_struct_raw` guarantees `ptr` is valid for writes of the
+                        // field type, and all the fields have type `DropNotif`.
+                        unsafe {
+                            ptr.cast::<DropNotif>().write(notif);
+                        }
+                        true
+                    },
+                )
+            };
+        });
+
+        assert!(result.is_err());
+        assert_eq!(*fake_channel.lock().unwrap(), [3, 2, 1]);
     }
 
     #[test]
@@ -1010,6 +1201,7 @@ mod tests {
                 |field, ptr| {
                     assert_eq!(field.name, "a");
                     ptr.as_ptr().cast::<u32>().write(10);
+                    true
                 },
             );
         }
@@ -1421,7 +1613,7 @@ mod tests {
         // Ignored fields can't be initialized or cloned structurally
         assert!(reflect.reflect_clone().is_err());
         // SAFETY: `func` is never called with an invalid pointer, because this returns `None`
-        assert!(unsafe { Foo::TYPE.initialize_struct(|_, _| {}) }.is_none());
+        assert!(unsafe { Foo::TYPE.initialize_struct(|_, _| panic!("Fail!")) }.is_none());
 
         #[derive(Reflect)]
         struct Tuple(#[reflect(ignore)] NotReflect, u32);
@@ -1551,6 +1743,7 @@ mod tests {
             Foo::TYPE.initialize_struct(|field, ptr| {
                 assert_eq!(field.name, "a");
                 ptr.as_ptr().cast::<u32>().write(10);
+                true
             })
         }
         .unwrap();
@@ -1578,7 +1771,7 @@ mod tests {
             ignored: String,
         }
         // SAFETY: there are no reflected fields
-        assert!(unsafe { DefaultOnly::TYPE.initialize_struct(|_, _| {}) }.is_some());
+        assert!(unsafe { DefaultOnly::TYPE.initialize_struct(|_, _| panic!()) }.is_some());
         let value = DefaultOnly {
             ignored: String::new(),
         };
@@ -1588,7 +1781,7 @@ mod tests {
         #[derive(Reflect)]
         struct CloneOnly(#[reflect(ignore, clone)] String);
         // SAFETY: this returns `None`, so `func` is never called
-        assert!(unsafe { CloneOnly::TYPE.initialize_struct(|_, _| {}) }.is_none());
+        assert!(unsafe { CloneOnly::TYPE.initialize_struct(|_, _| panic!()) }.is_none());
         let value = CloneOnly(String::from("x"));
         let clone = (&value as &dyn Reflect).reflect_clone().unwrap();
         assert_eq!(clone.downcast_ref::<CloneOnly>().unwrap().0, "x");

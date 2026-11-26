@@ -16,6 +16,7 @@ use alloc::{
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
+    cell::Cell,
     fmt::Debug,
     hint::unreachable_unchecked,
     mem::DropGuard,
@@ -181,13 +182,14 @@ impl Type {
     /// struct with `func`.
     ///
     /// `func` is called exactly once for each field in the struct, and in the same order as
-    /// [`Struct::fields`].
+    /// [`Struct::fields`]. `func` must return whether it initialized the passed-in pointer. If
+    /// `func` returns `false`, the initialization bails out and won't call `func` again.
     ///
     /// The value in `dst` is overwritten and **will not** be dropped. Ignored fields are
-    /// initialized with the field's default implementation. If `func` panics or an ignored field's
-    /// default implementation panics, all previously written fields are leaked.
+    /// initialized with the field's default implementation. If an ignored field's default
+    /// implementation panics, all previously written ignored fields are leaked.
     ///
-    /// After this function, `dst` holds a fully-initialized value of this type.
+    /// If this function returns `true`, `dst` holds a fully-initialized value of this type.
     ///
     /// Consider using [`Self::initialize_struct`] or [`Self::construct_struct`] for versions that
     /// perform the allocation of the destination for you (and have fewer safety requirements).
@@ -197,9 +199,10 @@ impl Type {
     /// 1) This type must be a [`Kind::Struct`].
     /// 2) This type's [`Self::layout`] must be [`Some`] (i.e., the type must be sized).
     /// 3) `dst` must be valid for writes of this type.
-    /// 4) `func` must initialize every pointer to a valid value that matches the type described in
-    ///    each [`StructField`]. `func` may not read/drop the previous value (as the pointer may
-    ///    point to an uninitialized or overwritten location).
+    /// 4) `func` must return whether it initialized the passed-in pointer. It must initialize to a
+    ///    valid value that matches the type described in each [`StructField`]. `func` may not
+    ///    read/drop the previous value (as the pointer may point to an uninitialized or overwritten
+    ///    location).
     /// 5) All ignored fields of the struct must have a reflected default impl (or there are no
     ///    ignored fields).
     /// 6) Either `uncovered_initialized` is `false`, **or** the uncovered bytes in `dst` must be
@@ -208,8 +211,8 @@ impl Type {
         &self,
         dst: NonNull<u8>,
         uncovered_initialized: bool,
-        mut func: impl FnMut(&StructField, NonNull<u8>),
-    ) {
+        mut func: impl FnMut(&StructField, NonNull<u8>) -> bool,
+    ) -> bool {
         let Kind::Struct(struct_type) = &self.kind else {
             // SAFETY: The safety precondition guarantees the type is a struct.
             unsafe { unreachable_unchecked() };
@@ -231,21 +234,51 @@ impl Type {
                 }
             }
         }
+        let initialized_fields = Cell::new(0);
+        let drop_set_fields_guard = DropGuard::new((), |_| {
+            // Iterate in reverse order so that the most recent values are dropped first (to mimic
+            // how stack variables are dropped).
+            for field in struct_type.fields()[0..initialized_fields.get()]
+                .iter()
+                .rev()
+            {
+                // SAFETY: By the safety precondition, `dst` is valid for writes of this type, and
+                // `Type::new` guarantees that `field.offset` is in bounds of it.
+                let field_ptr = unsafe { dst.byte_add(field.offset) }.as_ptr();
+                let reflect_ptr = field.ty.get().as_reflect_ptr(field_ptr);
+                // SAFETY: By `Type::new`, we know that `field.offset` is correct. By the safety
+                // precondition, we know `dst` is valid for writes, so therefore `dst+field.offset`
+                // must be valid for writes of the field type. We casted the field pointer to the
+                // field type, and we know we currently own the value for `dst`.
+                unsafe {
+                    ptr::drop_in_place(reflect_ptr.cast_mut());
+                }
+            }
+        });
         for field in struct_type.fields() {
             // SAFETY: By the safety precondition, `dst` is valid for writes of this type, and
             // `Type::new` guarantees that `field.offset` is in bounds of it.
             let field_ptr = unsafe { dst.byte_add(field.offset) };
-            // If `func` panics, the previously written values in this type are leaked.
-            (func)(field, field_ptr);
+            if !(func)(field, field_ptr) {
+                // The function returned false, meaning it didn't initialize the field_ptr. So bail
+                // out and let the drop guard drop the previous initialized fields.
+                return false;
+            }
+            // This field is initialized, so keep track of it so we properly drop the field if we
+            // panic or bail out later.
+            initialized_fields.update(|x| x + 1);
         }
         // SAFETY: By the safety precondition, `dst` is valid for writes of the `struct_type` and
         // all ignored fields have a reflected default impl.
         unsafe { initialize_ignored_fields(struct_type, dst) };
+
         // At this point, all the uncovered bytes are initialized (either by the caller if
         // `uncovered_initialized` is true, or by us otherwise), all the normal fields have been
         // initialized with func, and all the ignored fields have been defaulted (and by
         // `Struct::new` these are all the fields in the struct). Therefore, `dst` is fully
-        // initialized.
+        // initialized, and we don't need to drop the fields on anymore.
+        DropGuard::dismiss(drop_set_fields_guard);
+        true
     }
 
     /// Allocates a new value of this type, initializing each field of the struct with `func`.
@@ -260,36 +293,47 @@ impl Type {
     /// Returns `None` if this type is not a [`Kind::Struct`], is unsized, or has an ignored field
     /// without a `default` function.
     ///
-    /// If `func` panics, the allocation for this type will be leaked.
+    /// If an ignored field default implementation panics, all previously written ignored fields are
+    /// leaked.
     ///
     /// This is like [`Self::initialize_struct_raw`] but with 1) fewer safety requirements, and 2)
     /// allocates a box to store the type for you.
     ///
     /// # Safety
     ///
-    /// `func` must initialize every pointer to a valid value that matches the type described in each [`StructField`].
-    /// The pointers may point to uninitialized memory, so values must be written without reading or
-    /// dropping the previous value (ex: with [`ptr::write`]), rather than assigned through a
-    /// reference.
+    /// `func` must return whether it initialized the passed-in pointer. It must initialize to a
+    /// valid value that matches the type describe in each [`StructField`]. `func` may not read/drop
+    /// the previous value (as the pointer may point to an uninitialized location).
     pub unsafe fn initialize_struct(
         &self,
-        func: impl FnMut(&StructField, NonNull<u8>),
+        func: impl FnMut(&StructField, NonNull<u8>) -> bool,
     ) -> Option<Box<dyn Reflect>> {
         let Kind::Struct(struct_type) = &self.kind else {
             return None;
         };
         let ptr = self.alloc_struct(struct_type)?;
+        let dealloc_guard = DropGuard::new((), |_| {
+            // SAFETY: `ptr` was allocated with `Type::alloc` (called by `alloc_struct`), and we
+            // only drop this pointer if we failed initialization (in which case we don't use the
+            // pointer).
+            unsafe { self.dealloc(ptr) };
+        });
         // SAFETY:
         // 1) We've checked the type is `Kind::Struct`.
         // 2) `alloc_struct` returns `None` if the type is unsized, so we know the type is sized.
         // 3) We just allocated `ptr`, and with the layout of this type, so it is valid for writes.
-        // 4) By the safety precondition, `func` will initialize every field pointer, and will not
-        //    read from the pointer.
+        // 4) By the safety precondition, `func` returns whether it initialized the passed-in
+        //    pointer, and initializes to a valid value for the field type.
         // 5) `alloc_struct` returns `None` if any ignored fields don't have a default impl.
         // 6) `alloc_struct` allocates the pointer based on the struct's `Struct::uncovered_bytes`.
-        unsafe {
-            self.initialize_struct_raw(ptr, /*uncovered_initialized=*/ true, func);
+        let initialized = unsafe {
+            self.initialize_struct_raw(ptr, /*uncovered_initialized=*/ true, func)
+        };
+        if !initialized {
+            return None;
         }
+        DropGuard::dismiss(dealloc_guard);
+
         // SAFETY: `initialize_struct_raw` guarantees that the type is fully initialized.
         // `alloc_struct` also allocated `ptr` with the global allocator (or the type is a ZST).
         Some(unsafe { self.box_from_raw(ptr) })
@@ -331,21 +375,60 @@ impl Type {
             return None;
         };
         let ptr = self.alloc_struct(struct_type)?;
-        let fields = struct_type
-            .fields()
-            .iter()
-            .map(|field| (field.offset, field.ty.get()));
-        // SAFETY: `ptr` was allocated by `alloc_struct` (which uses `Type::alloc`), and
-        // `Struct::new` guarantees that each field is at its offset in it, with its type
-        unsafe { self.move_values_into(ptr, fields, values)? };
-        // SAFETY: `alloc_struct` returns a valid allocation of this type, and `alloc_struct` checks
-        // that all ignored fields have reflected default impls.
-        unsafe { initialize_ignored_fields(struct_type, ptr) }
+        let ptr_dealloc = DropGuard::new((), |_| {
+            // SAFETY: We allocated the ptr with [`Type::alloc`], and we only continue to use the
+            // pointer if we successfully initialized the value (where this DropGuard is dismissed).
+            unsafe { self.dealloc(ptr) };
+        });
+
+        let mut values = values.into_iter();
+        // SAFETY:
+        // 1) We've checked the type is a struct.
+        // 2) `alloc_struct` fails if the layout is `None`, therefore layout must be `Some`.
+        // 3) `ptr` was allocated with this struct's layout, and nothing else reads/writes to this
+        //    pointer until after this call. So `ptr` is valid for writes of this type.
+        // 4) The function only returns true if it initializes the pointer (by moving in the value).
+        //    We check the type of the value to make sure it matches the field before moving.
+        // 5) `alloc_struct` returns `None` if any ignored field does not have a reflected default
+        //    impl. Therefore, all fields must have reflected default impls.
+        // 6) `alloc_struct` guarantees to correctly initialize the bytes according to
+        //    `Struct::uncovered_bytes`.
+        let initialized = unsafe {
+            self.initialize_struct_raw(
+                ptr,
+                /*uncovered_initialized=*/ true,
+                |field, field_ptr| {
+                    let Some(value) = values.next() else {
+                        return false;
+                    };
+                    if value.as_ref().type_id() != field.ty.get().type_id() {
+                        return false;
+                    }
+                    move_box_into(value, field_ptr.as_ptr());
+                    true
+                },
+            )
+        };
+
+        if !initialized {
+            // We failed to initialize. Just let the drop guard deallocate the memory.
+            return None;
+        }
+        DropGuard::dismiss(ptr_dealloc);
+
         // SAFETY: We've initialized the regular fields and the ignored fields, and `Struct::new`
         // ensures this covers all fields, and `alloc_struct` ensures all uncovered bytes are
         // correctly set, so `ptr` is fully initialized. `alloc_struct` also allocated `ptr` with
         // the global allocator (or the type is a ZST).
-        Some(unsafe { self.box_from_raw(ptr) })
+        let result = unsafe { self.box_from_raw(ptr) };
+
+        if values.next().is_some() {
+            // If there are still fields, return None. The initialized value gets dropped by the
+            // Box.
+            return None;
+        }
+
+        Some(result)
     }
 
     /// Initializes a new value of this array type into `dst`, initializing each element of the
@@ -354,10 +437,9 @@ impl Type {
     /// `func` is called exactly once for each element in the array, and in the order of the
     /// elements.
     ///
-    /// The value in `dst` is overwritten and **will not** be dropped. If `func` panics, all
-    /// previously written elements are leaked.
+    /// The value in `dst` is overwritten and **will not** be dropped.
     ///
-    /// After this function, `dst` holds a fully-initialized value of this type.
+    /// If this function returns `true`, `dst` holds a fully-initialized value of this type.
     ///
     /// # Safety
     ///
@@ -371,25 +453,52 @@ impl Type {
     pub unsafe fn initialize_array_raw(
         &self,
         dst: NonNull<u8>,
-        mut func: impl FnMut(usize, &Type, NonNull<u8>),
-    ) {
+        mut func: impl FnMut(usize, &Type, NonNull<u8>) -> bool,
+    ) -> bool {
         let Kind::Array(array_ty) = &self.kind else {
             // SAFETY: The safety precondition guarantees the type is an array.
             unsafe { unreachable_unchecked() }
         };
         let item_ty = array_ty.item().get();
         let stride = array_ty.stride();
+
+        let initialized_items = Cell::new(0);
+        let drop_set_fields_guard = DropGuard::new((), |_| {
+            // Iterate in reverse order so that the most recent values are dropped first (to mimic
+            // how stack variables are dropped).
+            for i in (0..initialized_items.get()).rev() {
+                // SAFETY: We know that `dst` is valid for writes of this type, and we know
+                // `i < array_ty.len()`. By `Array::new`, we also know the stride is accurate.
+                // Therefore, this pointer does not exceed the bounds of the array's memory. If the
+                // item type is a ZST, `dst` always adds zero, which is still a valid pointer.
+                let item_ptr = unsafe { dst.byte_add(i * stride) };
+                let reflect_ptr = item_ty.as_reflect_ptr(item_ptr.as_ptr());
+                // SAFETY: We have exclusive access to `dst`, and therefore, the array element. We
+                // know the index is within the bounds of the array, and we know the value is
+                // initialized due to the counter we kept track of.
+                unsafe { ptr::drop_in_place(reflect_ptr.cast_mut()) };
+            }
+        });
+
         for i in 0..array_ty.len() {
             // SAFETY: We know that `dst` is valid for writes of this type, and we know
             // `i < array_ty.len()`. By `Array::new`, we also know the stride is accurate.
             // Therefore, this pointer does not exceed the bounds of the array's memory. If the item
             // type is a ZST, `dst` always adds zero, which is still a valid pointer.
             let item_ptr = unsafe { dst.byte_add(i * stride) };
-            (func)(i, item_ty, item_ptr);
+            if !(func)(i, item_ty, item_ptr) {
+                // `func` failed to initialize the element, so just return false and let the drop
+                // guard drop all the previous fields.
+                return false;
+            }
+            // The element was initialized, so keep track of it so we drop it later.
+            initialized_items.update(|x| x + 1);
         }
         // At this point, we've called `func` on the memory locations of all the elements of the
         // array. By the safety precondition, `func` guarantees it will initialize the ptr. So we
         // must have a fully-initialized value of this array.
+        DropGuard::dismiss(drop_set_fields_guard);
+        true
     }
 
     /// Constructs a new value of this array type from its items.
@@ -404,65 +513,49 @@ impl Type {
             return None;
         };
         let dst = self.alloc()?;
-        let item = array_type.item().get();
-        let stride = array_type.stride();
-        let items_layout = (0..array_type.len()).map(move |index| (index * stride, item));
-        // SAFETY: `dst` was allocated with `Type::alloc`, and `Array::new` guarantees that the item
-        // at `index` is at `index * stride` in it, with the item type
-        unsafe { self.move_values_into(dst, items_layout, items)? };
-        // SAFETY: `dst` was allocated with `Type::alloc`, and every item was initialized above.
-        // Arrays have no bytes other than their items.
-        Some(unsafe { self.box_from_raw(dst) })
-    }
-
-    /// Moves one of the `values` into each of the `parts` of `dst` (given as an `(offset, type)`
-    /// pair), in order.
-    ///
-    /// Returns `None` if the number of values doesn't match the number of parts, or a value has the
-    /// wrong type. In that case, the values that were already moved into `dst` are dropped, and
-    /// `dst` is freed.
-    ///
-    /// # Safety
-    ///
-    /// `dst` must have been allocated with [`Type::alloc`] (or [`Type::alloc_zeroed`]), and each
-    /// part must be a distinct, non-overlapping location in it that can hold a value of its type.
-    unsafe fn move_values_into(
-        &self,
-        dst: NonNull<u8>,
-        parts: impl Iterator<Item = (usize, &'static Type)> + Clone,
-        values: impl IntoIterator<Item = Box<dyn Reflect>>,
-    ) -> Option<()> {
-        // Cleans up a partially constructed value: drops the first
-        // `initialized` `parts`, which were moved into `dst`, and frees `dst`.
-        let parts_clone = parts.clone();
-        let mut guard = DropGuard::new(0, |initialized| {
-            for (offset, ty) in parts_clone.take(initialized) {
-                let part_ptr = ty.as_reflect_ptr(dst.as_ptr().wrapping_add(offset));
-                // SAFETY: the first `initialized` parts were moved into `dst` at their offset, with
-                // their type, and are owned by `dst`
-                unsafe { ptr::drop_in_place(part_ptr.cast_mut()) };
-            }
-            // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized parts were dropped
+        let dealloc_guard = DropGuard::new((), |_| {
+            // SAFETY: `ptr` was allocated with `Type::alloc` (called by `alloc_struct`), and we
+            // only drop this pointer if we failed initialization (in which case we don't use the
+            // pointer).
             unsafe { self.dealloc(dst) };
         });
 
-        let mut values = values.into_iter();
-        for (offset, ty) in parts {
-            let value = values.next()?;
-            if value.ty().type_id() != ty.type_id() {
-                return None;
-            }
-            // SAFETY: the caller guarantees that `offset` is in bounds of `dst` and can hold a
-            // value of `ty`, which `value` was checked to be
-            unsafe { move_box_into(value, dst.as_ptr().add(offset)) };
-            *guard += 1;
-        }
-        if values.next().is_some() {
+        let item_ty = array_type.item().get();
+        let mut items = items.into_iter();
+
+        // SAFETY:
+        // 1) We've checked the type is an array.
+        // 2) `dst` was allocated with this array's layout, and nothing else reads/writes to this
+        //    pointer until after this call. So `ptr` is valid for writes of this type.
+        // 3) The function only returns true if it initialzies the pointer (by moving in the value).
+        //    We check the type of the value to make sure it matches the item type before moving.
+        let initialized = unsafe {
+            self.initialize_array_raw(dst, |_, _, item_ptr| {
+                let Some(item) = items.next() else {
+                    return false;
+                };
+                if item.as_ref().type_id() != item_ty.type_id {
+                    return false;
+                }
+                move_box_into(item, item_ptr.as_ptr());
+                true
+            })
+        };
+        if !initialized {
+            // We failed to initialize. Just let the drop guard deallocate the memory.
             return None;
         }
-        // Every part was initialized, so the caller now owns them
-        DropGuard::dismiss(guard);
-        Some(())
+        DropGuard::dismiss(dealloc_guard);
+        // SAFETY: `dst` was allocated with `Type::alloc`, and every item was initialized above.
+        // Arrays have no bytes other than their items.
+        let result = unsafe { self.box_from_raw(dst) };
+
+        // If there are still items, return None. The initialized value gets dropped by the Box.
+        if items.next().is_some() {
+            return None;
+        }
+
+        Some(result)
     }
 
     /// # Safety
@@ -562,6 +655,8 @@ impl Debug for TypeRef {
 /// `ptr` must be valid for writes of the `struct_type`, and all ignored fields of `struct_type`
 /// must have a default impl reflected.
 unsafe fn initialize_ignored_fields(struct_type: &Struct, ptr: NonNull<u8>) {
+    // TODO: Ignored fields are leaked if any of their default impls panic. We should store a drop
+    // impl for ignored fields.
     for field in struct_type.ignored_fields() {
         // SAFETY: Safety precondition ensures that all ignored fields of `struct_type` has a
         // reflected default impl.
