@@ -675,7 +675,12 @@ pub fn prepare_core_3d_depth_textures(
         &Camera3d,
         &Msaa,
     )>,
+    stale_depth_textures: Query<Entity, (With<ViewDepthStencilTexture>, Without<ExtractedCamera>)>,
 ) {
+    for entity in &stale_depth_textures {
+        commands.entity(entity).remove::<ViewDepthStencilTexture>();
+    }
+
     let mut render_target_usage = <HashMap<_, _>>::default();
     for (_, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
         // Default usage required to write to the depth texture
@@ -693,6 +698,7 @@ pub fn prepare_core_3d_depth_textures(
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
+            commands.entity(entity).remove::<ViewDepthStencilTexture>();
             continue;
         };
 
@@ -787,7 +793,12 @@ pub fn prepare_prepass_textures(
         Has<DepthPrepassDoubleBuffer>,
         Has<DeferredPrepassDoubleBuffer>,
     )>,
+    stale_prepass_textures: Query<Entity, (With<ViewPrepassTextures>, Without<ExtractedCamera>)>,
 ) {
+    for entity in &stale_prepass_textures {
+        commands.entity(entity).remove::<ViewPrepassTextures>();
+    }
+
     let motion_vector_storage_binding = render_adapter
         .get_texture_format_features(MOTION_VECTOR_PREPASS_FORMAT)
         .allowed_usages
@@ -823,6 +834,7 @@ pub fn prepare_prepass_textures(
         };
 
         let Some(physical_target_size) = camera.physical_target_size else {
+            commands.entity(entity).remove::<ViewPrepassTextures>();
             continue;
         };
 
