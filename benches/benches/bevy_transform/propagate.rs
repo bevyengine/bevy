@@ -1,4 +1,4 @@
-use core::{f32::consts::TAU, hint::black_box, time::Duration};
+use core::{hint::black_box, time::Duration};
 
 use benches::bench;
 use bevy_ecs::prelude::*;
@@ -6,83 +6,42 @@ use bevy_math::ops::{cos, sin};
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_transform::{
     components::{GlobalTransform, Transform},
-    systems::{
-        mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms,
-        StaticTransformOptimizations,
-    },
+    systems::{propagate_transforms, sync_simple_transforms, StaticTransformOptimizations},
 };
 use criterion::{criterion_group, Criterion};
 
-criterion_group!(
-    benches,
-    mark_dirty_trees_bench,
-    propagate_parent_transforms_bench,
-    transform_pipeline_bench
-);
-
-const ROOTS: usize = 48;
-const FANOUT_PER_LAYER: [usize; 6] = [4, 4, 3, 3, 2, 2];
-const HOT_BATCH: usize = 4096;
+criterion_group!(benches, transform_pipeline_bench);
 
 #[derive(Component)]
-#[expect(
-    unused,
-    reason = "Used to make archetypes closer to real gameplay worlds"
-)]
-struct MarkerA([f32; 8]);
+struct MarkerA;
 
 #[derive(Component)]
-#[expect(
-    unused,
-    reason = "Used to make archetypes closer to real gameplay worlds"
-)]
-struct MarkerB([f32; 8]);
+struct MarkerB;
 
 #[derive(Component)]
-#[expect(
-    unused,
-    reason = "Used to make archetypes closer to real gameplay worlds"
-)]
-struct MarkerC([f32; 8]);
-
-struct SceneData {
-    movers: Vec<Entity>,
-    roots: Vec<Entity>,
-}
+struct MarkerC;
 
 struct WorldBench {
     world: World,
     schedule: Schedule,
     movers: Vec<Entity>,
-    roots: Vec<Entity>,
     frame: usize,
 }
 
 impl WorldBench {
     fn new(
         static_optimizations: StaticTransformOptimizations,
-        configure_schedule: impl FnOnce(&mut Schedule),
+        spawn_entities: impl FnOnce(&mut World) -> Vec<Entity>,
     ) -> Self {
         ComputeTaskPool::get_or_init(TaskPool::default);
 
         let mut world = World::new();
         world.insert_resource(static_optimizations);
 
-        let SceneData { movers, roots } = spawn_complex_hierarchy(&mut world);
-
-        // Keep world storage realistic so component scans and table access are not "cold world".
-        world.spawn_batch((0..12_000).map(|i| {
-            (
-                Transform::from_xyz(i as f32 * 0.001, 0.0, 0.0),
-                GlobalTransform::IDENTITY,
-                MarkerA([i as f32; 8]),
-                MarkerB([i as f32 * 0.5; 8]),
-                MarkerC([i as f32 * 0.25; 8]),
-            )
-        }));
+        let movers = spawn_entities(&mut world);
 
         let mut schedule = Schedule::default();
-        configure_schedule(&mut schedule);
+        schedule.add_systems((propagate_transforms, sync_simple_transforms));
 
         // Warm steady-state caches / archetype paths once.
         schedule.run(&mut world);
@@ -91,16 +50,16 @@ impl WorldBench {
             world,
             schedule,
             movers,
-            roots,
             frame: 0,
         }
     }
 
-    fn mutate_movers(&mut self, batch: usize) {
+    fn run_once(&mut self, batch_size: Option<usize>) {
+        // Mutate the movers so that the transform propagation has work to do.
         let len = self.movers.len();
-        let start = (self.frame * batch) % len;
-
-        for offset in 0..batch {
+        let batch_size = batch_size.unwrap_or(len);
+        let start = (self.frame * batch_size) % len;
+        for offset in 0..batch_size {
             let idx = (start + offset) % len;
             let entity = self.movers[idx];
             if let Some(mut transform) = self.world.get_mut::<Transform>(entity) {
@@ -110,82 +69,111 @@ impl WorldBench {
                 transform.rotate_z(0.001 + ((idx % 17) as f32 * 0.000_05));
             }
         }
-    }
 
-    fn mutate_roots(&mut self, batch: usize) {
-        let len = self.roots.len();
-        let start = (self.frame * batch) % len;
-
-        for offset in 0..batch {
-            let idx = (start + offset) % len;
-            let entity = self.roots[idx];
-            if let Some(mut transform) = self.world.get_mut::<Transform>(entity) {
-                let phase = (self.frame + offset) as f32 * 0.001;
-                transform.translation.z += sin(phase) * 0.02;
-                transform.rotate_y(0.0015);
-            }
-        }
-    }
-
-    fn run_once(&mut self) {
+        // Run the schedule to benchmark.
         self.schedule.run(&mut self.world);
+
+        // Update the frame number.
         self.frame = self.frame.wrapping_add(1);
+
+        black_box(&mut self.frame);
+        black_box(&mut self.world);
     }
 }
 
-fn spawn_complex_hierarchy(world: &mut World) -> SceneData {
-    let mut roots = Vec::with_capacity(ROOTS);
-    let mut movers = Vec::new();
-    let mut current_layer = Vec::new();
-    let mut next_layer = Vec::new();
-
-    for root_idx in 0..ROOTS {
-        let root = world
-            .spawn((
-                Transform::from_xyz(root_idx as f32 * 3.0, 0.0, 0.0),
-                GlobalTransform::IDENTITY,
-                MarkerA([root_idx as f32; 8]),
-                MarkerB([1.0; 8]),
-                MarkerC([2.0; 8]),
-            ))
-            .id();
-        roots.push(root);
-
-        current_layer.clear();
-        current_layer.push(root);
-
-        for (depth, fanout) in FANOUT_PER_LAYER.into_iter().enumerate() {
-            next_layer.clear();
-            for &parent in &current_layer {
-                for child_idx in 0..fanout {
-                    let seed = ((root_idx * 7919) + (depth * 313) + child_idx) as f32;
-                    let angle = (seed * 0.11) % TAU;
-                    let child = world
-                        .spawn((
-                            Transform::from_xyz(
-                                cos(angle) * (depth as f32 + 1.0),
-                                sin(angle) * (depth as f32 + 0.5),
-                                depth as f32 * 0.75,
-                            ),
-                            GlobalTransform::IDENTITY,
-                            MarkerA([seed; 8]),
-                            MarkerB([seed * 0.5; 8]),
-                            MarkerC([seed * 0.25; 8]),
-                        ))
-                        .id();
-
-                    world.entity_mut(parent).add_child(child);
-                    if depth >= 2 {
-                        movers.push(child);
+fn spawn_for_each_fragmented(
+    world: &mut World,
+    archetype_size: usize,
+    mut f: impl FnMut([bool; 3], usize, &mut EntityWorldMut<'_>),
+) {
+    for a in [true, false] {
+        for b in [true, false] {
+            for c in [true, false] {
+                for i in 0..archetype_size {
+                    let mut e = world.spawn(Transform::from_xyz(10.0, 0.0, 0.0));
+                    if a {
+                        e.insert(MarkerA);
                     }
-                    next_layer.push(child);
+                    if b {
+                        e.insert(MarkerB);
+                    }
+                    if c {
+                        e.insert(MarkerC);
+                    }
+
+                    f([a, b, c], i, &mut e);
                 }
             }
-            core::mem::swap(&mut current_layer, &mut next_layer);
         }
     }
+}
 
-    SceneData { movers, roots }
+fn spawn_flat_many_moves(world: &mut World) -> Vec<Entity> {
+    let mut movers = Vec::new();
+
+    spawn_for_each_fragmented(world, 1000, |_, _, e| {
+        // Move all entities.
+        movers.push(e.id());
+    });
+
+    movers
+}
+
+fn spawn_flat_few_moves(world: &mut World) -> Vec<Entity> {
+    let mut movers = Vec::new();
+
+    spawn_for_each_fragmented(world, 1000, |[a, _, _], i, e| {
+        // Move only a few entities, and not in all archetypes.
+        if a && i % 100 == 0 {
+            movers.push(e.id());
+        }
+    });
+
+    movers
+}
+
+fn spawn_wide_hierarchy_only_root(world: &mut World) -> Vec<Entity> {
+    let root = world.spawn(Transform::from_xyz(10.0, 0.0, 0.0)).id();
+
+    spawn_for_each_fragmented(world, 1000, |_, _, e| _ = e.insert(ChildOf(root)));
+
+    // Only mutate the root
+    vec![root]
+}
+
+fn spawn_wide_hierarchy_only_few_children(world: &mut World) -> Vec<Entity> {
+    let root = world.spawn(Transform::from_xyz(10.0, 0.0, 0.0)).id();
+    let mut movers = Vec::new();
+
+    spawn_for_each_fragmented(world, 1000, |[a, _, _], i, e| {
+        e.insert(ChildOf(root));
+
+        // Move only a few entities, and not in all archetypes.
+        if a && i % 100 == 0 {
+            movers.push(e.id());
+        }
+    });
+
+    movers
+}
+
+fn spawn_wide_hierarchy_mixed(world: &mut World) -> Vec<Entity> {
+    let root = world.spawn(Transform::from_xyz(10.0, 0.0, 0.0)).id();
+    let mut movers = Vec::new();
+
+    // Spawn a lot of movers
+    for _ in 0..10000 {
+        let e = world.spawn((Transform::from_xyz(10.0, 0.0, 0.0), ChildOf(root), MarkerA));
+        movers.push(e.id());
+    }
+
+    // Spawn a lot of static entities
+    for _ in 0..10000 {
+        world.spawn((Transform::from_xyz(10.0, 0.0, 0.0), ChildOf(root), MarkerB));
+        world.spawn((Transform::from_xyz(10.0, 0.0, 0.0), ChildOf(root), MarkerC));
+    }
+
+    movers
 }
 
 struct ReparentBench {
@@ -224,21 +212,14 @@ impl ReparentBench {
                     Transform::from_xyz((i % 100) as f32 * 0.1, (i / 100) as f32 * 0.1, 0.0),
                     GlobalTransform::IDENTITY,
                     ChildOf(parent_a),
-                    MarkerA([i as f32; 8]),
+                    MarkerA,
                 ))
                 .id();
             children.push(child);
         }
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(
-            (
-                mark_dirty_trees,
-                propagate_parent_transforms,
-                sync_simple_transforms,
-            )
-                .chain(),
-        );
+        schedule.add_systems((propagate_transforms, sync_simple_transforms).chain());
 
         schedule.run(&mut world);
 
@@ -273,107 +254,50 @@ impl ReparentBench {
     }
 }
 
-fn mark_dirty_trees_bench(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("mark_dirty_trees"));
-    group.warm_up_time(Duration::from_millis(500));
-    group.measurement_time(Duration::from_secs(6));
-
-    group.bench_function("localized_leaf_updates", |b| {
-        let mut scene = WorldBench::new(StaticTransformOptimizations::Enabled, |schedule| {
-            schedule.add_systems(mark_dirty_trees);
-        });
-        b.iter(|| {
-            scene.mutate_movers(1024);
-            scene.run_once();
-            black_box(scene.frame);
-        });
-    });
-
-    group.bench_function("distributed_leaf_updates", |b| {
-        let mut scene = WorldBench::new(StaticTransformOptimizations::Enabled, |schedule| {
-            schedule.add_systems(mark_dirty_trees);
-        });
-        b.iter(|| {
-            scene.mutate_movers(HOT_BATCH);
-            scene.run_once();
-            black_box(scene.frame);
-        });
-    });
-
-    group.finish();
-}
-
-fn propagate_parent_transforms_bench(c: &mut Criterion) {
-    let mut group = c.benchmark_group(bench!("propagate_parent_transforms"));
-    group.warm_up_time(Duration::from_millis(500));
-    group.measurement_time(Duration::from_secs(6));
-
-    // Disable static optimization to isolate pure propagation traversal cost.
-    group.bench_function("full_recompute_roots_changed", |b| {
-        let mut scene = WorldBench::new(StaticTransformOptimizations::Disabled, |schedule| {
-            schedule.add_systems(propagate_parent_transforms);
-        });
-        b.iter(|| {
-            scene.mutate_roots(8);
-            scene.run_once();
-            black_box(scene.frame);
-        });
-    });
-
-    group.bench_function("full_recompute_leaves_changed", |b| {
-        let mut scene = WorldBench::new(StaticTransformOptimizations::Disabled, |schedule| {
-            schedule.add_systems(propagate_parent_transforms);
-        });
-        b.iter(|| {
-            scene.mutate_movers(HOT_BATCH);
-            scene.run_once();
-            black_box(scene.frame);
-        });
-    });
-
-    group.finish();
-}
-
 fn transform_pipeline_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group(bench!("transform_pipeline"));
     group.warm_up_time(Duration::from_millis(500));
     group.measurement_time(Duration::from_secs(6));
 
-    group.bench_function("localized_updates_static_optimized", |b| {
-        let mut scene = WorldBench::new(StaticTransformOptimizations::Enabled, |schedule| {
-            schedule.add_systems(
-                (
-                    mark_dirty_trees,
-                    propagate_parent_transforms,
-                    sync_simple_transforms,
-                )
-                    .chain(),
-            );
-        });
-        b.iter(|| {
-            scene.mutate_movers(1024);
-            scene.run_once();
-            black_box(scene.frame);
-        });
-    });
+    for static_optimizations_enabled in [true, false] {
+        let id = if static_optimizations_enabled {
+            |id: &str| format!("{id}_static_opt")
+        } else {
+            |id: &str| format!("{id}_no_static_opt")
+        };
 
-    group.bench_function("localized_updates_no_static_optimization", |b| {
-        let mut scene = WorldBench::new(StaticTransformOptimizations::Disabled, |schedule| {
-            schedule.add_systems(
-                (
-                    mark_dirty_trees,
-                    propagate_parent_transforms,
-                    sync_simple_transforms,
-                )
-                    .chain(),
-            );
+        let static_optimizations = if static_optimizations_enabled {
+            StaticTransformOptimizations::Enabled
+        } else {
+            StaticTransformOptimizations::Disabled
+        };
+
+        group.bench_function(id("spawn_flat_many_moves"), |b| {
+            let mut scene = WorldBench::new(static_optimizations, spawn_flat_many_moves);
+            b.iter(|| scene.run_once(None));
         });
-        b.iter(|| {
-            scene.mutate_movers(1024);
-            scene.run_once();
-            black_box(scene.frame);
+
+        group.bench_function(id("spawn_flat_few_moves"), |b| {
+            let mut scene = WorldBench::new(static_optimizations, spawn_flat_few_moves);
+            b.iter(|| scene.run_once(None));
         });
-    });
+
+        group.bench_function(id("spawn_wide_hierarchy_only_root"), |b| {
+            let mut scene = WorldBench::new(static_optimizations, spawn_wide_hierarchy_only_root);
+            b.iter(|| scene.run_once(None));
+        });
+
+        group.bench_function(id("spawn_wide_hierarchy_only_few_children"), |b| {
+            let mut scene =
+                WorldBench::new(static_optimizations, spawn_wide_hierarchy_only_few_children);
+            b.iter(|| scene.run_once(None));
+        });
+
+        group.bench_function(id("spawn_wide_hierarchy_mixed"), |b| {
+            let mut scene = WorldBench::new(static_optimizations, spawn_wide_hierarchy_mixed);
+            b.iter(|| scene.run_once(None));
+        });
+    }
 
     group.bench_function("childof_reparent_churn", |b| {
         let mut scene = ReparentBench::new();

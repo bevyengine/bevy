@@ -35,7 +35,9 @@ bevy_render = { path = "../crates/bevy_render", optional = true }
 bevy_scene = { path = "../crates/bevy_scene", optional = true }
 bevy_tasks = { path = "../crates/bevy_tasks", optional = true }
 bevy_text = { path = "../crates/bevy_text", optional = true }
-bevy_transform = { path = "../crates/bevy_transform", optional = true }
+bevy_transform = { path = "../crates/bevy_transform", optional = true, features = [
+  "multi_threaded",
+] }
 bevy_ui = { path = "../crates/bevy_ui", optional = true }
 bevy_ui_widgets = { path = "../crates/bevy_ui_widgets", optional = true }
 bevy_platform = { path = "../crates/bevy_platform", optional = true, default-features = false, features = [

@@ -103,6 +103,7 @@ use core::slice;
     reflect(Serialize, Deserialize)
 )]
 #[relationship(relationship_target = Children)]
+#[component(summary_tick)]
 #[doc(alias = "IsChild", alias = "Parent")]
 pub struct ChildOf(#[entities] pub Entity);
 

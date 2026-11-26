@@ -289,7 +289,6 @@
 //!         9.0
 //!       ]
 //!     },
-//!     "bevy_transform::components::transform::TransformTreeChanged": null
 //!   },
 //!   "entity": "34v0"
 //!},
