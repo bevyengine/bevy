@@ -29,7 +29,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
-    renderer::{RenderAdapter, RenderDevice},
+    renderer::{supports_cube_array_textures, RenderAdapter, RenderDevice},
     texture::{FallbackImage, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -60,9 +60,6 @@ use crate::{
     ViewClusterBindings, ViewShadowBindings, ViewTransmissionTexture,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
-
-#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-use bevy_render::render_resource::binding_types::texture_cube;
 
 #[cfg(debug_assertions)]
 use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, tracing::warn};
@@ -278,6 +275,7 @@ fn layout_entries(
         irradiance_volume_entries,
         clustered_decal_entries,
         is_oit_supported,
+        supports_cube_array_textures,
     }: &MeshPipelineViewLayoutParams,
 ) -> [Vec<BindGroupLayoutEntry>; 2] {
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
@@ -293,20 +291,11 @@ fn layout_entries(
             // Point Shadow Texture Cube Array
             (
                 2,
-                #[cfg(all(
-                    not(target_abi = "sim"),
-                    any(
-                        not(feature = "webgl"),
-                        not(target_arch = "wasm32"),
-                        feature = "webgpu"
-                    )
-                ))]
-                texture_cube_array(TextureSampleType::Depth),
-                #[cfg(any(
-                    target_abi = "sim",
-                    all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
-                ))]
-                texture_cube(TextureSampleType::Depth),
+                if supports_cube_array_textures {
+                    texture_cube_array(TextureSampleType::Depth)
+                } else {
+                    texture_cube(TextureSampleType::Depth)
+                },
             ),
             // Point Shadow Texture Array Comparison Sampler
             (3, sampler(SamplerBindingType::Comparison)),
@@ -549,6 +538,7 @@ struct MeshPipelineViewLayoutParams {
     irradiance_volume_entries: [BindGroupLayoutEntryBuilder; 2],
     clustered_decal_entries: Option<[BindGroupLayoutEntryBuilder; 3]>,
     is_oit_supported: bool,
+    supports_cube_array_textures: bool,
 }
 
 /// Stores the view layouts entries for creating bind group layouts of pipeline keys.
@@ -588,6 +578,7 @@ pub fn init_mesh_pipeline_view_layouts(
                 &render_device,
                 false,
             ),
+            supports_cube_array_textures: supports_cube_array_textures(&render_adapter),
         }),
     };
 
@@ -1055,6 +1046,40 @@ pub fn prepare_mesh_view_bind_groups(
                     .map(|_| -> BindGroupEntry<'static> { unreachable!() })
                     .collect();
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn point_shadow_layout_matches_cube_array_support() {
+        let unused = sampler(SamplerBindingType::Filtering);
+        for (supported, dimension) in [
+            (false, TextureViewDimension::Cube),
+            (true, TextureViewDimension::CubeArray),
+        ] {
+            let params = MeshPipelineViewLayoutParams {
+                clustered_forward_buffer_binding_type: BufferBindingType::Uniform,
+                visibility_ranges_buffer_binding_type: BufferBindingType::Uniform,
+                environment_map_entries: [unused; 3],
+                irradiance_volume_entries: [unused; 2],
+                clustered_decal_entries: None,
+                is_oit_supported: false,
+                supports_cube_array_textures: supported,
+            };
+            let [entries, _] = layout_entries(MeshPipelineViewLayoutKey::empty(), &params);
+            let shadow = entries.iter().find(|entry| entry.binding == 2).unwrap();
+            assert!(matches!(
+                shadow.ty,
+                BindingType::Texture {
+                    sample_type: TextureSampleType::Depth,
+                    view_dimension,
+                    multisampled: false,
+                } if view_dimension == dimension
+            ));
         }
     }
 }

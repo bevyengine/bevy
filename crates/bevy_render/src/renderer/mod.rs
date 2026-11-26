@@ -156,6 +156,20 @@ wgpu_wrapper! {
     pub struct RenderAdapterInfo(AdapterInfo);
 }
 
+/// Whether cube array textures can be used by the renderer on this adapter.
+pub fn supports_cube_array_textures(adapter: &RenderAdapter) -> bool {
+    !cfg!(target_abi = "sim")
+        && !cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        ))
+        && adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(wgpu::DownlevelFlags::CUBE_ARRAY_TEXTURES)
+}
+
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
 } else {

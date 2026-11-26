@@ -233,6 +233,13 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
+    pub(crate) fn disable_cube_array_textures(&mut self) {
+        let shader_def = ShaderDefVal::from("NO_CUBE_ARRAY_TEXTURES_SUPPORT");
+        if !self.global_shader_defs.contains(&shader_def) {
+            self.global_shader_defs.push(shader_def);
+        }
+    }
+
     /// Returns an iterator over the pipelines in the pipeline cache.
     pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
         self.pipelines.iter()
