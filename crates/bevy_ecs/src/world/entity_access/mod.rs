@@ -99,22 +99,20 @@ mod tests {
 
     #[test]
     fn entity_ref_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
-
         let mut world = World::new();
+        let component_id = world.register_component::<TestComponent>();
         let entity = world.spawn_empty().id();
         let entity = world.entity(entity);
-        assert!(entity.get_by_id(invalid_component_id).is_err());
+        assert!(entity.get_by_id(component_id).is_err());
     }
 
     #[test]
     fn entity_mut_get_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
-
         let mut world = World::new();
+        let component_id = world.register_component::<TestComponent>();
         let mut entity = world.spawn_empty();
-        assert!(entity.get_by_id(invalid_component_id).is_err());
-        assert!(entity.get_mut_by_id(invalid_component_id).is_err());
+        assert!(entity.get_by_id(component_id).is_err());
+        assert!(entity.get_mut_by_id(component_id).is_err());
     }
 
     #[derive(Resource)]

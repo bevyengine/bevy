@@ -66,7 +66,8 @@ where
         }
         RadioGroup
         Children [
-            @label(title),
+            @label(title)
+            --
             {buttons}
         ]
     }
@@ -86,7 +87,7 @@ where
             @FeathersRadio {
                 @caption: bsn! { @caption(option_name) }
             }
-            Hovered::default()
+            Hovered
             Checked
             RadioButtonOptionValue<T>(option_value)
         })
@@ -95,7 +96,7 @@ where
             @FeathersRadio {
                 @caption: bsn! { @caption(option_name) }
             }
-            Hovered::default()
+            Hovered
             RadioButtonOptionValue<T>(option_value)
         })
     }

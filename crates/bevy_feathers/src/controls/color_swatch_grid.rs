@@ -7,9 +7,9 @@ use bevy_ecs::{
     observer::On,
     query::{Has, With},
     reflect::ReflectComponent,
+    schedule::IntoScheduleConfigs,
     system::{Commands, Query, SystemParam},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::UVec2;
 use bevy_picking::{cursor::EntityCursor, Pickable};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -26,7 +26,7 @@ use crate::{
     focus::FocusIndicator,
     palette,
     theme::ThemeBorderColor,
-    tokens,
+    tokens, FeathersSystems,
 };
 
 /// A rectangular grid of color swatches, which allows one swatch to be selected.
@@ -67,7 +67,6 @@ impl FeathersColorSwatchGrid {
                 align_items: AlignItems::Stretch,
             }
             RadioGroup
-            TabIndex
             FocusIndicator
             on(swatch_grid_ready)
             on(swatch_grid_on_value_change)
@@ -95,9 +94,9 @@ impl FeathersColorSwatchGridCell {
                 display: Display::Flex,
             }
             RadioButton
-            Children [(
+            Children [
                 @ColorSwatchGridCellRing
-            )]
+            ]
         }
     }
 }
@@ -422,6 +421,6 @@ pub struct ColorSwatchGridPlugin;
 
 impl Plugin for ColorSwatchGridPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(PostUpdate, update_cell_ring);
+        app.add_systems(PostUpdate, update_cell_ring.in_set(FeathersSystems));
     }
 }

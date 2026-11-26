@@ -96,7 +96,18 @@ impl AsAssetId for Mesh2d {
 /// }
 /// ```
 #[derive(
-    Component, FromTemplate, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From,
+    Component,
+    FromTemplate,
+    Clone,
+    Debug,
+    Default,
+    Deref,
+    DerefMut,
+    Reflect,
+    PartialEq,
+    Eq,
+    Hash,
+    From,
 )]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform)]

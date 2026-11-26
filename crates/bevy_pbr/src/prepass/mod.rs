@@ -3,13 +3,14 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
-    setup_morph_and_skinning_defs, skin, DeferredAlphaMaskDrawFunction, DeferredFragmentShader,
-    DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, MaterialPipeline,
-    MaterialPropertiesExt, MeshLayouts, MeshPipeline, MeshPipelineKey, PreparedMaterial,
-    PrepassAlphaMaskDrawFunction, PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction,
-    PrepassOpaqueDrawFunction, PrepassVertexShader, RenderLightmaps, RenderMaterialInstances,
-    RenderMeshInstanceFlags, RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup,
-    ShadowView,
+    setup_morph_and_skinning_defs, skin, visibility_ranges_min_binding_size,
+    DeferredAlphaMaskDrawFunction, DeferredFragmentShader, DeferredOpaqueDrawFunction,
+    DeferredVertexShader, DrawMesh, MaterialPipeline, MaterialPropertiesExt, MeshLayouts,
+    MeshPipeline, MeshPipelineKey, PreparedMaterial, PrepassAlphaMaskDrawFunction,
+    PrepassFragmentShader, PrepassOpaqueDepthOnlyDrawFunction, PrepassOpaqueDrawFunction,
+    PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
+    RenderMeshInstances, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    VISIBILITY_RANGES_BINDING_INDEX,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -26,7 +27,7 @@ use bevy_material::{
     key::{ErasedMaterialPipelineKey, ErasedMeshPipelineKey},
     AlphaMode, MaterialProperties, OpaqueRendererMethod, RenderPhaseType,
 };
-use bevy_math::{Affine3A, Mat4, Vec2, Vec4};
+use bevy_math::{Affine3A, Mat4, Vec2};
 use bevy_mesh::{Mesh, Mesh3d, MeshAttributeCompressionFlags, MeshVertexBufferLayoutRef};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -296,11 +297,13 @@ pub fn init_prepass_pipeline(
                 (2, uniform_buffer::<PreviousViewData>(true)),
                 // VisibilityRanges
                 (
-                    14,
+                    VISIBILITY_RANGES_BINDING_INDEX,
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
-                        Some(Vec4::min_size()),
+                        Some(visibility_ranges_min_binding_size(
+                            visibility_ranges_buffer_binding_type,
+                        )),
                     )
                     .visibility(ShaderStages::VERTEX),
                 ),
@@ -319,11 +322,13 @@ pub fn init_prepass_pipeline(
                 (1, uniform_buffer::<GlobalsUniform>(false)),
                 // VisibilityRanges
                 (
-                    14,
+                    VISIBILITY_RANGES_BINDING_INDEX,
                     buffer_layout(
                         visibility_ranges_buffer_binding_type,
                         false,
-                        Some(Vec4::min_size()),
+                        Some(visibility_ranges_min_binding_size(
+                            visibility_ranges_buffer_binding_type,
+                        )),
                     )
                     .visibility(ShaderStages::VERTEX),
                 ),
@@ -432,7 +437,7 @@ impl PrepassPipeline {
             && !emulate_unclipped_depth
             && !material_properties.prepass_reads_material()
         {
-            // The shaders for depth only opaque prepass doesn't need material's bind group.
+            // The shaders for depth only opaque prepass don't need the material's bind group.
             // We set an empty layout and batch them by setting `material_bind_group_index` to `None` in batch set key.
             bind_group_layouts.push(self.empty_layout.clone());
         } else {
@@ -874,7 +879,10 @@ pub fn prepare_prepass_view_bind_group(
             &BindGroupEntries::with_indices((
                 (0, view_binding.clone()),
                 (1, globals_binding.clone()),
-                (14, visibility_ranges_buffer.as_entire_binding()),
+                (
+                    VISIBILITY_RANGES_BINDING_INDEX,
+                    visibility_ranges_buffer.as_entire_binding(),
+                ),
             )),
         ));
 
@@ -886,7 +894,10 @@ pub fn prepare_prepass_view_bind_group(
                     (0, view_binding),
                     (1, globals_binding),
                     (2, previous_view_uniforms_binding),
-                    (14, visibility_ranges_buffer.as_entire_binding()),
+                    (
+                        VISIBILITY_RANGES_BINDING_INDEX,
+                        visibility_ranges_buffer.as_entire_binding(),
+                    ),
                 )),
             ));
         }
@@ -1129,6 +1140,10 @@ pub(crate) fn specialize_prepass_material_meshes(
                     continue;
                 }
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id()) else {
+                    // Retry specialization once the mesh is ready.
+                    view_pending_prepass_mesh_material_queues
+                        .current_frame
+                        .insert((*render_entity, *visible_entity));
                     continue;
                 };
 

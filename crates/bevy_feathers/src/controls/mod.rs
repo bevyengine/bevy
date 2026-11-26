@@ -7,8 +7,10 @@ mod color_plane;
 mod color_slider;
 mod color_swatch;
 mod color_swatch_grid;
+mod color_wheel;
 mod dialog;
 mod disclosure_toggle;
+mod dock;
 mod listview;
 mod menu;
 mod number_input;
@@ -16,8 +18,11 @@ mod radio;
 mod scrollbar;
 mod select;
 mod slider;
+mod split_pane;
+mod tabs;
 mod text_input;
 mod toggle_switch;
+mod tree_view;
 mod virtual_keyboard;
 
 pub use button::*;
@@ -27,8 +32,10 @@ pub use color_plane::*;
 pub use color_slider::*;
 pub use color_swatch::*;
 pub use color_swatch_grid::*;
+pub use color_wheel::*;
 pub use dialog::*;
 pub use disclosure_toggle::*;
+pub use dock::*;
 pub use listview::*;
 pub use menu::*;
 pub use number_input::*;
@@ -36,8 +43,11 @@ pub use radio::*;
 pub use scrollbar::*;
 pub use select::*;
 pub use slider::*;
+pub use split_pane::*;
+pub use tabs::*;
 pub use text_input::*;
 pub use toggle_switch::*;
+pub use tree_view::*;
 pub use virtual_keyboard::*;
 
 use crate::alpha_pattern::AlphaPatternPlugin;
@@ -57,7 +67,9 @@ impl PluginGroup for ControlsPlugin {
             .add(ColorSliderPlugin)
             .add(ColorSwatchPlugin)
             .add(ColorSwatchGridPlugin)
+            .add(ColorWheelPlugin)
             .add(DisclosureTogglePlugin)
+            .add(FeathersDockPlugin)
             .add(ListViewPlugin)
             .add(MenuPlugin)
             .add(NumberInputPlugin)
@@ -65,7 +77,10 @@ impl PluginGroup for ControlsPlugin {
             .add(ScrollbarPlugin)
             .add(SelectPlugin)
             .add(SliderPlugin)
+            .add(SplitPanePlugin)
+            .add(FeathersTabsPlugin)
             .add(TextInputPlugin)
             .add(ToggleSwitchPlugin)
+            .add(TreeViewPlugin)
     }
 }

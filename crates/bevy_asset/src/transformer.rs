@@ -5,8 +5,8 @@
 //! See [`AssetTransformer`] for details.
 
 use crate::{
-    meta::Settings, Asset, AssetId, ErasedLoadedAsset, Handle, LabeledAsset, UntypedAssetId,
-    UntypedHandle,
+    meta::Settings, Asset, AssetId, ErasedLoadedAsset, Handle, LabeledAsset, LoadedAsset,
+    UntypedAssetId, UntypedHandle,
 };
 use alloc::{boxed::Box, vec::Vec};
 use atomicow::CowArc;
@@ -14,6 +14,7 @@ use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::TypePath;
 use bevy_tasks::ConditionalSendFuture;
 use core::{
+    any::Any,
     borrow::Borrow,
     convert::Infallible,
     hash::Hash,
@@ -72,16 +73,13 @@ impl<A: Asset> DerefMut for TransformedAsset<A> {
 
 impl<A: Asset> TransformedAsset<A> {
     /// Creates a new [`TransformedAsset`] from `asset` if its internal value matches `A`.
-    pub fn from_loaded(asset: ErasedLoadedAsset) -> Option<Self> {
-        if let Ok(value) = asset.value.downcast::<A>() {
-            return Some(TransformedAsset {
-                value: *value,
-                labeled_assets: asset.labeled_assets,
-                label_to_asset_index: asset.label_to_asset_index,
-                asset_id_to_asset_index: asset.asset_id_to_asset_index,
-            });
+    pub fn from_loaded(asset: LoadedAsset<A>) -> Self {
+        TransformedAsset {
+            value: asset.value,
+            labeled_assets: asset.labeled_assets,
+            label_to_asset_index: asset.label_to_asset_index,
+            asset_id_to_asset_index: asset.asset_id_to_asset_index,
         }
-        None
     }
 
     /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
@@ -121,7 +119,7 @@ impl<A: Asset> TransformedAsset<A> {
     {
         let index = self.label_to_asset_index.get(label)?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
@@ -151,7 +149,7 @@ impl<A: Asset> TransformedAsset<A> {
     ) -> Option<TransformedSubAsset<'_, B>> {
         let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
@@ -263,7 +261,7 @@ impl<'a, A: Asset> DerefMut for TransformedSubAsset<'a, A> {
 impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     /// Creates a new [`TransformedSubAsset`] from `asset` if its internal value matches `A`.
     pub fn from_loaded(asset: &'a mut ErasedLoadedAsset) -> Option<Self> {
-        let value = asset.value.downcast_mut::<A>()?;
+        let value = (&mut *asset.value as &mut dyn Any).downcast_mut::<A>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut asset.labeled_assets,
@@ -292,7 +290,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     {
         let index = self.label_to_asset_index.get(label)?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,
@@ -322,7 +320,7 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     ) -> Option<TransformedSubAsset<'_, B>> {
         let index = self.asset_id_to_asset_index.get(&id.into().untyped())?;
         let labeled = &mut self.labeled_assets[*index];
-        let value = labeled.asset.value.downcast_mut::<B>()?;
+        let value = (&mut *labeled.asset.value as &mut dyn Any).downcast_mut::<B>()?;
         Some(TransformedSubAsset {
             value,
             labeled_assets: &mut labeled.asset.labeled_assets,

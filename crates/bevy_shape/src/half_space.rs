@@ -104,8 +104,6 @@ impl HalfSpace {
 
 #[cfg(test)]
 mod half_space_tests {
-    use core::f32;
-
     use approx::assert_relative_eq;
 
     use crate::half_space::HalfSpace;

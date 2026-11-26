@@ -48,6 +48,8 @@ use crate::{
 /// [`BTreeSet`]: alloc::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
+// Prevents unexpectedly importing this trait when trying to call, for example, `HashSet::iter`
+#[rust_analyzer::completions(ignore_flyimport_methods)]
 pub trait Set: PartialReflect {
     /// Returns a reference to the value.
     ///

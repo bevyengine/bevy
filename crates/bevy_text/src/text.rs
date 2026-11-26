@@ -1,9 +1,9 @@
-use crate::{Font, TextBrush, TextError, TextLayoutInfo, TextSection};
-use alloc::borrow::Cow;
+use crate::{Font, InlineBox, TextBrush, TextError, TextLayoutInfo, TextSection};
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent, template::VecTemplate};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
@@ -280,7 +280,7 @@ impl From<Justify> for parley::Alignment {
 ///
 /// You can check which font family is used for a given [`FontSource`]
 /// by calling [`FontCx::get_family`](crate::FontCx::get_family).
-#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate)]
+#[derive(Clone, Debug, Reflect, PartialEq, FromTemplate, Default)]
 pub enum FontSource {
     /// Use a specific font face referenced by a [`Font`] asset handle.
     ///
@@ -288,8 +288,7 @@ pub enum FontSource {
     /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
-    ///   handle.
-    #[default]
+    ///   handle.    
     Handle(Handle<Font>),
     /// Resolve the font by family name using the font database.
     Family(SmolStr),
@@ -301,6 +300,23 @@ pub enum FontSource {
     List(#[template(built_in)] Vec<FontSource>),
     /// Resolve the font using a generic font family.
     Generic(GenericFontFamily),
+    /// Use the default font source from the [`DefaultFontSource`] resource.
+    #[default]
+    Default,
+}
+impl From<FontSource> for FontSourceTemplate {
+    fn from(source: FontSource) -> Self {
+        match source {
+            FontSource::Handle(handle) => Self::Handle(handle.into()),
+            FontSource::Family(family) => Self::Family(family),
+            FontSource::Families(source) => Self::Families(source),
+            FontSource::List(list) => Self::List(VecTemplate(
+                list.into_iter().map(FontSourceTemplate::from).collect(),
+            )),
+            FontSource::Generic(generic_family) => Self::Generic(generic_family),
+            FontSource::Default => Self::Default,
+        }
+    }
 }
 
 impl FontSource {
@@ -444,8 +460,20 @@ impl FontSource {
     pub fn resolve_font_family<'a>(
         &'a self,
         fonts: &'a Assets<Font>,
+        default_source: &'a Self,
     ) -> Result<FontFamily<'a>, TextError> {
+        if matches!(self, FontSource::Default) && !matches!(default_source, FontSource::Default) {
+            return default_source.resolve_font_family(fonts, &FontSource::Default);
+        }
+
         Ok(match self {
+            FontSource::Default => FontFamily::named(
+                fonts
+                    .get(Handle::default().id())
+                    .ok_or(TextError::NoSuchFont)?
+                    .alias
+                    .as_str(),
+            ),
             FontSource::Handle(handle) => {
                 FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
                     fonts
@@ -462,6 +490,7 @@ impl FontSource {
                 match font_sources.as_slice() {
                     [] => FontFamily::List(Cow::Owned(Vec::new())),
                     [source] => match *source {
+                        FontSource::Default => source.resolve_font_family(fonts, default_source)?,
                         FontSource::Handle(handle) => {
                             FontFamily::Single(parley::FontFamilyName::Named(Cow::Borrowed(
                                 fonts
@@ -494,6 +523,23 @@ impl FontSource {
                         let mut families = Vec::new();
                         for source in font_sources.iter().copied() {
                             match source {
+                                FontSource::Default => {
+                                    match source.resolve_font_family(fonts, default_source)? {
+                                        FontFamily::Single(family) => families.push(family),
+                                        FontFamily::List(list) => {
+                                            families.extend(list.into_owned());
+                                        }
+                                        FontFamily::Source(source) => {
+                                            for family in parley::FontFamilyName::parse_css_list(
+                                                source.as_ref(),
+                                            )
+                                            .map_while(Result::ok)
+                                            {
+                                                families.push(family.into_owned());
+                                            }
+                                        }
+                                    }
+                                }
                                 FontSource::Handle(handle) => {
                                     families.push(parley::FontFamilyName::Named(Cow::Borrowed(
                                         fonts
@@ -543,15 +589,15 @@ impl FontSource {
     }
 }
 
-impl Default for FontSource {
-    fn default() -> Self {
-        Self::Handle(Handle::default())
-    }
-}
-
 impl From<Handle<Font>> for FontSource {
     fn from(handle: Handle<Font>) -> Self {
         Self::Handle(handle)
+    }
+}
+
+impl From<Handle<Font>> for FontSourceTemplate {
+    fn from(handle: Handle<Font>) -> Self {
+        Into::<FontSource>::into(handle).into()
     }
 }
 
@@ -561,9 +607,21 @@ impl From<&Handle<Font>> for FontSource {
     }
 }
 
+impl From<&Handle<Font>> for FontSourceTemplate {
+    fn from(handle: &Handle<Font>) -> Self {
+        Into::<FontSource>::into(handle).into()
+    }
+}
+
 impl From<SmolStr> for FontSource {
     fn from(families: SmolStr) -> Self {
         FontSource::Families(families)
+    }
+}
+
+impl From<SmolStr> for FontSourceTemplate {
+    fn from(families: SmolStr) -> Self {
+        Into::<FontSource>::into(families).into()
     }
 }
 
@@ -573,9 +631,21 @@ impl From<&str> for FontSource {
     }
 }
 
+impl From<&str> for FontSourceTemplate {
+    fn from(families: &str) -> Self {
+        Into::<FontSource>::into(families).into()
+    }
+}
+
 impl From<GenericFontFamily> for FontSource {
     fn from(generic: GenericFontFamily) -> Self {
         Self::Generic(generic)
+    }
+}
+
+impl From<GenericFontFamily> for FontSourceTemplate {
+    fn from(generic: GenericFontFamily) -> Self {
+        Into::<FontSource>::into(generic).into()
     }
 }
 
@@ -585,11 +655,59 @@ impl From<Vec<FontSource>> for FontSource {
     }
 }
 
+impl From<Vec<FontSource>> for FontSourceTemplate {
+    fn from(list: Vec<FontSource>) -> Self {
+        Into::<FontSource>::into(list).into()
+    }
+}
+
 impl<const N: usize> From<[FontSource; N]> for FontSource {
     fn from(list: [FontSource; N]) -> Self {
         Self::List(list.into())
     }
 }
+
+impl<const N: usize> From<[FontSource; N]> for FontSourceTemplate {
+    fn from(list: [FontSource; N]) -> Self {
+        Into::<FontSource>::into(list).into()
+    }
+}
+
+/// The default font source used to resolve `FontSource::Default`.
+/// `DefaultFontSource(FontSource::Default)` is mapped to the default `Font` asset.
+/// If `default_font` feature is enabled, the embedded 'FiraMono-subset.ttf' is the default.
+///
+/// There are two ways to change the `FontSource::Default`:
+///
+/// 1: (Recommended) You can set this resource from a font source, by an asset handle or a font family name
+/// ```
+/// # use bevy_asset::{AssetServer, Handle};
+/// # use bevy_ecs::system::{Res, ResMut};
+/// # use bevy_text::{DefaultFontSource, Font, FontSource};
+/// fn replace_default_font_asset_system(
+///     mut default_font: ResMut<DefaultFontSource>,
+///     asset_server: Res<AssetServer>,
+/// ) {
+///     // With an asset handle:
+///     let font_handle: Handle<Font> = asset_server.load("fonts/MyFont.ttf");
+///     default_font.0 = font_handle.into();
+///
+///     // Or with a font family name:
+///     default_font.0 = FontSource::family("My Font");
+/// }
+/// ```
+/// 2: (If you are unable to use method 1) You can replace the `Font` asset with inserting a font under `AssetId::default()`
+/// ```
+/// # use bevy_asset::{AssetId, Assets};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_text::Font;
+/// fn replace_default_font_asset_system(mut fonts: ResMut<Assets<Font>>) {
+///     # let custom_font: Font = unimplemented!();
+///     fonts.insert(AssetId::default(), custom_font);
+/// }
+/// ```
+#[derive(Clone, Debug, Reflect, PartialEq, Default, Resource, Deref, DerefMut)]
+pub struct DefaultFontSource(pub FontSource);
 
 /// Generic font families that are resolved through Parley's font database.
 #[derive(Default, Clone, Copy, Debug, Reflect, PartialEq, Eq, Hash)]
@@ -770,6 +888,77 @@ impl Default for TextFont {
     }
 }
 
+/// Context values needed to evaluate a `FontSize`
+#[derive(Copy, Clone, Debug)]
+pub struct FontSizeCtx {
+    /// rem size in logical pixels
+    pub rem: f32,
+    /// viewport size in logical pixels
+    pub view: Vec2,
+}
+
+impl FontSizeCtx {
+    /// Size in logical pixels relative to the value of the `RemSize` resource.
+    pub fn rem(&self, value: f32) -> f32 {
+        self.rem * value
+    }
+
+    /// Size in logical pixels as a percentage of the viewport width.
+    pub fn vw(&self, value: f32) -> f32 {
+        self.view.x * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the viewport height.
+    pub fn vh(&self, value: f32) -> f32 {
+        self.view.y * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the smaller of the viewport width and height.
+    pub fn vmin(&self, value: f32) -> f32 {
+        self.view.min_element() * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the larger of the viewport width and height.
+    pub fn vmax(&self, value: f32) -> f32 {
+        self.view.max_element() * value / 100.
+    }
+}
+
+/// Calc fontsize wrapper
+#[derive(Clone, Reflect)]
+#[reflect(opaque)]
+#[reflect(Clone, Debug, Serialize, Deserialize)]
+pub struct FontSizeCalc(Arc<Box<dyn Fn(FontSizeCtx) -> f32 + Send + Sync>>);
+
+impl Debug for FontSizeCalc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str("FontSizeCalc(..)")
+    }
+}
+
+impl Serialize for FontSizeCalc {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        bevy_log::warn_once!("`FontSizeCalc` can't serialized, it will be deserialized with a closure returning the current `RemSize`.");
+        s.serialize_unit()
+    }
+}
+
+impl<'de> Deserialize<'de> for FontSizeCalc {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        <()>::deserialize(d)?;
+        bevy_log::warn_once!(
+            "Deserialized a `FontSizeCalc` without a closure. It will return the current `RemSize`."
+        );
+        Ok(FontSizeCalc(Arc::new(Box::new(|ctx| ctx.rem))))
+    }
+}
+
+impl PartialEq for FontSizeCalc {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 /// The vertical height of rasterized glyphs in the font atlas in pixels.
 ///
 /// This is multiplied by the scale factor, but not the text entity
@@ -779,7 +968,7 @@ impl Default for TextFont {
 ///
 /// A new font atlas is generated for every combination of font handle and scaled font size
 /// which can have a strong performance impact.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 pub enum FontSize {
     /// Font Size in logical pixels.
     Px(f32),
@@ -793,37 +982,62 @@ pub enum FontSize {
     VMax(f32),
     /// Font Size relative to the value of the `RemSize` resource.
     Rem(f32),
+    /// Calc
+    Calc {
+        /// The closure used to compute the font size.
+        calc: FontSizeCalc,
+        /// Multiplier applied to the closure's result.
+        /// Used to avoid overflow with `Mul`.
+        scalar: f32,
+    },
 }
 
 impl FontSize {
     /// Evaluate the font size to a value in logical pixels
     pub fn eval(
-        self,
+        &self,
         // Viewport size in logical pixels
         logical_viewport_size: Vec2,
         // Base Rem size in logical pixels
         rem_size: RemSize,
     ) -> f32 {
         match self {
-            FontSize::Px(s) => s,
+            FontSize::Px(s) => *s,
             FontSize::Vw(s) => logical_viewport_size.x * s / 100.,
             FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
             FontSize::Rem(s) => rem_size.0 * s,
+            FontSize::Calc { scalar, calc } => {
+                (calc.0)(FontSizeCtx {
+                    view: logical_viewport_size,
+                    rem: *rem_size,
+                }) * scalar
+            }
+        }
+    }
+
+    /// Create a a calc font size
+    pub fn calc(calc: impl Fn(FontSizeCtx) -> f32 + Send + Sync + 'static) -> Self {
+        Self::Calc {
+            calc: FontSizeCalc(Arc::new(Box::new(calc))),
+            scalar: 1.,
         }
     }
 }
 
 impl PartialEq for FontSize {
     fn eq(&self, other: &Self) -> bool {
-        match (*self, *other) {
+        match (self, other) {
             (Self::Px(l), Self::Px(r))
             | (Self::Vw(l), Self::Vw(r))
             | (Self::Vh(l), Self::Vh(r))
             | (Self::VMin(l), Self::VMin(r))
             | (Self::VMax(l), Self::VMax(r))
-            | (Self::Rem(l), Self::Rem(r)) => l == r,
+            | (Self::Rem(l), Self::Rem(r)) => *l == *r,
+            (Self::Calc { calc: c, scalar: s }, Self::Calc { calc: d, scalar: t }) => {
+                c == d && s == t
+            }
             _ => false,
         }
     }
@@ -840,6 +1054,10 @@ impl core::ops::Mul<f32> for FontSize {
             FontSize::VMin(v) => FontSize::VMin(v * rhs),
             FontSize::VMax(v) => FontSize::VMax(v * rhs),
             FontSize::Rem(v) => FontSize::Rem(v * rhs),
+            FontSize::Calc { calc, scalar } => FontSize::Calc {
+                calc,
+                scalar: scalar * rhs,
+            },
         }
     }
 }
@@ -854,7 +1072,7 @@ impl core::ops::Mul<FontSize> for f32 {
 
 impl Default for FontSize {
     fn default() -> Self {
-        Self::Px(20.)
+        Self::Rem(1.)
     }
 }
 
@@ -906,7 +1124,7 @@ impl Default for EmSize {
 impl EmSize {
     /// Resolves a [`FontSize`] to a concrete [`EmSize`] in logical pixels.
     pub fn from_font_size(
-        font_size: FontSize,
+        font_size: &FontSize,
         logical_viewport_size: Vec2,
         rem_size: RemSize,
     ) -> Self {
@@ -1579,6 +1797,7 @@ pub fn detect_text_needs_rerender(
         (
             Or<(
                 Changed<TextSpan>,
+                Changed<InlineBox>,
                 Changed<TextFont>,
                 Changed<LineHeight>,
                 Changed<LetterSpacing>,
@@ -1586,8 +1805,7 @@ pub fn detect_text_needs_rerender(
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
-            With<TextSpan>,
-            With<TextFont>,
+            Or<((With<TextSpan>, With<TextFont>), With<InlineBox>)>,
         ),
     >,
     mut computed: Query<(
@@ -1616,14 +1834,14 @@ pub fn detect_text_needs_rerender(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
+            once!(warn!("found entity {} with a TextSpan or InlineBox that has a TextLayout, which should only be on root \
                 text entities; this warning only prints once",
                 entity));
         }
 
         let Some(span_child_of) = maybe_span_child_of else {
             once!(warn!(
-                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
+                "found entity {} with a TextSpan or InlineBox that has no parent; it should have an ancestor \
                 with a root text component; this warning only prints once",
                 entity
             ));
@@ -1636,7 +1854,7 @@ pub fn detect_text_needs_rerender(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
                 break;
@@ -1646,14 +1864,14 @@ pub fn detect_text_needs_rerender(
                 break;
             }
             if !has_span {
-                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
+                once!(warn!("found entity {} with a TextSpan or InlineBox that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
                     entity, parent));
                 break;
             }
             let Some(next_child_of) = maybe_child_of else {
                 once!(warn!(
-                    "found entity {} with a TextSpan that has no ancestor with the root text \
+                    "found entity {} with a TextSpan or InlineBox that has no ancestor with the root text \
                     component; this warning only prints once",
                     entity
                 ));
@@ -1666,9 +1884,10 @@ pub fn detect_text_needs_rerender(
 
 #[cfg(test)]
 mod tests {
-    use bevy_asset::Assets;
-
     use crate::Font;
+    use bevy_app::App;
+    use bevy_asset::{AssetPlugin, Assets};
+    use bevy_scene::{prelude::*, ScenePlugin};
 
     use super::*;
 
@@ -1728,7 +1947,7 @@ mod tests {
         let list = FontSource::List(Vec::new());
         assert!(list.flatten().is_empty());
         assert_eq!(
-            list.resolve_font_family(&Assets::<Font>::default()),
+            list.resolve_font_family(&Assets::<Font>::default(), &FontSource::Default),
             Ok(FontFamily::List(Cow::Owned(Vec::new())))
         );
     }
@@ -1742,10 +1961,56 @@ mod tests {
         let source = FontSource::list([FontSource::from(dummy_font_handle)]);
 
         assert_eq!(
-            source.resolve_font_family(&fonts),
+            source.resolve_font_family(&fonts, &FontSource::Default),
             Ok(FontFamily::Single(parley::FontFamilyName::Named(
                 Cow::Borrowed("Dummy Font")
             )))
+        );
+    }
+
+    #[test]
+    fn bsn_conversions() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), ScenePlugin));
+        let world = app.world_mut();
+
+        let str_to_font_source = world
+            .spawn_scene(bsn! {
+                TextFont {
+                    font: "Fira Sans"
+                }
+            })
+            .unwrap()
+            .id();
+        assert_eq!(
+            world
+                .entity(str_to_font_source)
+                .get::<TextFont>()
+                .unwrap()
+                .font,
+            FontSource::families("Fira Sans")
+        );
+
+        let list_test = world
+            .spawn_scene(bsn! {
+                TextFont {
+                    font: {vec![
+                        FontSource::families("Fira Sans"),
+                        FontSource::families("Fira Mono"),
+                        FontSource::families("Fira Code"),
+                    ]}
+                }
+            })
+            .unwrap()
+            .id();
+
+        assert_eq!(
+            world.entity(list_test).get::<TextFont>().unwrap().font,
+            FontSource::List(vec![
+                FontSource::families("Fira Sans"),
+                FontSource::families("Fira Mono"),
+                FontSource::families("Fira Code")
+            ])
         );
     }
 }

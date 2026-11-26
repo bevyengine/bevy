@@ -1,5 +1,4 @@
 use crate::{
-    impl_componentwise_vector_space,
     okcolor_convert::{okhsl_to_oklab, oklab_to_okhsl},
     Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba, Luminance, Mix,
     Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
@@ -8,7 +7,7 @@ use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
-/// Color in Okhsl color space with alpha
+/// Color in Okhsl color space with alpha.
 /// Further information on this color model can be found on <https://bottosson.github.io/posts/colorpicker>.
 ///
 /// Okhsl is defined relative to the sRGB (Rec. 709) gamut. Converting a wide-gamut or
@@ -40,8 +39,6 @@ pub struct Okhsla {
 }
 
 impl StandardColor for Okhsla {}
-
-impl_componentwise_vector_space!(Okhsla, [hue, saturation, lightness, alpha]);
 
 impl Okhsla {
     /// Construct a new [`Okhsla`] color from components.

@@ -257,7 +257,7 @@ fn spawn_buttons(commands: &mut Commands) {
                     (AppSetting::EmissiveDecals(true), "On"),
                 ],
                 0,
-            ),
+            )
         ]
     });
 }

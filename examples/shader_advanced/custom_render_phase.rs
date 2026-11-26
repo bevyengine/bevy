@@ -14,7 +14,7 @@ use std::ops::Range;
 
 use bevy::camera::Viewport;
 use bevy::core_pipeline::core_3d::TransparentSortingInfo3d;
-use bevy::mesh::MeshAttributeCompressionFlags;
+use bevy::mesh::{MeshAttributeCompressionFlags, MeshCompressionArgs};
 use bevy::pbr::{self, MeshPipelineSystems, SetMeshViewEmptyBindGroup, ViewKeyCache};
 use bevy::{
     camera::MainPassResolutionOverride,
@@ -90,6 +90,22 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
         Transform::from_xyz(0.0, 0.5, 0.0),
+        // This marker component is used to identify which mesh will be used in our custom pass
+        // The circle doesn't have it so it won't be rendered in our pass
+        DrawStencil,
+    ));
+    commands.spawn((
+        Mesh3d(
+            meshes.add(
+                Sphere::new(0.5)
+                    .mesh()
+                    .build()
+                    .compressed_mesh(&MeshCompressionArgs::regular())
+                    .unwrap(),
+            ),
+        ),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 255, 144))),
+        Transform::from_xyz(2.0, 0.5, 0.0),
         // This marker component is used to identify which mesh will be used in our custom pass
         // The circle doesn't have it so it won't be rendered in our pass
         DrawStencil,

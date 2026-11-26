@@ -5,7 +5,7 @@ use crate::{
         Message, MessageCursor, MessageId, MessageMutIterator, MessageMutIteratorWithId, Messages,
         WriteBatchIds,
     },
-    system::{Local, ResMut, SystemParam},
+    system::{Local, ResMut, SystemAccess, SystemParam, SystemParamAccessConflict},
 };
 
 /// Reads and writes [`Message`]s of type `T`, keeping track of which messages have already been read.
@@ -54,6 +54,7 @@ use crate::{
 /// [`MessageReader`]: super::MessageReader
 /// [`MessageWriter`]: super::MessageWriter
 #[derive(SystemParam, Debug)]
+#[system_param(map_access_conflict)]
 pub struct MessageMutator<'w, 's, M: Message> {
     pub(super) reader: Local<'s, MessageCursor<M>>,
     #[system_param(validation_message = "Message not initialized")]
@@ -61,6 +62,14 @@ pub struct MessageMutator<'w, 's, M: Message> {
 }
 
 impl<'w, 's, M: Message> MessageMutator<'w, 's, M> {
+    /// Modifies the [`SystemParamAccessConflict`] returned by [`SystemParam::init_access`].
+    fn map_access_conflict(
+        _access: &SystemAccess,
+        err: SystemParamAccessConflict,
+    ) -> SystemParamAccessConflict {
+        SystemParamAccessConflict::new::<Self>(err.access).with_code("B0009")
+    }
+
     /// Iterates over the messages this [`MessageMutator`] has not seen yet. This updates the
     /// [`MessageMutator`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.

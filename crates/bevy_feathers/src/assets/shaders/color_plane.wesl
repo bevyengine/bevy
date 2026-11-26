@@ -1,4 +1,4 @@
-// This shader draws the color plane in various color spaces.
+//! This shader draws the color plane in various color spaces.
 import bevy_ui_render::ui_vertex_output::UiVertexOutput;
 import bevy_render::color_operations::{
     srgb_to_linear_rgb,

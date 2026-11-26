@@ -80,7 +80,18 @@ mod tests {
     }
 
     mod system_execution {
+        use crate::{
+            change_detection::DetectChanges,
+            error::BevyError,
+            system::{IntoSystem, System},
+        };
+
         use super::*;
+
+        #[derive(Resource, Default)]
+        struct TestResource(bool);
+        #[derive(Resource, Default)]
+        struct ChangeHistory(Vec<bool>);
 
         #[test]
         fn run_system() {
@@ -106,6 +117,55 @@ mod tests {
             schedule.run(&mut world);
 
             assert_eq!(world.resource::<SystemOrder>().0, vec![0]);
+        }
+
+        #[test]
+        fn exclusive_system_change_detection() {
+            fn exclusive_system(world: &mut World) {
+                let changed = world.is_resource_changed::<TestResource>();
+                world.resource_mut::<ChangeHistory>().0.push(changed);
+            }
+
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
+
+            world.init_resource::<TestResource>();
+            world.init_resource::<ChangeHistory>();
+            schedule.add_systems(exclusive_system);
+
+            // The resource was just added for the first time, so it should be considered changed.
+            schedule.run(&mut world);
+            // The resource has not been modified since the last run, so it should not be considered changed.
+            schedule.run(&mut world);
+
+            world.resource_mut::<TestResource>().0 = true;
+            // The resource has been modified, so it should be considered changed.
+            schedule.run(&mut world);
+
+            assert_eq!(world.resource::<ChangeHistory>().0, vec![true, false, true]);
+        }
+
+        #[test]
+        fn failed_systems_should_update_change_ticks() {
+            fn fallible_system(
+                res: Res<TestResource>,
+                mut history: ResMut<ChangeHistory>,
+            ) -> Result<(), BevyError> {
+                history.0.push(res.is_changed());
+                Err("intentional failure".into())
+            }
+
+            let mut world = World::default();
+            world.init_resource::<TestResource>();
+            world.init_resource::<ChangeHistory>();
+
+            let mut system = IntoSystem::<(), (), _>::into_system(fallible_system);
+            system.initialize(&mut world);
+
+            let _ = system.run((), &mut world);
+            let _ = system.run((), &mut world);
+
+            assert_eq!(world.resource::<ChangeHistory>().0, vec![true, false]);
         }
 
         #[test]
@@ -1253,6 +1313,53 @@ mod tests {
                     "resmut_system (in set (resmut_system, resmut_system))".to_string(),
                     vec!["bevy_ecs::schedule::tests::system_ambiguity::R".into()],
                 )
+            );
+        }
+
+        // Test that enum set names keep the enum name, and struct set names are unchanged
+        // Related issue https://github.com/bevyengine/bevy/issues/23908
+        #[test]
+        #[cfg(feature = "debug")]
+        fn enum_set_name() {
+            #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+            enum EnumSet {
+                Variant,
+            }
+
+            #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+            struct StructSet;
+
+            assert!(!EnumSet::Variant.debug_includes_type_name());
+            assert!(StructSet.debug_includes_type_name());
+
+            let mut schedule = Schedule::new(TestSchedule);
+            schedule.add_systems((
+                resmut_system.in_set(EnumSet::Variant),
+                resmut_system.in_set(StructSet),
+            ));
+
+            let mut world = World::new();
+            schedule.graph_mut().initialize(&mut world);
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
+
+            let ambiguities: Vec<_> = schedule
+                .graph()
+                .conflicting_systems()
+                .to_string(schedule.graph(), world.components())
+                .map(|item| (item.0, item.1))
+                .collect();
+
+            let enum_system = "resmut_system (in set EnumSet::Variant)";
+            let struct_system = "resmut_system (in set StructSet)";
+            assert_eq!(ambiguities.len(), 1);
+            let (first, second) = &ambiguities[0];
+            // The two systems can be reported in either order.
+            assert!(
+                (first == enum_system && second == struct_system)
+                    || (first == struct_system && second == enum_system),
+                "unexpected ambiguity names: {first:?}, {second:?}",
             );
         }
 

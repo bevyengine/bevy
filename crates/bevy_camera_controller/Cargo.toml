@@ -7,7 +7,7 @@ homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "input", "camera", "control"]
-rust-version = "1.85.0"
+rust-version = "1.100.0"
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.20.0-dev", default-features = false }
@@ -46,7 +46,7 @@ pan_orbit_camera = []
 
 # PanOrbitCamera's extensions
 
-extension_anchor_indicator = ["pan_orbit_camera", "bevy_gizmos"]
+extension_anchor_indicator = ["dep:bevy_gizmos", "pan_orbit_camera"]
 extension_independent_skybox = [
   "pan_orbit_camera",
   "bevy_asset",

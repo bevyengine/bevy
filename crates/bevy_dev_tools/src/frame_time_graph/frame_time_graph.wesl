@@ -13,13 +13,13 @@ struct Config {
 const RED: vec4<f32> = vec4(1.0, 0.0, 0.0, 1.0);
 const GREEN: vec4<f32> = vec4(0.0, 1.0, 0.0, 1.0);
 
-// Gets a color based on the delta time
+/// Gets a color based on the delta time
 // TODO use customizable gradient
 fn color_from_dt(dt: f32) -> vec4<f32> {
     return mix(GREEN, RED, dt / config.dt_max);
 }
 
-// Draw an SDF square
+/// Draw an SDF square
 fn sdf_square(pos: vec2<f32>, half_size: vec2<f32>, offset: vec2<f32>) -> f32 {
     let p = pos - offset;
     let dist = abs(p) - half_size;
@@ -65,4 +65,3 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
 
     return vec4(0.0, 0.0, 0.0, 0.5);
 }
-

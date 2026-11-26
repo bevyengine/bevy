@@ -78,6 +78,15 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
 
             #[allow(unused_variables)]
             #[inline(always)]
+            unsafe fn filter_table<'__w>(
+                _state: &Self::State,
+                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+            ) -> bool {
+                true #(&& <#field_types>::filter_table(&_state.#field_aliases, &mut _fetch.#field_aliases))*
+            }
+
+            #[allow(unused_variables)]
+            #[inline(always)]
             unsafe fn filter_fetch<'__w>(
                 _state: &Self::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,

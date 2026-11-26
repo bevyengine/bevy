@@ -23,7 +23,7 @@ fn floor_log2_(x: f32) -> i32 {
     return i32(biasedexponent) - 127;
 }
 
-// https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_shared_exponent.txt
+/// https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_texture_shared_exponent.txt
 fn vec3_to_rgb9e5_(rgb_in: vec3<f32>) -> u32 {
     let rgb = clamp(rgb_in, vec3(0.0), vec3(MAX_RGB9E5_));
 
@@ -38,12 +38,12 @@ fn vec3_to_rgb9e5_(rgb_in: vec3<f32>) -> u32 {
     }
 
     let n = vec3<u32>(floor(rgb / denom + 0.5));
-    
+
     return (u32(exp_shared) << 27u) | (n.b << 18u) | (n.g << 9u) | (n.r << 0u);
 }
 
-// Builtin extractBits() is not working on WEBGL or DX12
-// DX12: HLSL: Unimplemented("write_expr_math ExtractBits")
+/// Builtin extractBits() is not working on WEBGL or DX12
+/// DX12: HLSL: Unimplemented("write_expr_math ExtractBits")
 fn extract_bits(value: u32, offset: u32, bits: u32) -> u32 {
     let mask = (1u << bits) - 1u;
     return (value >> offset) & mask;

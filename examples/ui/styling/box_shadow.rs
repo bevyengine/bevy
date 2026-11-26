@@ -8,14 +8,14 @@ use bevy::{
     color::palettes::css::*,
     feathers::{
         containers::{pane, pane_body},
-        controls::{FeathersButton, FeathersNumberInput, NumberInputPrecision, NumberInputValue},
+        controls::{FeathersButton, FeathersNumberInput, NumberInputPrecision},
         dark_theme::create_dark_theme,
         display::caption,
         theme::{ThemeProps, UiTheme},
         FeathersPlugins,
     },
     prelude::*,
-    ui_widgets::{radio_self_update, Activate, ValueChange},
+    ui_widgets::{radio_self_update, Activate, NumericValue, ValueChange},
 };
 
 #[path = "../../helpers/number_input_f32.rs"]
@@ -193,8 +193,8 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
     commands.spawn_scene_list(bsn_list! {
         // Camera
         Camera2d
-        BoxShadowSamples({app_settings.samples}),
-
+        BoxShadowSamples({app_settings.samples})
+        --
         // Centered shape with shadow
         Node {
             width: percent(100),
@@ -215,9 +215,9 @@ fn setup(mut commands: Commands, app_settings: Res<AppSettings>) {
                 blur_radius: px(app_settings.blur),
             }])
             ShadowNode
-        ],
-
-        @settings_panel_scene(&app_settings),
+        ]
+        --
+        @settings_panel_scene(&app_settings)
     });
 }
 
@@ -241,49 +241,56 @@ fn settings_panel_scene(app_settings: &AppSettings) -> impl Scene {
                     "Shape",
                     &SHAPE_OPTIONS,
                     selected_shape_index,
-                ),
+                )
+                --
                 @number_input_f32(
                     AppNumberInputF32::XOffset.label(),
                     Some(AppNumberInputF32::XOffset),
                     app_settings.x_offset,
                     NumberInputPrecision(0),
                     -200. ..=200.
-                ),
+                )
+                --
                 @number_input_f32(
                     AppNumberInputF32::YOffset.label(),
                     Some(AppNumberInputF32::YOffset),
                     app_settings.y_offset,
                     NumberInputPrecision(0),
                     -200. ..=200.
-                ),
+                )
+                --
                 @number_input_f32(
                     AppNumberInputF32::Blur.label(),
                     Some(AppNumberInputF32::Blur),
                     app_settings.blur,
                     NumberInputPrecision(0),
                     0. ..=100.
-                ),
+                )
+                --
                 @number_input_f32(
                     AppNumberInputF32::Spread.label(),
                     Some(AppNumberInputF32::Spread),
                     app_settings.spread,
                     NumberInputPrecision(0),
                     -200. ..=200.
-                ),
+                )
+                --
                 @number_input_i32(
                     AppNumberInputI32::Count.label(),
                     Some(AppNumberInputI32::Count),
                     app_settings.count as i32,
                     NumberInputPrecision(0),
                     1..=3
-                ),
+                )
+                --
                 @number_input_i32(
                     AppNumberInputI32::Samples.label(),
                     Some(AppNumberInputI32::Samples),
                     app_settings.samples as i32,
                     NumberInputPrecision(0),
                     0..=15
-                ),
+                )
+                --
                 // Reset button
                 @FeathersButton {
                     @caption: bsn! { @caption("Reset") }
@@ -333,7 +340,7 @@ fn on_value_change_i32_update_shadow(
 
     commands
         .entity(value_change.source)
-        .insert(NumberInputValue::I32(value_change.value));
+        .insert(NumericValue::I32(value_change.value));
 }
 
 /// Update the shadow node's `BoxShadow` on any change to the f32 number inputs.
@@ -366,7 +373,7 @@ fn on_value_change_f32_update_shadow(
 
     commands
         .entity(value_change.source)
-        .insert(NumberInputValue::F32(value_change.value));
+        .insert(NumericValue::F32(value_change.value));
 }
 
 /// Update shape of `ShadowNode` if shape selection has changed

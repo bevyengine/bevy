@@ -5,12 +5,13 @@ use ctt::{
         astcenc::{AstcencSettings, AstcencUsage, NormalSwizzle},
         Encoder,
     },
-    AlphaMode, TargetFormat,
+    AlphaMode, ColorSpace, FormatExt, TargetFormat,
 };
 use ktx2::Format;
-use wgpu_types::{AstcBlock, AstcChannel, TextureFormat};
+use wgpu_types::TextureFormat;
 
 use super::{CompressedImageSaverError, ImageCompressorAlphaMode};
+use crate::ctt_format::wgpu_to_ctt_texture_format;
 
 /// Returns `Some((unorm, hdr))` ASTC format pair if the env var is set, `None` otherwise.
 pub fn parse_astc_env_var() -> Result<Option<(Format, Format)>, CompressedImageSaverError> {
@@ -66,6 +67,7 @@ pub fn parse_astc_env_var() -> Result<Option<(Format, Format)>, CompressedImageS
 
 pub fn choose_ctt_compressed_format(
     input: TextureFormat,
+    color_space: ColorSpace,
     is_normal_map: bool,
 ) -> Result<TargetFormat, CompressedImageSaverError> {
     let astc_block = parse_astc_env_var()?;
@@ -93,9 +95,7 @@ pub fn choose_ctt_compressed_format(
         // 1-channel snorm (ASTC has no snorm variant, pass through uncompressed if ASTC is preferred)
         TextureFormat::R8Snorm => {
             if astc_block.is_some() {
-                return Ok(TargetFormat::Uncompressed(wgpu_to_ctt_texture_format(
-                    input,
-                )?));
+                return Ok(TargetFormat::Uncompressed(ctt_format(input)?));
             }
             Format::BC4_SNORM_BLOCK
         }
@@ -112,9 +112,7 @@ pub fn choose_ctt_compressed_format(
         // 2-channel snorm (ASTC has no snorm variant, pass through uncompressed if ASTC is preferred)
         TextureFormat::Rg8Snorm => {
             if astc_block.is_some() {
-                return Ok(TargetFormat::Uncompressed(wgpu_to_ctt_texture_format(
-                    input,
-                )?));
+                return Ok(TargetFormat::Uncompressed(ctt_format(input)?));
             }
             Format::BC5_SNORM_BLOCK
         }
@@ -179,7 +177,7 @@ pub fn choose_ctt_compressed_format(
         | TextureFormat::EacR11Snorm
         | TextureFormat::EacRg11Unorm
         | TextureFormat::EacRg11Snorm
-        | TextureFormat::Astc { .. } => wgpu_to_ctt_texture_format(input)?,
+        | TextureFormat::Astc { .. } => ctt_format(input)?,
 
         // Integer, high-precision, and float formats -> pass through uncompressed
         TextureFormat::R8Uint
@@ -212,9 +210,7 @@ pub fn choose_ctt_compressed_format(
         | TextureFormat::Rgba32Sint
         | TextureFormat::Rgba32Float
         | TextureFormat::Rgb10a2Uint => {
-            return Ok(TargetFormat::Uncompressed(wgpu_to_ctt_texture_format(
-                input,
-            )?));
+            return Ok(TargetFormat::Uncompressed(ctt_format(input)?));
         }
 
         // Depth/stencil and video formats cannot be compressed
@@ -232,136 +228,12 @@ pub fn choose_ctt_compressed_format(
 
     Ok(TargetFormat::Compressed {
         encoder: Encoder::Auto,
-        format,
+        format: format.with_color_space(color_space),
     })
 }
 
-pub fn wgpu_to_ctt_texture_format(
-    input: TextureFormat,
-) -> Result<Format, CompressedImageSaverError> {
-    Ok(match input {
-        TextureFormat::R8Unorm => Format::R8_UNORM,
-        TextureFormat::R8Snorm => Format::R8_SNORM,
-        TextureFormat::R8Uint => Format::R8_UINT,
-        TextureFormat::R8Sint => Format::R8_SINT,
-        TextureFormat::R16Uint => Format::R16_UINT,
-        TextureFormat::R16Sint => Format::R16_SINT,
-        TextureFormat::R16Unorm => Format::R16_UNORM,
-        TextureFormat::R16Snorm => Format::R16_SNORM,
-        TextureFormat::R16Float => Format::R16_SFLOAT,
-        TextureFormat::Rg8Unorm => Format::R8G8_UNORM,
-        TextureFormat::Rg8Snorm => Format::R8G8_SNORM,
-        TextureFormat::Rg8Uint => Format::R8G8_UINT,
-        TextureFormat::Rg8Sint => Format::R8G8_SINT,
-        TextureFormat::R32Uint => Format::R32_UINT,
-        TextureFormat::R32Sint => Format::R32_SINT,
-        TextureFormat::R32Float => Format::R32_SFLOAT,
-        TextureFormat::Rg16Uint => Format::R16G16_UINT,
-        TextureFormat::Rg16Sint => Format::R16G16_SINT,
-        TextureFormat::Rg16Unorm => Format::R16G16_UNORM,
-        TextureFormat::Rg16Snorm => Format::R16G16_SNORM,
-        TextureFormat::Rg16Float => Format::R16G16_SFLOAT,
-        TextureFormat::Rgba8Unorm => Format::R8G8B8A8_UNORM,
-        TextureFormat::Rgba8UnormSrgb => Format::R8G8B8A8_SRGB,
-        TextureFormat::Rgba8Snorm => Format::R8G8B8A8_SNORM,
-        TextureFormat::Rgba8Uint => Format::R8G8B8A8_UINT,
-        TextureFormat::Rgba8Sint => Format::R8G8B8A8_SINT,
-        TextureFormat::Bgra8Unorm => Format::B8G8R8A8_UNORM,
-        TextureFormat::Bgra8UnormSrgb => Format::B8G8R8A8_SRGB,
-        TextureFormat::Rgb9e5Ufloat => Format::E5B9G9R9_UFLOAT_PACK32,
-        TextureFormat::Rgb10a2Uint => Format::A2B10G10R10_UINT_PACK32,
-        TextureFormat::Rgb10a2Unorm => Format::A2B10G10R10_UNORM_PACK32,
-        TextureFormat::Rg11b10Ufloat => Format::B10G11R11_UFLOAT_PACK32,
-        TextureFormat::R64Uint => Format::R64_UINT,
-        TextureFormat::Rg32Uint => Format::R32G32_UINT,
-        TextureFormat::Rg32Sint => Format::R32G32_SINT,
-        TextureFormat::Rg32Float => Format::R32G32_SFLOAT,
-        TextureFormat::Rgba16Uint => Format::R16G16B16A16_UINT,
-        TextureFormat::Rgba16Sint => Format::R16G16B16A16_SINT,
-        TextureFormat::Rgba16Unorm => Format::R16G16B16A16_UNORM,
-        TextureFormat::Rgba16Snorm => Format::R16G16B16A16_SNORM,
-        TextureFormat::Rgba16Float => Format::R16G16B16A16_SFLOAT,
-        TextureFormat::Rgba32Uint => Format::R32G32B32A32_UINT,
-        TextureFormat::Rgba32Sint => Format::R32G32B32A32_SINT,
-        TextureFormat::Rgba32Float => Format::R32G32B32A32_SFLOAT,
-        TextureFormat::Stencil8 => Format::S8_UINT,
-        TextureFormat::Depth16Unorm => Format::D16_UNORM,
-        TextureFormat::Depth24Plus => Format::X8_D24_UNORM_PACK32,
-        TextureFormat::Depth24PlusStencil8 => Format::D24_UNORM_S8_UINT,
-        TextureFormat::Depth32Float => Format::D32_SFLOAT,
-        TextureFormat::Depth32FloatStencil8 => Format::D32_SFLOAT_S8_UINT,
-        TextureFormat::NV12 | TextureFormat::P010 => {
-            return Err(CompressedImageSaverError::UnsupportedFormat(input));
-        }
-        TextureFormat::Bc1RgbaUnorm => Format::BC1_RGBA_UNORM_BLOCK,
-        TextureFormat::Bc1RgbaUnormSrgb => Format::BC1_RGBA_SRGB_BLOCK,
-        TextureFormat::Bc2RgbaUnorm => Format::BC2_UNORM_BLOCK,
-        TextureFormat::Bc2RgbaUnormSrgb => Format::BC2_SRGB_BLOCK,
-        TextureFormat::Bc3RgbaUnorm => Format::BC3_UNORM_BLOCK,
-        TextureFormat::Bc3RgbaUnormSrgb => Format::BC3_SRGB_BLOCK,
-        TextureFormat::Bc4RUnorm => Format::BC4_UNORM_BLOCK,
-        TextureFormat::Bc4RSnorm => Format::BC4_SNORM_BLOCK,
-        TextureFormat::Bc5RgUnorm => Format::BC5_UNORM_BLOCK,
-        TextureFormat::Bc5RgSnorm => Format::BC5_SNORM_BLOCK,
-        TextureFormat::Bc6hRgbUfloat => Format::BC6H_UFLOAT_BLOCK,
-        TextureFormat::Bc6hRgbFloat => Format::BC6H_SFLOAT_BLOCK,
-        TextureFormat::Bc7RgbaUnorm => Format::BC7_UNORM_BLOCK,
-        TextureFormat::Bc7RgbaUnormSrgb => Format::BC7_SRGB_BLOCK,
-        TextureFormat::Etc2Rgb8Unorm => Format::ETC2_R8G8B8_UNORM_BLOCK,
-        TextureFormat::Etc2Rgb8UnormSrgb => Format::ETC2_R8G8B8_SRGB_BLOCK,
-        TextureFormat::Etc2Rgb8A1Unorm => Format::ETC2_R8G8B8A1_UNORM_BLOCK,
-        TextureFormat::Etc2Rgb8A1UnormSrgb => Format::ETC2_R8G8B8A1_SRGB_BLOCK,
-        TextureFormat::Etc2Rgba8Unorm => Format::ETC2_R8G8B8A8_UNORM_BLOCK,
-        TextureFormat::Etc2Rgba8UnormSrgb => Format::ETC2_R8G8B8A8_SRGB_BLOCK,
-        TextureFormat::EacR11Unorm => Format::EAC_R11_UNORM_BLOCK,
-        TextureFormat::EacR11Snorm => Format::EAC_R11_SNORM_BLOCK,
-        TextureFormat::EacRg11Unorm => Format::EAC_R11G11_UNORM_BLOCK,
-        TextureFormat::EacRg11Snorm => Format::EAC_R11G11_SNORM_BLOCK,
-        TextureFormat::Astc { block, channel } => match (block, channel) {
-            (AstcBlock::B4x4, AstcChannel::Unorm) => Format::ASTC_4x4_UNORM_BLOCK,
-            (AstcBlock::B4x4, AstcChannel::UnormSrgb) => Format::ASTC_4x4_SRGB_BLOCK,
-            (AstcBlock::B4x4, AstcChannel::Hdr) => Format::ASTC_4x4_SFLOAT_BLOCK,
-            (AstcBlock::B5x4, AstcChannel::Unorm) => Format::ASTC_5x4_UNORM_BLOCK,
-            (AstcBlock::B5x4, AstcChannel::UnormSrgb) => Format::ASTC_5x4_SRGB_BLOCK,
-            (AstcBlock::B5x4, AstcChannel::Hdr) => Format::ASTC_5x4_SFLOAT_BLOCK,
-            (AstcBlock::B5x5, AstcChannel::Unorm) => Format::ASTC_5x5_UNORM_BLOCK,
-            (AstcBlock::B5x5, AstcChannel::UnormSrgb) => Format::ASTC_5x5_SRGB_BLOCK,
-            (AstcBlock::B5x5, AstcChannel::Hdr) => Format::ASTC_5x5_SFLOAT_BLOCK,
-            (AstcBlock::B6x5, AstcChannel::Unorm) => Format::ASTC_6x5_UNORM_BLOCK,
-            (AstcBlock::B6x5, AstcChannel::UnormSrgb) => Format::ASTC_6x5_SRGB_BLOCK,
-            (AstcBlock::B6x5, AstcChannel::Hdr) => Format::ASTC_6x5_SFLOAT_BLOCK,
-            (AstcBlock::B6x6, AstcChannel::Unorm) => Format::ASTC_6x6_UNORM_BLOCK,
-            (AstcBlock::B6x6, AstcChannel::UnormSrgb) => Format::ASTC_6x6_SRGB_BLOCK,
-            (AstcBlock::B6x6, AstcChannel::Hdr) => Format::ASTC_6x6_SFLOAT_BLOCK,
-            (AstcBlock::B8x5, AstcChannel::Unorm) => Format::ASTC_8x5_UNORM_BLOCK,
-            (AstcBlock::B8x5, AstcChannel::UnormSrgb) => Format::ASTC_8x5_SRGB_BLOCK,
-            (AstcBlock::B8x5, AstcChannel::Hdr) => Format::ASTC_8x5_SFLOAT_BLOCK,
-            (AstcBlock::B8x6, AstcChannel::Unorm) => Format::ASTC_8x6_UNORM_BLOCK,
-            (AstcBlock::B8x6, AstcChannel::UnormSrgb) => Format::ASTC_8x6_SRGB_BLOCK,
-            (AstcBlock::B8x6, AstcChannel::Hdr) => Format::ASTC_8x6_SFLOAT_BLOCK,
-            (AstcBlock::B8x8, AstcChannel::Unorm) => Format::ASTC_8x8_UNORM_BLOCK,
-            (AstcBlock::B8x8, AstcChannel::UnormSrgb) => Format::ASTC_8x8_SRGB_BLOCK,
-            (AstcBlock::B8x8, AstcChannel::Hdr) => Format::ASTC_8x8_SFLOAT_BLOCK,
-            (AstcBlock::B10x5, AstcChannel::Unorm) => Format::ASTC_10x5_UNORM_BLOCK,
-            (AstcBlock::B10x5, AstcChannel::UnormSrgb) => Format::ASTC_10x5_SRGB_BLOCK,
-            (AstcBlock::B10x5, AstcChannel::Hdr) => Format::ASTC_10x5_SFLOAT_BLOCK,
-            (AstcBlock::B10x6, AstcChannel::Unorm) => Format::ASTC_10x6_UNORM_BLOCK,
-            (AstcBlock::B10x6, AstcChannel::UnormSrgb) => Format::ASTC_10x6_SRGB_BLOCK,
-            (AstcBlock::B10x6, AstcChannel::Hdr) => Format::ASTC_10x6_SFLOAT_BLOCK,
-            (AstcBlock::B10x8, AstcChannel::Unorm) => Format::ASTC_10x8_UNORM_BLOCK,
-            (AstcBlock::B10x8, AstcChannel::UnormSrgb) => Format::ASTC_10x8_SRGB_BLOCK,
-            (AstcBlock::B10x8, AstcChannel::Hdr) => Format::ASTC_10x8_SFLOAT_BLOCK,
-            (AstcBlock::B10x10, AstcChannel::Unorm) => Format::ASTC_10x10_UNORM_BLOCK,
-            (AstcBlock::B10x10, AstcChannel::UnormSrgb) => Format::ASTC_10x10_SRGB_BLOCK,
-            (AstcBlock::B10x10, AstcChannel::Hdr) => Format::ASTC_10x10_SFLOAT_BLOCK,
-            (AstcBlock::B12x10, AstcChannel::Unorm) => Format::ASTC_12x10_UNORM_BLOCK,
-            (AstcBlock::B12x10, AstcChannel::UnormSrgb) => Format::ASTC_12x10_SRGB_BLOCK,
-            (AstcBlock::B12x10, AstcChannel::Hdr) => Format::ASTC_12x10_SFLOAT_BLOCK,
-            (AstcBlock::B12x12, AstcChannel::Unorm) => Format::ASTC_12x12_UNORM_BLOCK,
-            (AstcBlock::B12x12, AstcChannel::UnormSrgb) => Format::ASTC_12x12_SRGB_BLOCK,
-            (AstcBlock::B12x12, AstcChannel::Hdr) => Format::ASTC_12x12_SFLOAT_BLOCK,
-        },
-    })
+pub fn ctt_format(input: TextureFormat) -> Result<Format, CompressedImageSaverError> {
+    wgpu_to_ctt_texture_format(input).ok_or(CompressedImageSaverError::UnsupportedFormat(input))
 }
 
 pub fn bevy_to_ctt_alpha_mode(alpha_mode: ImageCompressorAlphaMode) -> AlphaMode {

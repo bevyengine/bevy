@@ -11,7 +11,7 @@ use crate::{event::EventPattern, prelude::On, system::System};
 /// - [`In<T>`]: For values
 /// - [`InRef<T>`]: For read-only references to values
 /// - [`InMut<T>`]: For mutable references to values
-/// - [`On<E, B>`]: For [`ObserverSystem`]s
+/// - [`On<E<B>>`]: For [`ObserverSystem`]s
 /// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
 /// - `Option<I>`: For optional inputs of some [`SystemInput`] `I`
 /// - Tuples of [`SystemInput`]s up to 8 elements
@@ -211,7 +211,7 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
 /// let mut world = World::new();
 /// let mut square_system = IntoSystem::into_system(square);
 /// square_system.initialize(&mut world);
-///     
+///
 /// let mut value = 12;
 /// square_system.run(&mut value, &mut world);
 /// assert_eq!(value, 144);
@@ -247,13 +247,9 @@ impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
 /// Used for [`ObserverSystem`]s.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
-impl<E: EventPattern> SystemInput for On<'_, '_, E> {
-    // Note: the fact that we must use a shared lifetime here is
-    // a key piece of the complicated safety story documented above
-    // the `&mut E::Trigger<'_>` cast in `observer_system_runner` and in
-    // the `On` implementation.
-    type Param<'i> = On<'i, 'i, E>;
-    type Inner<'i> = On<'i, 'i, E>;
+impl<E: EventPattern> SystemInput for On<'_, E> {
+    type Param<'i> = On<'i, E>;
+    type Inner<'i> = On<'i, E>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this

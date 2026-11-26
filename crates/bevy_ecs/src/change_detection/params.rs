@@ -4,7 +4,7 @@ use crate::{
     ptr::PtrMut,
     resource::Resource,
 };
-use bevy_ptr::{Ptr, ThinSlicePtr, UnsafeCellDeref};
+use bevy_ptr::{Ptr, ThinSlicePtr};
 use core::{
     cell::UnsafeCell,
     ops::{Deref, DerefMut, Range},
@@ -33,11 +33,13 @@ impl<'w> ComponentTicksRef<'w> {
     ) -> Self {
         Self {
             // SAFETY: Caller ensures there is no mutable access to the cell.
-            added: unsafe { cells.added.deref() },
+            added: unsafe { cells.added.as_ref_unchecked() },
             // SAFETY: Caller ensures there is no mutable access to the cell.
-            changed: unsafe { cells.changed.deref() },
+            changed: unsafe { cells.changed.as_ref_unchecked() },
             // SAFETY: Caller ensures there is no mutable access to the cell.
-            changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref()) },
+            changed_by: cells
+                .changed_by
+                .map(|changed_by| unsafe { changed_by.as_ref_unchecked() }),
             last_run,
             this_run,
         }
@@ -154,6 +156,11 @@ impl<'w> ContiguousComponentTicksRef<'w> {
         self.this_run
     }
 
+    /// Returns the summary tick, if any.
+    pub fn summary_tick(&self) -> Option<Tick> {
+        self.summary_tick.map(AtomicTick::get)
+    }
+
     /// Returns an iterator where the i-th item corresponds to whether the i-th component was
     /// marked as changed. If the value equals [`prim@true`], then the component was changed.
     ///
@@ -264,11 +271,13 @@ impl<'w> ComponentTicksMut<'w> {
     ) -> Self {
         Self {
             // SAFETY: Caller ensures there is no alias to the cell.
-            added: unsafe { cells.added.deref_mut() },
+            added: unsafe { cells.added.as_mut_unchecked() },
             // SAFETY: Caller ensures there is no alias to the cell.
-            changed: unsafe { cells.changed.deref_mut() },
+            changed: unsafe { cells.changed.as_mut_unchecked() },
             // SAFETY: Caller ensures there is no alias to the cell.
-            changed_by: unsafe { cells.changed_by.map(|changed_by| changed_by.deref_mut()) },
+            changed_by: cells
+                .changed_by
+                .map(|changed_by| unsafe { changed_by.as_mut_unchecked() }),
             last_run,
             this_run,
             summary_tick: cells.summary_tick,
@@ -868,6 +877,12 @@ impl<'w, T> ContiguousRef<'w, T> {
         self.ticks.this_run
     }
 
+    /// Returns the summary tick, if any.
+    #[inline]
+    pub fn summary_tick(&self) -> Option<Tick> {
+        self.ticks.summary_tick()
+    }
+
     /// Creates a new `ContiguousRef` using provided values or returns [`None`] if lengths of
     /// `value`, `added`, `changed` and `changed_by` do not match    
     ///
@@ -1437,7 +1452,7 @@ impl<'w> MutUntyped<'w> {
     /// # let mut_untyped: MutUntyped = unimplemented!();
     /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
     /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
-    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_mut(ptr) });
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.ptr_as_reflect_mut(ptr) });
     /// ```
     pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'w>) -> &'w mut T) -> Mut<'w, T> {
         Mut {
@@ -1514,6 +1529,9 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     fn set_changed(&mut self) {
         *self.ticks.changed = self.ticks.this_run;
         self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
     }
 
     #[inline]
@@ -1522,6 +1540,9 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
         *self.ticks.changed = self.ticks.this_run;
         *self.ticks.added = self.ticks.this_run;
         self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick {
+            summary_tick.set(self.ticks.this_run);
+        }
     }
 
     #[inline]
@@ -1529,6 +1550,11 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     fn set_last_changed(&mut self, last_changed: Tick) {
         *self.ticks.changed = last_changed;
         self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick
+            && self.is_changed_after(summary_tick.get())
+        {
+            summary_tick.set(self.ticks.this_run);
+        }
     }
 
     #[inline]
@@ -1537,6 +1563,11 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
         *self.ticks.added = last_added;
         *self.ticks.changed = last_added;
         self.ticks.changed_by.assign(MaybeLocation::caller());
+        if let Some(summary_tick) = self.ticks.summary_tick
+            && self.is_changed_after(summary_tick.get())
+        {
+            summary_tick.set(self.ticks.this_run);
+        }
     }
 
     #[inline]

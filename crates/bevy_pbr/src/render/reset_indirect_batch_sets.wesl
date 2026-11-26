@@ -1,10 +1,10 @@
-// Resets the indirect draw counts to zero.
-//
-// This shader is needed because we reuse the same indirect batch set count
-// buffer (i.e. the buffer that gets passed to `multi_draw_indirect_count` to
-// determine how many objects to draw) between phases (early, late, and main).
-// Before launching `build_indirect_params.wesl`, we need to reinitialize the
-// value to 0.
+//! Resets the indirect draw counts to zero.
+//!
+//! This shader is needed because we reuse the same indirect batch set count
+//! buffer (i.e. the buffer that gets passed to `multi_draw_indirect_count` to
+//! determine how many objects to draw) between phases (early, late, and main).
+//! Before launching `build_indirect_params.wesl`, we need to reinitialize the
+//! value to 0.
 
 import bevy_render::occlusion_culling::mesh_preprocess_types::IndirectBatchSet;
 

@@ -24,7 +24,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animations: ResMut<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     // Camera
     commands.spawn((
@@ -53,7 +53,7 @@ fn setup(
     let planet_animation_target_id = AnimationTargetId::from_name(&planet);
     animation.add_curve_to_target(
         planet_animation_target_id,
-        AnimatableCurve::new(
+        BlendableCurve::new(
             animated_field!(Transform::translation),
             UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
                 Vec3::new(1.0, 0.0, 1.0),
@@ -74,7 +74,7 @@ fn setup(
         AnimationTargetId::from_names([planet.clone(), orbit_controller.clone()].iter());
     animation.add_curve_to_target(
         orbit_controller_animation_target_id,
-        AnimatableCurve::new(
+        BlendableCurve::new(
             animated_field!(Transform::rotation),
             UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
                 Quat::IDENTITY,
@@ -94,7 +94,7 @@ fn setup(
     );
     animation.add_curve_to_target(
         satellite_animation_target_id,
-        AnimatableCurve::new(
+        BlendableCurve::new(
             animated_field!(Transform::scale),
             UnevenSampleAutoCurve::new(
                 [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
@@ -119,7 +119,7 @@ fn setup(
         AnimationTargetId::from_names(
             [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
         ),
-        AnimatableCurve::new(
+        BlendableCurve::new(
             animated_field!(Transform::rotation),
             UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
                 Quat::IDENTITY,
@@ -132,8 +132,8 @@ fn setup(
         ),
     );
 
-    // Create the animation graph
-    let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+    // Create the blend graph
+    let (graph, animation_index) = BlendGraph::from_clip(animations.add(animation));
 
     // Create the animation player, and set it to repeat
     let mut player = AnimationPlayer::default();
@@ -145,9 +145,9 @@ fn setup(
         .spawn((
             Mesh3d(meshes.add(Sphere::default())),
             MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-            // Add the animation graph and player
+            // Add the blend graph and player
             planet,
-            AnimationGraphHandle(graphs.add(graph)),
+            BlendGraphHandle(graphs.add(graph)),
             player,
         ))
         .id();

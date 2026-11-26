@@ -62,15 +62,16 @@ impl Plugin for MeshRenderAssetPlugin {
 
     fn finish(&self, app: &mut App) {
         let mut mesh_assets = app.world_mut().resource_mut::<Assets<Mesh>>();
-        let handle = mesh_assets.add(
-            Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::all())
+        let handle = mesh_assets.add({
+            let mut mesh = Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::all())
                 .with_inserted_attribute(
                     Mesh::ATTRIBUTE_POSITION,
                     VertexAttributeValues::Float32x3(vec![[0.0; 3]]),
                 )
-                .with_inserted_indices(Indices::U16(vec![0]))
-                .compressed_mesh(MeshAttributeCompressionFlags::COMPRESS_POSITION, false),
-        );
+                .with_inserted_indices(Indices::U16(vec![0]));
+            mesh.compress_positions().unwrap();
+            mesh
+        });
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

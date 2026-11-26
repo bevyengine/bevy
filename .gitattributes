@@ -16,3 +16,6 @@
 *.png binary
 *.jpg binary
 *.ttf binary
+
+# Tells GitHub to syntax highlight WESL as WGSL and include them in the repo's language stats
+*.wesl linguist-language=WGSL

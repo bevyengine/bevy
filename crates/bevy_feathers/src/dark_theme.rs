@@ -24,6 +24,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::BORDER_DEFAULT, palette::WARM_GRAY_1),
             (semantic::TEXT_DEFAULT, palette::LIGHT_GRAY_1),
             (semantic::TEXT_DIM, palette::LIGHT_GRAY_2),
+            (semantic::TEXT_ACCENT, palette::ACCENT.lighter(0.15)),
             (
                 semantic::TEXT_DISABLED,
                 palette::LIGHT_GRAY_1.with_alpha(0.4),
@@ -46,6 +47,10 @@ pub fn create_dark_theme() -> ThemeProps {
             (semantic::FILL_ITEM_DEFAULT, Color::NONE),
             (semantic::FILL_ITEM_HOVER, palette::GRAY_1.lighter(0.05)),
             (semantic::FILL_ITEM_PRESSED, palette::GRAY_1.lighter(0.1)),
+            (
+                semantic::FILL_ITEM_SELECTED,
+                palette::ACCENT.with_alpha(0.3),
+            ),
             (semantic::FILL_FIELD_DEFAULT, palette::GRAY_2),
             (semantic::FILL_FIELD_HOVER, palette::GRAY_2.lighter(0.05)),
             (semantic::FILL_FIELD_PRESSED, palette::GRAY_2.lighter(0.1)),
@@ -100,6 +105,7 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::FOCUS_RING, semantic::FOCUS_RING),
             (tokens::TEXT_MAIN, semantic::TEXT_DEFAULT),
             (tokens::TEXT_DIM, semantic::TEXT_DIM),
+            (tokens::TEXT_ACCENT, semantic::TEXT_ACCENT),
             // Button (normal)
             (tokens::BUTTON_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::BUTTON_BG_HOVER, semantic::FILL_SOLID_HOVER),
@@ -144,6 +150,46 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::SCROLLBAR_BG, semantic::FILL_SOLID_DISABLED),
             (tokens::SCROLLBAR_THUMB, semantic::FILL_ACCENT_DEFAULT),
             (tokens::SCROLLBAR_THUMB_HOVER, semantic::FILL_ACCENT_HOVER), // Needed a dim gray here
+            (tokens::SPLIT_PANE_HANDLE, semantic::BORDER_DEFAULT),
+            (
+                tokens::SPLIT_PANE_HANDLE_HOVER,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (
+                tokens::SPLIT_PANE_HANDLE_PRESSED,
+                semantic::FILL_ACCENT_PRESSED,
+            ),
+            (
+                tokens::SPLIT_PANE_HANDLE_DISABLED,
+                semantic::FILL_SOLID_DISABLED,
+            ),
+            // Tabs
+            (tokens::TAB_STRIP_BG, semantic::SURFACE_PANE_HEADER),
+            (tokens::TAB_STRIP_BORDER, semantic::SURFACE_PANE_HEADER),
+            (
+                tokens::TAB_STRIP_BORDER_PREVIEW,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (tokens::TAB_BG, semantic::FILL_ITEM_DEFAULT),
+            (tokens::TAB_BG_HOVER, semantic::FILL_ITEM_HOVER),
+            (tokens::TAB_BG_SELECTED, semantic::SURFACE_PANE_BODY),
+            (tokens::TAB_BG_DRAGGING, semantic::FILL_ITEM_DEFAULT),
+            (tokens::TAB_STRIPE, semantic::FILL_NONE),
+            (tokens::TAB_STRIPE_SELECTED, semantic::FILL_ACCENT_DEFAULT),
+            (tokens::TAB_TEXT, semantic::TEXT_DIM),
+            (tokens::TAB_TEXT_SELECTED, semantic::TEXT_DEFAULT),
+            (tokens::TAB_TEXT_DRAGGING, semantic::TEXT_DISABLED),
+            (tokens::TAB_TEXT_DISABLED, semantic::TEXT_DISABLED),
+            (
+                tokens::TAB_INSERTION_INDICATOR,
+                semantic::FILL_ACCENT_DEFAULT,
+            ),
+            (tokens::TAB_DRAG_PROXY_BG, semantic::SURFACE_SUBPANE_HEADER),
+            (tokens::TAB_DRAG_PROXY_BORDER, semantic::FILL_ACCENT_DEFAULT),
+            (tokens::TAB_DRAG_PROXY_OUTLINE, semantic::BORDER_DEFAULT),
+            (tokens::TAB_DRAG_PROXY_TEXT, semantic::TEXT_DEFAULT),
+            // Dock
+            (tokens::DOCK_DROP_PREVIEW, semantic::FILL_ITEM_SELECTED),
             // Checkbox
             (tokens::CHECKBOX_BG, semantic::FILL_SOLID_DEFAULT),
             (tokens::CHECKBOX_BG_HOVER, semantic::FILL_SOLID_DEFAULT),
@@ -340,6 +386,9 @@ pub fn create_dark_theme() -> ThemeProps {
             (tokens::LISTROW_BG_SELECTED, semantic::FILL_ITEM_PRESSED),
             (tokens::LISTROW_TEXT, semantic::TEXT_ON_ACCENT),
             (tokens::LISTROW_TEXT_DISABLED, semantic::TEXT_DISABLED),
+            (tokens::TREE_ROW_BG_SELECTED, semantic::FILL_ITEM_SELECTED),
+            (tokens::TREE_GUIDE, semantic::BORDER_DEFAULT),
+            (tokens::TREE_GUIDE_SELECTED, semantic::FILL_ACCENT_DEFAULT),
             (tokens::DIALOG_BG, semantic::SURFACE_DIALOG),
             (tokens::DIALOG_BORDER, semantic::BORDER_DEFAULT),
             (tokens::DIALOG_HEADER_BG, semantic::SURFACE_WINDOW),

@@ -24,13 +24,17 @@ use crate::{
         InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, ErrorContext},
-    event::{EntityEvent, Event},
+    event::{EntityEvent, Event, EventTriggerState},
     message::Message,
     observer::{IntoEntityObserver, IntoObserver},
+    query::{QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
     schedule::ScheduleLabel,
-    system::{BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemId, SystemInput},
+    system::{
+        BoxedSystem, Deferred, IntoSystem, RegisteredSystem, SystemAccess, SystemId, SystemInput,
+        SystemParamAccessConflict,
+    },
     world::{CommandQueue, EntityWorldMut, FromWorld, World},
 };
 
@@ -98,6 +102,7 @@ use crate::{
 ///
 /// [`ApplyDeferred`]: crate::schedule::ApplyDeferred
 #[derive(SystemParam)]
+#[system_param(map_access_conflict)]
 pub struct Commands<'w, 's> {
     /// The command queue that commands will be pushed to.
     ///
@@ -115,6 +120,17 @@ unsafe impl Send for Commands<'_, '_> {}
 unsafe impl Sync for Commands<'_, '_> {}
 
 impl<'w, 's> Commands<'w, 's> {
+    /// Modifies the [`SystemParamAccessConflict`] returned by [`SystemParam::init_access`](crate::system::SystemParam::init_access).
+    fn map_access_conflict(
+        access: &SystemAccess,
+        err: SystemParamAccessConflict,
+    ) -> SystemParamAccessConflict {
+        SystemParamAccessConflict::new::<Self>(err.access).with_suggestion_if_exclusive(
+            access,
+            "Modifying the `World` directly without using `Commands`",
+        )
+    }
+
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self::new_from_entities(queue, &world.entity_allocator, &world.entities)
@@ -459,6 +475,53 @@ impl<'w, 's> Commands<'w, 's> {
         I::Item: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::spawn_batch(batch));
+    }
+
+    /// Despawns all entities matching the given [`QueryFilter`].
+    ///
+    /// This method is equivalent to iterating over all the filtered entities
+    /// and [despawning](EntityCommands::despawn) them one by one, but is faster by allocating far fewer commands.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    ///
+    /// #[derive(Component)]
+    /// struct PleaseDespawn;
+    ///
+    /// fn despawn_entities(mut commands: Commands) {
+    ///     commands.despawn_all::<With<PleaseDespawn>>();
+    /// }
+    ///
+    /// # bevy_ecs::system::assert_is_system(despawn_entities);
+    /// ```
+    pub fn despawn_all<F: QueryFilter>(&mut self) {
+        self.queue(command::despawn_all::<F>());
+    }
+
+    /// Despawns all entities matching the given [`QueryFilter`] and condition.
+    ///
+    /// This method is equivalent to iterating over all the filtered entities
+    /// and [despawning](EntityCommands::despawn) them one by one, but is faster by allocating far fewer commands.
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    ///
+    /// #[derive(Component)]
+    /// struct Health(f32);
+    ///
+    /// fn despawn_dead(mut commands: Commands) {
+    ///     commands.despawn_all_where::<&Health, ()>(|health| health.0 <= 0.0);
+    /// }
+    ///
+    /// # bevy_ecs::system::assert_is_system(despawn_dead);
+    /// ```
+    pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+        &mut self,
+        cond: impl FnMut(D::Item<'_, '_>) -> bool + Send + 'static,
+    ) {
+        self.queue(command::despawn_all_where::<D, F>(cond));
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -1094,7 +1157,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+    pub fn trigger<E: Event>(&mut self, event: E)
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         self.queue(command::trigger(event));
     }
 
@@ -1103,11 +1169,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Trigger`]: crate::event::Trigger
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
-        &mut self,
-        event: E,
-        trigger: E::Trigger<'static>,
-    ) {
+    pub fn trigger_with<E: Event>(&mut self, event: E, trigger: EventTriggerState<'static, E>)
+    where
+        EventTriggerState<'static, E>: Send + Sync,
+    {
         self.queue(command::trigger_with(event, trigger));
     }
 
@@ -2283,10 +2348,10 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// ```
     #[track_caller]
-    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
-        &mut self,
-        event_fn: impl FnOnce(Entity) -> E,
-    ) -> &mut Self {
+    pub fn trigger<E: EntityEvent>(&mut self, event_fn: impl FnOnce(Entity) -> E) -> &mut Self
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         let event = (event_fn)(self.entity);
         self.commands.trigger(event);
         self
@@ -2440,6 +2505,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 mod tests {
     use crate::{
         component::Component,
+        query::{Or, With, Without},
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},
@@ -3058,5 +3124,59 @@ mod tests {
             Some(expected),
             world.entities().entity_get_spawn_or_despawn_tick(id)
         );
+    }
+
+    #[test]
+    fn despawn_all_command_despawns() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct ComponentA;
+
+        #[derive(Component)]
+        struct ComponentB;
+
+        #[derive(Component)]
+        struct ComponentC;
+
+        let a_1 = world.spawn(ComponentA).id();
+        let a_2 = world.spawn(ComponentA).id();
+        let a_b = world.spawn((ComponentA, ComponentB)).id();
+        let c = world.spawn(ComponentC).id();
+
+        let mut commands = world.commands();
+
+        commands.despawn_all::<Or<(With<ComponentC>, (With<ComponentA>, Without<ComponentB>))>>();
+
+        world.flush_commands();
+
+        assert!(world.get_entity(a_1).is_err());
+        assert!(world.get_entity(a_2).is_err());
+        assert!(world.get_entity(c).is_err());
+
+        assert!(world.get_entity(a_b).is_ok());
+    }
+
+    #[test]
+    fn despawn_all_where_command_checks() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct ComponentA(usize);
+
+        let a_1 = world.spawn(ComponentA(1)).id();
+        let a_2 = world.spawn(ComponentA(2)).id();
+        let a_3 = world.spawn(ComponentA(3)).id();
+
+        let mut commands = world.commands();
+
+        commands.despawn_all_where::<&ComponentA, ()>(|data| data.0 < 3);
+
+        world.flush_commands();
+
+        assert!(world.get_entity(a_1).is_err());
+        assert!(world.get_entity(a_2).is_err());
+
+        assert!(world.get_entity(a_3).is_ok());
     }
 }

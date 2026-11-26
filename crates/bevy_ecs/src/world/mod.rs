@@ -4,7 +4,6 @@ pub(crate) mod command_queue;
 mod deferred_world;
 mod entity_access;
 mod entity_fetch;
-mod filtered_resource;
 mod identifier;
 mod spawn_batch;
 
@@ -25,7 +24,6 @@ pub use entity_access::{
     TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
-pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
@@ -52,7 +50,7 @@ use crate::{
     },
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    query::{QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{IsResource, Resource, ResourceEntities, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -65,14 +63,14 @@ use crate::{
         },
     },
 };
-use alloc::vec::Vec;
+use alloc::{collections::VecDeque, vec::Vec};
 use bevy_platform::{
     cell::SyncUnsafeCell,
     sync::atomic::{AtomicU32, Ordering},
 };
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
-use core::{any::TypeId, fmt, mem::ManuallyDrop};
+use core::{any::TypeId, fmt, mem::DropGuard};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -350,7 +348,7 @@ impl World {
         let index = self.register_component::<T>();
         assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());
         // SAFETY: We just created this component
-        unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
+        unsafe { self.components.get_hooks_mut(index).unwrap_unchecked() }
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.
@@ -895,7 +893,7 @@ impl World {
     pub fn inspect_entity(
         &self,
         entity: Entity,
-    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityNotSpawnedError> {
+    ) -> Result<impl Iterator<Item = (ComponentId, &ComponentInfo)>, EntityNotSpawnedError> {
         let entity_location = self.entities().get_spawned(entity)?;
 
         let archetype = self
@@ -905,7 +903,7 @@ impl World {
 
         Ok(archetype
             .iter_components()
-            .filter_map(|id| self.components().get_info(id)))
+            .filter_map(|id| self.components().get_info(id).map(|info| (id, info))))
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -1669,6 +1667,89 @@ impl World {
         })?;
         entity.despawn_no_free_with_caller(caller);
         Ok(entity.id())
+    }
+
+    pub(crate) fn despawn_no_free_no_flush_with_caller(
+        &mut self,
+        entity: Entity,
+        caller: MaybeLocation,
+    ) -> Result<Entity, EntityDespawnError> {
+        let mut entity = self.get_entity_mut(entity).map_err(|err| match err {
+            EntityMutableFetchError::NotSpawned(err) => err,
+            // Only one entity.
+            EntityMutableFetchError::AliasedMutability(_) => unreachable!(),
+        })?;
+        entity.despawn_no_free_no_flush_with_caller(caller);
+        Ok(entity.id())
+    }
+
+    /// [`Despawns`](Self::despawn) all entities matching the [`QueryFilter`].
+    #[track_caller]
+    #[inline]
+    pub fn despawn_all<F: QueryFilter>(&mut self) {
+        self.despawn_all_with_caller::<F>(MaybeLocation::caller());
+    }
+
+    /// [`Despawns`](Self::despawn) all entities matching a specific [`QueryFilter`] and condition.
+    #[track_caller]
+    #[inline]
+    pub fn despawn_all_where<D: QueryData, F: QueryFilter>(
+        &mut self,
+        cond: impl FnMut(D::Item<'_, '_>) -> bool,
+    ) {
+        self.despawn_all_where_with_caller::<D, F>(cond, MaybeLocation::caller());
+    }
+
+    /// [`despawn_all`](Self::despawn_all) that takes a caller explicitly.
+    #[inline]
+    pub(crate) fn despawn_all_with_caller<F: QueryFilter>(&mut self, caller: MaybeLocation) {
+        self.despawn_all_where_with_caller::<(), F>(|_| true, caller);
+    }
+
+    /// [`despawn_all_where`](Self::despawn_all_where) that takes a caller explicitly.
+    pub(crate) fn despawn_all_where_with_caller<D: QueryData, F: QueryFilter>(
+        &mut self,
+        mut cond: impl FnMut(D::Item<'_, '_>) -> bool,
+        caller: MaybeLocation,
+    ) {
+        let mut query = self.query_filtered::<(Entity, D), F>();
+        let mut query = query.iter_mut(self);
+
+        let mut entities_to_despawn = VecDeque::new();
+
+        while let Some((entity, data)) = query.fetch_next() {
+            if cond(data) {
+                // We want to despawn the entities backwards since we're
+                // less likely to leave holes.
+                entities_to_despawn.push_front(entity);
+            }
+        }
+        // We have to explicitly drop the query to release the world borrow.
+        drop(query);
+
+        // This part of the closure does not need to be generic.
+        // Compiling it once saves a bit of compile time.
+        fn despawn_entities(
+            world: &mut World,
+            mut entities_to_despawn: VecDeque<Entity>,
+            caller: MaybeLocation,
+        ) {
+            entities_to_despawn.retain(|entity| {
+                let _ = world.despawn_no_free_no_flush_with_caller(*entity, caller);
+
+                // Check if the entity wasn't already freed or reconstructed.
+                matches!(world.entities.get(*entity), Ok(None))
+            });
+
+            let (head, tail) = entities_to_despawn.as_slices();
+
+            world.entity_allocator.free_many(head);
+            world.entity_allocator.free_many(tail);
+
+            world.flush();
+        }
+
+        despawn_entities(self, entities_to_despawn, caller);
     }
 
     /// Clears the internal component tracker state.
@@ -2823,24 +2904,14 @@ impl World {
         let changed_by = entity_mut.get_changed_by::<R>()?;
         let value = entity_mut.take::<R>()?;
 
-        // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
+        // Guard used to manage reinserting the resource at the end of the scope. use of a drop impl means that
         // the resource is inserted even if the user-provided closure unwinds.
         // this facilitates localized panic recovery and makes app shutdown in response to a panic more graceful
         // by avoiding knock-on errors.
-        struct ReinsertGuard<'a, R: Resource> {
-            world: &'a mut World,
-            entity: Entity,
-            component_id: ComponentId,
-            value: ManuallyDrop<R>,
-            caller: MaybeLocation,
-        }
-        impl<R: Resource> Drop for ReinsertGuard<'_, R> {
-            fn drop(&mut self) {
-                // take ownership of the value first so it'll get dropped if we return early
-                // SAFETY: drop semantics ensure that `self.value` will never be accessed again after this call
-                let value = unsafe { ManuallyDrop::take(&mut self.value) };
-
-                let Ok(mut entity_mut) = self.world.get_entity_mut(self.entity) else {
+        let (world, value, changed_by) = &mut *DropGuard::new(
+            (self, value, changed_by),
+            |(world, value, changed_by)| {
+                let Ok(mut entity_mut) = world.get_entity_mut(entity) else {
                     return;
                 };
 
@@ -2848,7 +2919,7 @@ impl World {
                 // resource insertion usually indicates a logic error in user code, which is useful to catch at dev time,
                 // however it does not inherently lead to corrupted state, so we avoid introducing an unnecessary crash
                 // for production builds.
-                if entity_mut.contains_id(self.component_id) {
+                if entity_mut.contains_id(component_id) {
                     #[cfg(debug_assertions)]
                     {
                         // if we're already panicking, log an error instead of panicking, as double-panics result in an abort
@@ -2904,11 +2975,11 @@ impl World {
                     //   returns.
                     let (bundle, _) = value.partial_move(|bundle| unsafe {
                         bundle_inserter.insert(
-                            self.entity,
+                            entity,
                             location,
                             bundle,
                             InsertMode::Replace,
-                            self.caller,
+                            changed_by,
                             RelationshipHookMode::Run,
                         )
                     });
@@ -2923,30 +2994,22 @@ impl World {
                     // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
                     unsafe { R::apply_effect(bundle, &mut entity_mut) };
                 }
-            }
-        }
-
-        let mut guard = ReinsertGuard {
-            world: self,
-            entity,
-            component_id,
-            value: ManuallyDrop::new(value),
-            caller: changed_by,
-        };
+            },
+        );
 
         let value_mut = Mut {
-            value: &mut *guard.value,
+            value,
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                changed_by: guard.caller.as_mut(),
+                changed_by: changed_by.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
                 summary_tick: None,
             },
         };
 
-        let result = f(guard.world, value_mut);
+        let result = f(world, value_mut);
 
         Some(result)
     }
@@ -3072,27 +3135,19 @@ impl World {
             return;
         }
 
+        let start = self.command_queue_start;
+        let end = self.command_queue.get_mut().len();
         // Prevent nested calls to `flush_commands()` from accessing the commands being run now.
         // Set `command_queue_start` to the end of the buffer,
         // and use a RAII type to set it back when done.
-        struct Guard<'a> {
-            world: &'a mut World,
-            start: usize,
-        }
-        impl Drop for Guard<'_> {
-            fn drop(&mut self) {
-                // Return `command_queue_start` to its original value.
-                // `CommandQueueRunner` will have set `len()` to `start`,
-                // so this will result in a zero-length queue.
-                debug_assert_eq!(self.world.command_queue.get_mut().len(), self.start);
-                self.world.command_queue_start = self.start;
-            }
-        }
-
-        let start = self.command_queue_start;
-        let end = self.command_queue.get_mut().len();
-        let guard = Guard { world: self, start };
-        guard.world.command_queue_start = end;
+        let mut guard = DropGuard::new(self, |world| {
+            // Return `command_queue_start` to its original value.
+            // `CommandQueueRunner` will have set `len()` to `start`,
+            // so this will result in a zero-length queue.
+            debug_assert_eq!(world.command_queue.get_mut().len(), start);
+            world.command_queue_start = start;
+        });
+        guard.command_queue_start = end;
 
         // SAFETY:
         // * The world's command queue is always returned
@@ -3100,11 +3155,7 @@ impl World {
         //   so any new commands started there
         // * `command_queue_start = end` prevents nested calls from accessing commands between `start` and `command_queue.len`
         let mut runner = unsafe {
-            CommandQueueRunner::new(
-                &mut *guard.world,
-                |world| world.command_queue.get_mut(),
-                start,
-            )
+            CommandQueueRunner::new(&mut **guard, |world| world.command_queue.get_mut(), start)
         };
         runner.run(|world| Some(world));
     }
@@ -3276,27 +3327,12 @@ impl World {
         last_change_tick: Tick,
         f: impl FnOnce(&mut World) -> T,
     ) -> T {
-        struct LastTickGuard<'a> {
-            world: &'a mut World,
-            last_tick: Tick,
-        }
-
+        let last_tick = self.last_change_tick;
         // By setting the change tick in the drop impl, we ensure that
         // the change tick gets reset even if a panic occurs during the scope.
-        impl Drop for LastTickGuard<'_> {
-            fn drop(&mut self) {
-                self.world.last_change_tick = self.last_tick;
-            }
-        }
-
-        let guard = LastTickGuard {
-            last_tick: self.last_change_tick,
-            world: self,
-        };
-
-        guard.world.last_change_tick = last_change_tick;
-
-        f(guard.world)
+        let mut guard = DropGuard::new(self, |world| world.last_change_tick = last_tick);
+        guard.last_change_tick = last_change_tick;
+        f(&mut guard)
     }
 
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
@@ -3393,7 +3429,7 @@ impl World {
         let id = self.register_bundle_info::<B>();
 
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
-        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+        unsafe { self.bundles.get(id).unwrap_unchecked() }
     }
 
     pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
@@ -3446,7 +3482,7 @@ impl World {
             self.bundles
                 .init_dynamic_info(&mut self.storages, &self.components, component_ids);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
-        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+        unsafe { self.bundles.get(id).unwrap_unchecked() }
     }
 
     /// Convenience method for accessing the world's fallback error handler,
@@ -3516,7 +3552,7 @@ impl World {
     /// # world.insert_resource(A(1));
     /// # world.insert_resource(B(2));
     /// let mut total = 0;
-    /// for (info, _) in world.iter_resources() {
+    /// for (_, info, _) in world.iter_resources() {
     ///    println!("Resource: {}", info.name());
     ///    println!("Size: {} bytes", info.layout().size());
     ///    total += info.layout().size();
@@ -3565,7 +3601,7 @@ impl World {
     /// }));
     ///
     /// // Iterate all resources, in order to run the closures for each matching resource type
-    /// for (info, ptr) in world.iter_resources() {
+    /// for (_, info, ptr) in world.iter_resources() {
     ///     let Some(type_id) = info.type_id() else {
     ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
     ///        // dynamically inserted via a scripting language) in which case we can't match them.
@@ -3582,14 +3618,14 @@ impl World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+    pub fn iter_resources(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo, Ptr<'_>)> {
         self.resource_entities
             .iter()
             .filter_map(|(component_id, entity)| {
                 let component_info = self.components().get_info(component_id)?;
                 let entity_cell = self.get_entity(entity).ok()?;
                 let resource = entity_cell.get_by_id(component_id).ok()?;
-                Some((component_info, resource))
+                Some((component_id, component_info, resource))
             })
     }
 
@@ -3640,7 +3676,7 @@ impl World {
     /// }));
     ///
     /// // Iterate all resources, in order to run the mutator closures for each matching resource type
-    /// for (info, mut mut_untyped) in world.iter_resources_mut() {
+    /// for (_, info, mut mut_untyped) in world.iter_resources_mut() {
     ///     let Some(type_id) = info.type_id() else {
     ///        // It's possible for resources to not have a `TypeId` (e.g. non-Rust resources
     ///        // dynamically inserted via a scripting language) in which case we can't match them.
@@ -3658,7 +3694,9 @@ impl World {
     /// # assert_eq!(world.resource::<A>().0, 2);
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
-    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+    pub fn iter_resources_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (ComponentId, &ComponentInfo, MutUntyped<'_>)> {
         let unsafe_world = self.as_unsafe_world_cell();
         // SAFETY: exclusive world access to all resources
         let resource_entities = unsafe { unsafe_world.resource_entities() };
@@ -3668,8 +3706,7 @@ impl World {
             .iter()
             .filter_map(move |(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
-                let component_info =
-                    unsafe { components.get_info(component_id).debug_checked_unwrap() };
+                let component_info = unsafe { components.get_info_unchecked(component_id) };
 
                 let entity_cell = unsafe_world.get_entity(entity).ok()?;
 
@@ -3681,7 +3718,7 @@ impl World {
                 // no duplicate references are created
                 let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
 
-                Some((component_info, mut_untyped))
+                Some((component_id, component_info, mut_untyped))
             })
     }
 
@@ -4005,7 +4042,9 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
-        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{DetectChanges, Event, Mut, On, Res},
@@ -4203,14 +4242,19 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
+        let id1 = world.component_id::<TestResource>().unwrap();
+        let id2 = world.component_id::<TestResource2>().unwrap();
+
         let mut iter = world.iter_resources();
 
-        let (info, ptr) = iter.next().unwrap();
+        let (id, info, ptr) = iter.next().unwrap();
+        assert_eq!(id, id1);
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
-        let (info, ptr) = iter.next().unwrap();
+        let (id, info, ptr) = iter.next().unwrap();
+        assert_eq!(id, id2);
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
@@ -4231,16 +4275,21 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
+        let id1 = world.component_id::<TestResource>().unwrap();
+        let id2 = world.component_id::<TestResource2>().unwrap();
+
         let mut iter = world.iter_resources_mut();
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
+        let (id, info, mut mut_untyped) = iter.next().unwrap();
+        assert_eq!(id, id1);
         assert_eq!(info.name(), DebugName::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
+        let (id, info, mut mut_untyped) = iter.next().unwrap();
+        assert_eq!(id, id2);
         assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
@@ -4360,10 +4409,12 @@ mod tests {
         let ent5 = world.spawn(Bar).id();
         let ent6 = world.spawn(Baz).id();
 
-        fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
+        fn to_type_ids(
+            component_infos: Vec<(ComponentId, &ComponentInfo)>,
+        ) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(ComponentInfo::type_id)
+                .map(|(_, info)| info.type_id())
                 .collect()
         }
 

@@ -49,11 +49,12 @@ use bevy_input::{
 };
 use bevy_input_focus::{
     tab_navigation::{NavAction, TabGroup, TabNavigation},
-    FocusCause, FocusedInput, InputFocus, InputFocusSystems,
+    FocusCause, Focusable, FocusedInput, InputFocus, InputFocusSystems,
 };
 use bevy_log::warn;
-use bevy_picking::events::{
-    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+use bevy_picking::{
+    events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
+    pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed, UiSystems};
@@ -132,7 +133,7 @@ pub struct MenuPopup {
 
 /// Component that defines a menu item.
 #[derive(Component, Debug, Clone, Default)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)))]
+#[require(AccessibilityNode(accesskit::Node::new(Role::MenuItem)), Focusable)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct MenuItem;
@@ -234,7 +235,7 @@ fn menu_on_key_event(
             if !event.repeat && event.state == ButtonState::Pressed {
                 match event.key_code {
                     // Activate the item and close the popup
-                    KeyCode::Enter | KeyCode::Space => {
+                    KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Space => {
                         ev.propagate(false);
                         // Trigger the action for this menu item.
                         commands.trigger(Activate { entity });
@@ -343,6 +344,9 @@ fn menu_item_on_pointer_click(
     mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<MenuItem>>,
     mut commands: Commands,
 ) {
+    if ev.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((pressed, disabled)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
         if pressed && !disabled {
@@ -367,6 +371,9 @@ fn menu_item_on_pointer_down(
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
+    if ev.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
         if !disabled && !pressed {
@@ -380,6 +387,9 @@ fn menu_item_on_pointer_up(
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuItem>>,
     mut commands: Commands,
 ) {
+    if ev.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((item, disabled, pressed)) = q_state.get_mut(ev.entity) {
         ev.propagate(false);
         if !disabled && pressed {

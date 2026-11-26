@@ -17,13 +17,13 @@ import package::sprite_mesh::bindings::{texture, texture_sampler};
 import package::mesh2d::bindings::mesh;
 import bevy_render::bindless::{bindless_samplers_filtering, bindless_textures_2d};
 
-// Samples the sprite's final color, including the tint and alpha discard, at a given UV.
+/// Samples the sprite's final color, including the tint and alpha discard, at a given UV.
 fn sample_final_color(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
     let sprite_color = sample_sprite_texture(uv, instance_index);
     return get_final_color(sprite_color, instance_index);
 }
 
-// Samples the sprite's texture without tint and alpha discard at a given UV.
+/// Samples the sprite's texture without tint and alpha discard at a given UV.
 fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
     let final_uv = get_final_uv(uv, instance_index);
 @if(BINDLESS)
@@ -38,14 +38,14 @@ fn sample_sprite_texture(uv: vec2<f32>, instance_index: u32) -> vec4<f32> {
     return textureSample(texture, texture_sampler, final_uv);
 }
 
-// Applies tint and alpha discard to the sprite's color.
+/// Applies tint and alpha discard to the sprite's color.
 fn get_final_color(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
     var output_color = apply_tint(sprite_color, instance_index);
     output_color = alpha_discard(output_color, instance_index);
     return output_color;
 }
 
-// Applies all the necessary transformations to get the final UV that the texture should be sampled from.
+/// Applies all the necessary transformations to get the final UV that the texture should be sampled from.
 fn get_final_uv(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     var out = uv;
     out = apply_flip(out, instance_index);
@@ -55,7 +55,7 @@ fn get_final_uv(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     return out;
 }
 
-// Flips the UV based on the sprite's flip X and Y properties.
+/// Flips the UV based on the sprite's flip X and Y properties.
 fn apply_flip(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
@@ -75,7 +75,7 @@ fn apply_flip(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     return out;
 }
 
-// Applies tiling to the UV based on the sprite's tiling properties when `image_mode` is `Tiled`.
+/// Applies tiling to the UV based on the sprite's tiling properties when `image_mode` is `Tiled`.
 fn apply_tiling(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
@@ -99,9 +99,9 @@ fn apply_tiling(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     return out;
 }
 
-// Applies the sprite's UV transform,
-// which is used for sampling the correct region from a texture atlas
-// and scaling the sprite when `image_mode` is `Scaled`.
+/// Applies the sprite's UV transform,
+/// which is used for sampling the correct region from a texture atlas
+/// and scaling the sprite when `image_mode` is `Scaled`.
 fn apply_uv_transform(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
@@ -113,7 +113,7 @@ fn apply_uv_transform(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     return (uv_transform * vec3(uv, 1.0)).xy;
 }
 
-// Applies UV slicing based on the sprite's slicing properties when `image_mode` is `Sliced`.
+/// Applies UV slicing based on the sprite's slicing properties when `image_mode` is `Sliced`.
 fn apply_slicing(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
 @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
@@ -216,7 +216,7 @@ fn apply_slicing(uv: vec2<f32>, instance_index: u32) -> vec2<f32> {
     );
 }
 
-// Applies the tint from the sprite's `color` property.
+/// Applies the tint from the sprite's `color` property.
 fn apply_tint(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
 @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
@@ -228,7 +228,7 @@ fn apply_tint(sprite_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
     return sprite_color * color;
 }
 
-// Discards fragments based on the sprite's `alpha_cutoff` and `alpha_mode`.
+/// Discards fragments based on the sprite's `alpha_cutoff` and `alpha_mode`.
 fn alpha_discard(output_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
 @if(BINDLESS)
     let slot = mesh[instance_index].material_bind_group_slot;
@@ -265,7 +265,7 @@ fn alpha_discard(output_color: vec4<f32>, instance_index: u32) -> vec4<f32> {
     return color;
 }
 
-// Maps a point p from [a, b] to [c, d], tiling it if stretch_value is not 0.
+/// Maps a point p from [a, b] to [c, d], tiling it if stretch_value is not 0.
 fn tile_or_stretch(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
     if stretch_value == 0.0 {
         return stretch_interval(p, a, b, c, d);
@@ -273,14 +273,14 @@ fn tile_or_stretch(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -
     return tile_interval(p, a, b, c, d, stretch_value);
 }
 
-// Takes a point p from an interval [a, b] and maps it to a portion of the tile [c, d]
+/// Takes a point p from an interval [a, b] and maps it to a portion of the tile [c, d]
 fn tile_interval(p: f32, a: f32, b: f32, c: f32, d: f32, stretch_value: f32) -> f32 {
     let value = (p - a) / (b - a);
     let tile_value = (value - stretch_value * floor(value / stretch_value)) / stretch_value;
     return tile_value * (d - c) + c;
 }
 
-// Takes a point p from an interval [a, b] and translates it to the interval [c, d]
+/// Takes a point p from an interval [a, b] and translates it to the interval [c, d]
 fn stretch_interval(p: f32, a: f32, b: f32, c: f32, d: f32) -> f32 {
     return (p - a) / (b - a) * (d - c) + c;
 }

@@ -17,7 +17,11 @@ use bevy_ecs::error::BevyError;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::{any::TypeId, borrow::Borrow, ops::Deref};
+use core::{
+    any::{Any, TypeId},
+    borrow::Borrow,
+    ops::Deref,
+};
 use futures_lite::AsyncWriteExt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -29,9 +33,11 @@ use thiserror::Error;
 ///
 /// For a version of this trait that can load assets, see [`AssetLoader`].
 ///
-/// Note: This is currently only leveraged by the [`AssetProcessor`](crate::processor::AssetProcessor), and does not provide a
-/// suitable interface for general purpose asset persistence. See [github issue #11216](https://github.com/bevyengine/bevy/issues/11216).
+/// This trait can be used with [`save_using_saver`] to save assets directly, or with
+/// [`LoadTransformAndSave`] to create a [`Process`] implementation.
 ///
+/// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
+/// [`Process`]: crate::processor::Process
 pub trait AssetSaver: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
@@ -80,7 +86,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         asset_path: AssetPath<'a>,
     ) -> BoxedFuture<'a, Result<(), BevyError>> {
         Box::pin(async move {
-            let settings = settings
+            let settings = (settings as &dyn Any)
                 .downcast_ref::<S::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let saved_asset = SavedAsset::<S::Asset>::from_loaded(asset).unwrap();
@@ -157,7 +163,7 @@ impl<'a, 'b, A: Asset> SavedAsset<'a, 'b, A> {
 
     /// Creates a new [`SavedAsset`] from `asset` if its internal value matches `A`.
     pub fn from_loaded(asset: &'a ErasedLoadedAsset) -> Option<Self> {
-        let value = asset.value.downcast_ref::<A>()?;
+        let value = (&*asset.value as &dyn Any).downcast_ref::<A>()?;
         Some(Self::from_value_and_labeled_assets(
             value,
             &asset.labeled_assets,
@@ -308,13 +314,20 @@ impl<'a> ErasedSavedAsset<'a, '_> {
     ///
     /// Returns [`None`] if the asset is the wrong type.
     pub fn downcast<'b, A: Asset>(&'b self) -> Option<SavedAsset<'a, 'b, A>> {
-        let value = self.value.downcast_ref::<A>()?;
+        let value = (self.value as &dyn Any).downcast_ref::<A>()?;
         Some(SavedAsset::from_value_and_labeled_saved_assets(
             value,
             &self.labeled_assets,
             &self.label_to_asset_index,
             &self.asset_id_to_asset_index,
         ))
+    }
+
+    /// Returns the inner value as an [`Any`].
+    ///
+    /// For a statically-known type, use [`Self::downcast`] instead.
+    pub fn get(&self) -> &'a dyn Any {
+        self.value
     }
 }
 

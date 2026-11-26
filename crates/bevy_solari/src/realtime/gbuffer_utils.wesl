@@ -2,7 +2,7 @@ import bevy_pbr::deferred::types::unpack_24bit_normal;
 import bevy_pbr::render::rgb9e5::rgb9e5_to_vec3_;
 import bevy_render::utils::octahedral_decode;
 import bevy_render::view::{View, depth_ndc_to_view_z};
-import package::scene::bindings::ResolvedMaterial;
+import package::scene::bindings::{ResolvedMaterial, bend_normal_towards_viewer};
 
 struct ResolvedGPixel {
     world_position: vec3<f32>,
@@ -10,9 +10,10 @@ struct ResolvedGPixel {
     material: ResolvedMaterial,
 }
 
-fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size: vec2<f32>, world_from_clip: mat4x4<f32>) -> ResolvedGPixel {
+fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size: vec2<f32>, world_from_clip: mat4x4<f32>, view_position: vec3<f32>) -> ResolvedGPixel {
     let world_position = reconstruct_world_position(pixel_id, depth, view_size, world_from_clip);
-    let world_normal = octahedral_decode(unpack_24bit_normal(gpixel.a));
+    let wo = normalize(view_position - world_position);
+    let world_normal = bend_normal_towards_viewer(octahedral_decode(unpack_24bit_normal(gpixel.a)), wo);
 
     let base_rough = unpack4x8unorm(gpixel.r);
     let base_color = pow(base_rough.rgb, vec3(2.2));
@@ -22,7 +23,7 @@ fn gpixel_resolve(gpixel: vec4<u32>, depth: f32, pixel_id: vec2<u32>, view_size:
     let reflectance = props.r;
     let metallic = props.g;
     let emissive = rgb9e5_to_vec3_(gpixel.g);
-    let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic);
+    let material = ResolvedMaterial(base_color, emissive, reflectance, perceptual_roughness, roughness, metallic, false);
 
     return ResolvedGPixel(world_position, world_normal, material);
 }
@@ -34,7 +35,7 @@ fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32, view_size: vec2<f
     return world_pos.xyz / world_pos.w;
 }
 
-// Reject if tangent plane differs more than 0.3% or angle between normals more than 90 degrees
+/// Reject if tangent plane differs more than 0.3% or angle between normals more than 90 degrees
 fn pixel_dissimilar(depth: f32, world_position: vec3<f32>, other_world_position: vec3<f32>, normal: vec3<f32>, other_normal: vec3<f32>, view: View) -> bool {
     // https://developer.download.nvidia.com/video/gputechconf/gtc/2020/presentations/s22699-fast-denoising-with-self-stabilizing-recurrent-blurs.pdf#page=45
     let tangent_plane_distance = abs(dot(normal, other_world_position - world_position));

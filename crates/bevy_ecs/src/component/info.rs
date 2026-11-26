@@ -19,7 +19,6 @@ use crate::{
         RequiredComponents, StorageType,
     },
     lifecycle::ComponentHooks,
-    query::DebugCheckedUnwrap as _,
     relationship::{
         MaybeRelationshipAccessor, RelationshipAccessor, RelationshipAccessorInitializer,
     },
@@ -29,7 +28,6 @@ use crate::{
 /// Stores metadata for a type of component or resource stored in a specific [`World`](crate::world::World).
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
-    pub(super) id: ComponentId,
     pub(super) descriptor: ComponentDescriptor,
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
@@ -39,12 +37,6 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
-    /// Returns a value uniquely identifying the current component.
-    #[inline]
-    pub fn id(&self) -> ComponentId {
-        self.id
-    }
-
     /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> DebugName {
@@ -84,13 +76,13 @@ impl ComponentInfo {
         self.descriptor.layout
     }
 
-    #[inline]
     /// Get the function which should be called to clean up values of
     /// the underlying component type. This maps to the
     /// [`Drop`] implementation for 'normal' Rust components
     ///
     /// Returns `None` if values of the underlying component type don't
     /// need to be dropped, e.g. as reported by [`needs_drop`].
+    #[inline]
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
@@ -110,9 +102,8 @@ impl ComponentInfo {
     }
 
     /// Create a new [`ComponentInfo`].
-    pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
+    pub(crate) fn new(descriptor: ComponentDescriptor) -> Self {
         ComponentInfo {
-            id,
             descriptor,
             hooks: Default::default(),
             required_components: Default::default(),
@@ -185,7 +176,7 @@ impl ComponentInfo {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq, Clone)
 )]
-pub struct ComponentId(pub(super) usize);
+pub struct ComponentId(usize);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`].
@@ -411,13 +402,13 @@ impl Components {
         mut descriptor: ComponentDescriptor,
     ) {
         descriptor.initialize(id, self);
-        let info = ComponentInfo::new(id, descriptor);
+        let info = ComponentInfo::new(descriptor);
         let least_len = id.0 + 1;
         if self.components.len() < least_len {
             self.components.resize_with(least_len, || None);
         }
         // SAFETY: We just extended the vec to make this index valid.
-        let slot = unsafe { self.components.get_mut(id.0).debug_checked_unwrap() };
+        let slot = unsafe { self.components.get_mut(id.0).unwrap_unchecked() };
         // Caller ensures id is unique
         debug_assert!(slot.is_none());
         *slot = Some(info);
@@ -539,9 +530,9 @@ impl Components {
         unsafe {
             self.components
                 .get(id.0)
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
                 .as_ref()
-                .debug_checked_unwrap()
+                .unwrap_unchecked()
         }
     }
 
@@ -695,8 +686,11 @@ impl Components {
     }
 
     /// Gets an iterator over all components fully registered with this instance.
-    pub fn iter_registered(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter().filter_map(Option::as_ref)
+    pub fn iter_registered(&self) -> impl Iterator<Item = (ComponentId, &ComponentInfo)> + '_ {
+        self.components
+            .iter()
+            .enumerate()
+            .filter_map(|(index, info)| info.as_ref().map(|info| (ComponentId::new(index), info)))
     }
 
     pub(crate) fn get_relationship_accessor_mut(

@@ -12,9 +12,10 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::{FocusCause, FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::events::{
-    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+use bevy_input_focus::{FocusCause, Focusable, FocusedInput, InputFocus, InputFocusVisible};
+use bevy_picking::{
+    events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
+    pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
@@ -38,7 +39,11 @@ use bevy_ecs::entity::Entity;
 /// and how to respond to state changes, see the [crate-level documentation].
 /// [crate-level documentation]: crate
 #[derive(Component, Debug, Default, Clone)]
-#[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
+#[require(
+    AccessibilityNode(accesskit::Node::new(Role::CheckBox)),
+    Checkable,
+    Focusable
+)]
 #[derive(Reflect)]
 #[reflect(Component)]
 pub struct Checkbox;
@@ -52,7 +57,9 @@ fn checkbox_on_key_input(
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
-            && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
+            && (event.key_code == KeyCode::Enter
+                || event.key_code == KeyCode::NumpadEnter
+                || event.key_code == KeyCode::Space)
         {
             ev.propagate(false);
             commands.trigger(ValueChange {
@@ -72,6 +79,9 @@ fn checkbox_on_pointer_click(
     >,
     mut commands: Commands,
 ) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((is_checked, disabled)) = q_checkbox.get(click.entity) {
         click.propagate(false);
         if !disabled {
@@ -100,6 +110,9 @@ fn checkbox_on_pointer_down(
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
+    if press.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((checkbox, disabled, checked, pressed, activate_on_press)) =
         q_checkbox.get_mut(press.entity)
     {
@@ -131,6 +144,9 @@ fn checkbox_on_pointer_up(
     mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
     mut commands: Commands,
 ) {
+    if release.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {
@@ -459,6 +475,36 @@ mod tests {
         assert!(
             app.world().entity(checkbox).contains::<Checked>(),
             "Space should toggle the focused checkbox"
+        );
+    }
+
+    /// With a checkbox focused, pressing `NumpadEnter` toggles it as `Enter` does.
+    #[test]
+    fn numpad_enter_toggles_focused_checkbox() {
+        let (mut app, window) = checkbox_app();
+        let checkbox = app
+            .world_mut()
+            .spawn((Checkbox, TabIndex(0), ChildOf(window)))
+            .id();
+        app.update();
+
+        app.world_mut()
+            .resource_mut::<InputFocus>()
+            .set(checkbox, FocusCause::Navigated);
+
+        app.world_mut().write_message(KeyboardInput {
+            key_code: KeyCode::NumpadEnter,
+            logical_key: Key::Enter,
+            state: ButtonState::Pressed,
+            text: None,
+            repeat: false,
+            window,
+        });
+        app.update();
+
+        assert!(
+            app.world().entity(checkbox).contains::<Checked>(),
+            "NumpadEnter should toggle the focused checkbox"
         );
     }
 

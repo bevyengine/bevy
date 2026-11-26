@@ -278,7 +278,7 @@ fn build_plane(mut commands: Commands) {
         },
         Pickable {
             should_block_lower: false,
-            ..Default::default()
+            is_hoverable: false,
         },
         INITIAL_DIAGNOSTICS_OVERLAY_PLANE_Z_INDEX,
     ));
@@ -337,7 +337,7 @@ fn rebuild_diagnostics_list(
                 children![(
                     Text::new(diagnostic_overlay_item.path.to_string()),
                     TextFont {
-                        font_size: style.item_font_size,
+                        font_size: style.item_font_size.clone(),
                         ..Default::default()
                     },
                     Pickable::IGNORE,
@@ -354,7 +354,7 @@ fn rebuild_diagnostics_list(
                 children![(
                     Text::new(diagnostic),
                     TextFont {
-                        font_size: style.item_font_size,
+                        font_size: style.item_font_size.clone(),
                         ..Default::default()
                     },
                     Pickable::IGNORE,
@@ -401,7 +401,7 @@ fn build_overlay(
                 children![(
                     Text::new(diagnostics_overlay.title.as_ref()),
                     TextFont {
-                        font_size: style.title_font_size,
+                        font_size: style.title_font_size.clone(),
                         ..Default::default()
                     },
                     Pickable::IGNORE

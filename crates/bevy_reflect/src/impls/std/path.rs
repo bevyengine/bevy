@@ -1,3 +1,4 @@
+use crate::impls::macros::annotated;
 use crate::{
     error::ReflectCloneError,
     info::{OpaqueInfo, TypeInfo, Typed},
@@ -11,6 +12,8 @@ use crate::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
 };
 use alloc::borrow::Cow;
+#[cfg(feature = "annotations")]
+use bevy_annotations::SerializedAs;
 use bevy_platform::prelude::*;
 use bevy_reflect_derive::{impl_reflect_opaque, impl_type_path};
 use core::any::Any;
@@ -18,7 +21,7 @@ use core::fmt;
 use core::hash::{Hash, Hasher};
 use std::path::Path;
 
-impl_reflect_opaque!(::std::path::PathBuf(
+annotated!(@SerializedAs::STRING; impl_reflect_opaque!(::std::path::PathBuf(
     Clone,
     Debug,
     Hash,
@@ -26,8 +29,8 @@ impl_reflect_opaque!(::std::path::PathBuf(
     PartialOrd,
     Serialize,
     Deserialize,
-    Default
-));
+    Default,
+)));
 
 impl PartialReflect for &'static Path {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {

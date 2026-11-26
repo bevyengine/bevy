@@ -1,5 +1,3 @@
-use core::ops::RangeInclusive;
-
 use accesskit::{Orientation, Role};
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
@@ -7,7 +5,7 @@ use bevy_ecs::event::EntityEvent;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::Insert;
 use bevy_ecs::query::Has;
-use bevy_ecs::system::Res;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::{
     component::Component,
@@ -18,17 +16,23 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
+use bevy_input_focus::{Focusable, FocusedInput};
 use bevy_log::warn_once;
 use bevy_math::ops;
-use bevy_picking::events::{
-    PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+use bevy_picking::{
+    events::{
+        PointerCancel, PointerDrag, PointerDragEnd, PointerDragStart, PointerPress, PointerRelease,
+    },
+    hover::PointerCaptureMap,
+    pointer::PointerButton,
 };
+
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, Pressed, UiGlobalTransform,
     UiScale,
 };
+use core::ops::RangeInclusive;
 
 use crate::ValueChange;
 use bevy_ecs::entity::Entity;
@@ -107,7 +111,8 @@ pub enum TrackClick {
     SliderDragState,
     SliderValue,
     SliderRange,
-    SliderStep
+    SliderStep,
+    Focusable
 )]
 #[derive(Reflect)]
 #[reflect(Component)]
@@ -280,6 +285,9 @@ pub(crate) fn slider_on_pointer_down(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
+    if press.button != PointerButton::Primary {
+        return;
+    }
     if q_thumb.contains(press.entity) {
         // Thumb click, stop propagation to prevent track click.
         press.propagate(false);
@@ -383,12 +391,21 @@ pub(crate) fn slider_on_drag_start(
         (&SliderValue, &mut SliderDragState, Has<InteractionDisabled>),
         With<Slider>,
     >,
+    mut capture_map: ResMut<PointerCaptureMap>,
 ) {
+    if drag_start.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
         drag_start.propagate(false);
         if !disabled {
             drag.dragging = true;
             drag.offset = value.0;
+            capture_map.capture(
+                drag_start.pointer.id,
+                drag_start.entity,
+                drag_start.hit.clone(),
+            );
         }
     }
 }
@@ -438,6 +455,7 @@ pub(crate) fn slider_on_drag(
 
 pub(crate) fn slider_on_drag_end(
     mut drag_end: On<PointerDragEnd>,
+    mut capture_map: ResMut<PointerCaptureMap>,
     mut q_slider: Query<
         (
             Entity,
@@ -480,6 +498,7 @@ pub(crate) fn slider_on_drag_end(
             }
             commands.entity(slider_ent).remove::<Pressed>();
             drag.dragging = false;
+            capture_map.release(drag_end.pointer.id);
         }
     }
 }
@@ -551,6 +570,9 @@ fn slider_on_pointer_up(
     mut q_slider: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Slider>>,
     mut commands: Commands,
 ) {
+    if release.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((slider, disabled, pressed)) = q_slider.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {
@@ -754,12 +776,19 @@ impl Plugin for SliderPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_camera::NormalizedRenderTarget;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_input::keyboard::Key;
     use bevy_input::InputPlugin;
     use bevy_input_focus::{
         tab_navigation::{TabIndex, TabNavigationPlugin},
         FocusCause, InputDispatchPlugin, InputFocus, InputFocusPlugin,
+    };
+    use bevy_math::Vec2;
+    use bevy_picking::{
+        backend::HitData,
+        events::Pointer,
+        pointer::{Location, PointerButton, PointerId},
     };
     use bevy_window::{PrimaryWindow, Window};
 
@@ -802,6 +831,48 @@ mod tests {
             .set(slider, FocusCause::Navigated);
         app.update();
         slider
+    }
+
+    #[test]
+    fn slider_captures_pointer_on_drag_start() {
+        let (mut app, window) = slider_app();
+        let slider = spawn_focused_slider(&mut app, window);
+        let camera = app.world_mut().spawn_empty().id();
+        app.init_resource::<PointerCaptureMap>();
+
+        let hit = HitData {
+            camera,
+            depth: 0.0,
+            position: None,
+            normal: None,
+            extra: None,
+        };
+
+        let pointer = Pointer::new(
+            PointerId::Mouse,
+            Location {
+                target: NormalizedRenderTarget::None {
+                    width: 0,
+                    height: 0,
+                },
+                position: Vec2::ZERO,
+            },
+        );
+
+        app.world_mut().trigger(PointerDragStart {
+            entity: slider,
+            pointer,
+            button: PointerButton::Primary,
+            hit,
+        });
+
+        let capture_map = app.world().resource::<PointerCaptureMap>();
+
+        let (captured_entity, _) = capture_map
+            .get(&PointerId::Mouse)
+            .expect("slider should capture the pointer on drag start");
+
+        assert_eq!(captured_entity, slider);
     }
 
     fn press_key(app: &mut App, key_code: KeyCode, logical_key: Key, window: Entity) {

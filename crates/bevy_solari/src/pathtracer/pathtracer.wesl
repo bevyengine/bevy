@@ -2,7 +2,7 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_vec2f};
 import bevy_render::view::View;
 import package::scene::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, F_AB};
-import package::scene::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic};
+import package::scene::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic, sample_environment_map_light};
 import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
@@ -41,8 +41,8 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     loop {
         let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind != RAY_QUERY_INTERSECTION_NONE {
-            let ray_hit = resolve_ray_hit_full(ray);
             let wo = -ray_direction;
+            let ray_hit = resolve_ray_hit_full(ray, wo);
             let NdotV = max(dot(ray_hit.world_normal, wo), 0.0001);
             let F_ab = F_AB(ray_hit.material.perceptual_roughness, NdotV);
 
@@ -84,7 +84,10 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let rr = saturate(luminance(throughput));
             if rand_f(&rng) >= rr { break; }
             throughput /= rr;
-        } else { break; }
+        } else {
+            radiance += throughput * sample_environment_map_light(ray_direction);
+            break;
+        }
     }
 
     // Camera exposure

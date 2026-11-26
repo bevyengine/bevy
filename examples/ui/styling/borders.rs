@@ -302,6 +302,64 @@ fn setup(mut commands: Commands) {
         )),
     );
 
+    let style_labels = ["Solid", "Double", "Inset", "Outset", "Groove", "Ridge"];
+    let styles = [
+        BorderStyle::Solid,
+        BorderStyle::Double,
+        BorderStyle::Inset,
+        BorderStyle::Outset,
+        BorderStyle::Groove,
+        BorderStyle::Ridge,
+    ];
+
+    let style_examples = (
+        Node {
+            margin: px(25).all(),
+            flex_wrap: FlexWrap::Wrap,
+            ..default()
+        },
+        Children::spawn(SpawnIter(style_labels.into_iter().zip(styles).flat_map(
+            |(label, style)| {
+                [false, true].into_iter().map(move |rounded| {
+                    (
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        children![
+                            (
+                                Node {
+                                    width: px(80),
+                                    height: px(80),
+                                    border: UiRect::all(px(15)),
+                                    border_radius: if rounded {
+                                        BorderRadius::MAX
+                                    } else {
+                                        BorderRadius::ZERO
+                                    },
+                                    margin: px(20).all(),
+                                    ..default()
+                                },
+                                BackgroundColor(MAROON.into()),
+                                BorderColor::all(SILVER),
+                                style,
+                            ),
+                            (
+                                Text::new(if rounded {
+                                    format!("Rounded {label}")
+                                } else {
+                                    label.to_string()
+                                }),
+                                TextFont::from_font_size(9.0)
+                            )
+                        ],
+                    )
+                })
+            },
+        ))),
+    );
+
     commands.spawn((
         Node {
             margin: px(25).all(),
@@ -315,7 +373,9 @@ fn setup(mut commands: Commands) {
             label("Borders"),
             borders_examples,
             label("Borders Rounded"),
-            borders_examples_rounded
+            borders_examples_rounded,
+            label("Border Styles"),
+            style_examples,
         ],
     ));
 }

@@ -1,4 +1,5 @@
 use super::SolariLighting;
+use crate::scene::RaytracingSceneNeedsPreviousFrameData;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_alias::dlss::{
     Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
@@ -33,7 +34,7 @@ use bytemuck::{Pod, Zeroable};
 const LIGHT_SAMPLE_STRUCT_SIZE: u64 = 8;
 
 /// Size of the `ResolvedLightSamplePacked` shader struct in bytes.
-const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 24;
+const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 32;
 
 /// Size of the `Reservoir` shader struct in bytes.
 const RESERVOIR_STRUCT_SIZE: u64 = 48;
@@ -41,10 +42,15 @@ const RESERVOIR_STRUCT_SIZE: u64 = 48;
 pub const LIGHT_TILE_BLOCKS: u64 = 128;
 pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 
-/// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
+/// Amount of entries in the world cache (must be a power of 2 between 2^10 and 2^20)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
-/// Sum of per-cell field sizes in `WorldCache`. Keep in sync with `realtime_bindings.wgsl`.
-const WORLD_CACHE_ENTRY_SIZE: u64 = 84;
+const _: () = assert!(
+    WORLD_CACHE_SIZE.is_power_of_two()
+        && WORLD_CACHE_SIZE >= 2u64.pow(10)
+        && WORLD_CACHE_SIZE <= 2u64.pow(20)
+);
+/// Sum of per-cell field sizes in `WorldCache`. Keep in sync with `bindings.wesl`.
+const WORLD_CACHE_ENTRY_SIZE: u64 = 68;
 /// Size of the fixed `b` array (`array<u32, WORLD_CACHE_SIZE / 1024>`).
 const WORLD_CACHE_B_SIZE: u64 = (WORLD_CACHE_SIZE / 1024) * size_of::<u32>() as u64;
 /// Offset of `active_cells_count`.
@@ -52,13 +58,13 @@ pub const WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET: u64 =
     WORLD_CACHE_SIZE * WORLD_CACHE_ENTRY_SIZE + WORLD_CACHE_B_SIZE;
 /// Must stay under wgpu's default `max_storage_buffer_binding_size` (128 MiB or 2^27 bytes).
 pub const WORLD_CACHE_BUFFER_SIZE: u64 =
-    (WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + size_of::<u32>() as u64).next_multiple_of(16);
+    (WORLD_CACHE_ACTIVE_CELLS_COUNT_OFFSET + 2 * size_of::<u32>() as u64).next_multiple_of(16);
 
 /// GPU representation of the user-configurable [`SolariLighting`] settings, plus
 /// per-frame state.
 ///
 /// Field order and types must match the `SolariLightingSettings` struct in
-/// `realtime_bindings.wgsl`.
+/// `bindings.wesl`.
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct SolariLightingUniforms {
@@ -69,7 +75,7 @@ struct SolariLightingUniforms {
     world_cache_max_temporal_samples: f32,
     world_cache_direct_light_sample_count: u32,
     world_cache_max_gi_ray_distance: f32,
-    world_cache_cell_updates_soft_target: u32,
+    world_cache_max_cell_updates_per_frame: u32,
     world_cache_position_base_cell_size: f32,
     world_cache_position_lod_scale: f32,
     frame_rng: u32,
@@ -77,7 +83,7 @@ struct SolariLightingUniforms {
 }
 
 impl SolariLightingUniforms {
-    fn new(settings: &SolariLighting, frame_count: u32) -> Self {
+    fn new(settings: &SolariLighting, frame_count: u32, force_reset: bool) -> Self {
         Self {
             confidence_weight_cap: settings.confidence_weight_cap,
             primary_di_samples: settings.primary_di_samples,
@@ -86,12 +92,26 @@ impl SolariLightingUniforms {
             world_cache_max_temporal_samples: settings.world_cache_max_temporal_samples,
             world_cache_direct_light_sample_count: settings.world_cache_direct_light_sample_count,
             world_cache_max_gi_ray_distance: settings.world_cache_max_gi_ray_distance,
-            world_cache_cell_updates_soft_target: settings.world_cache_cell_updates_soft_target,
+            world_cache_max_cell_updates_per_frame: settings.world_cache_max_cell_updates_per_frame,
             world_cache_position_base_cell_size: settings.world_cache_position_base_cell_size,
             world_cache_position_lod_scale: settings.world_cache_position_lod_scale,
             frame_rng: frame_count.wrapping_mul(5782582),
-            reset: settings.reset as u32,
+            reset: (settings.reset || force_reset) as u32,
         }
+    }
+}
+
+/// Declares to the raytracing scene whether any view needs last frame's TLAS and light ids.
+pub fn setup_raytracing_scene_needs_previous_frame_data(
+    views: Query<&SolariLighting>,
+    needs_previous_frame_data: Option<Res<RaytracingSceneNeedsPreviousFrameData>>,
+    mut commands: Commands,
+) {
+    let restir_used = views.iter().any(|solari_lighting| solari_lighting.restir);
+    match (restir_used, needs_previous_frame_data.is_some()) {
+        (true, false) => commands.insert_resource(RaytracingSceneNeedsPreviousFrameData),
+        (false, true) => commands.remove_resource::<RaytracingSceneNeedsPreviousFrameData>(),
+        _ => {}
     }
 }
 
@@ -101,11 +121,15 @@ pub struct SolariLightingResources {
     pub constants: Buffer,
     pub light_tile_samples: Buffer,
     pub light_tile_resolved_samples: Buffer,
-    pub reservoirs_a: Buffer,
-    pub reservoirs_b: Buffer,
+    pub reservoirs: Option<SolariReservoirBuffers>,
     pub world_cache: Buffer,
     pub world_cache_active_cells_dispatch: Buffer,
     pub view_size: UVec2,
+}
+
+pub struct SolariReservoirBuffers {
+    pub a: Buffer,
+    pub b: Buffer,
 }
 
 pub fn prepare_solari_lighting_resources(
@@ -150,11 +174,13 @@ pub fn prepare_solari_lighting_resources(
             view_size = *resolution_override;
         }
 
-        let uniforms = SolariLightingUniforms::new(solari_lighting, frame_count.0);
+        let reusable = solari_lighting_resources.filter(|r| {
+            r.view_size == view_size && r.reservoirs.is_some() == solari_lighting.restir
+        });
+        let uniforms =
+            SolariLightingUniforms::new(solari_lighting, frame_count.0, reusable.is_none());
 
-        if let Some(solari_lighting_resources) = solari_lighting_resources
-            && solari_lighting_resources.view_size == view_size
-        {
+        if let Some(solari_lighting_resources) = reusable {
             // The constants uniform can change every frame, so always upload it.
             render_queue.write_buffer(
                 &solari_lighting_resources.constants,
@@ -186,16 +212,20 @@ pub fn prepare_solari_lighting_resources(
             mapped_at_creation: false,
         });
 
-        let reservoirs_buffer = |name| {
-            render_device.create_buffer(&BufferDescriptor {
-                label: Some(name),
-                size: (view_size.x * view_size.y) as u64 * RESERVOIR_STRUCT_SIZE,
-                usage: BufferUsages::STORAGE,
-                mapped_at_creation: false,
-            })
-        };
-        let reservoirs_a = reservoirs_buffer("solari_lighting_reservoirs_a");
-        let reservoirs_b = reservoirs_buffer("solari_lighting_reservoirs_b");
+        let reservoirs = solari_lighting.restir.then(|| {
+            let reservoirs_buffer = |name| {
+                render_device.create_buffer(&BufferDescriptor {
+                    label: Some(name),
+                    size: (view_size.x * view_size.y) as u64 * RESERVOIR_STRUCT_SIZE,
+                    usage: BufferUsages::STORAGE,
+                    mapped_at_creation: false,
+                })
+            };
+            SolariReservoirBuffers {
+                a: reservoirs_buffer("solari_lighting_reservoirs_a"),
+                b: reservoirs_buffer("solari_lighting_reservoirs_b"),
+            }
+        });
 
         let world_cache = render_device.create_buffer(&BufferDescriptor {
             label: Some("solari_lighting_world_cache"),
@@ -215,8 +245,7 @@ pub fn prepare_solari_lighting_resources(
             constants,
             light_tile_samples,
             light_tile_resolved_samples,
-            reservoirs_a,
-            reservoirs_b,
+            reservoirs,
             world_cache,
             world_cache_active_cells_dispatch,
             view_size,

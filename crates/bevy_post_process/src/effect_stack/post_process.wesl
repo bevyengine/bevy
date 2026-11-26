@@ -1,4 +1,4 @@
-// Miscellaneous postprocessing effects, currently just chromatic aberration.
+//! Miscellaneous postprocessing effects, currently just chromatic aberration.
 
 import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 import package::effect_stack::chromatic_aberration::chromatic_aberration;

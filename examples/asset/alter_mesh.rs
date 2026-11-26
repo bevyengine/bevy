@@ -207,6 +207,6 @@ fn alter_mesh(
         }
 
         // Flip the local value to reverse the behavior next time the key is pressed.
-        *is_mesh_scaled = !*is_mesh_scaled;
+        is_mesh_scaled.toggle();
     }
 }

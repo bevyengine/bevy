@@ -1,4 +1,4 @@
-// A shader that displays only one mip level of a texture.
+//! A shader that displays only one mip level of a texture.
 
 import bevy_sprite_render::mesh2d::vertex_output::VertexOutput;
 

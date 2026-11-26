@@ -5,7 +5,8 @@ mod types;
 
 use bevy_asset::embedded_asset;
 use bevy_shader::load_shader_library;
-pub use binder::RaytracingSceneBindings;
+pub use binder::prepare_raytracing_scene_resources;
+pub use binder::{RaytracingSceneBindings, RaytracingSceneNeedsPreviousFrameData};
 pub use types::RaytracingMesh3d;
 
 use crate::SolariPlugins;
@@ -22,14 +23,15 @@ use bevy_render::{
     ExtractSchedule, GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
 use binder::{
-    build_raytracing_tlas, prepare_raytracing_scene_bind_group, prepare_raytracing_scene_resources,
-    TlasInstanceSetupPipeline,
+    build_raytracing_tlas, prepare_raytracing_scene_bind_group, TlasInstanceSetupPipeline,
 };
 use blas::{compact_raytracing_blas, delete_raytracing_blas, prepare_raytracing_blas, BlasManager};
 use extract::{
-    extract_raytracing_material_assets, extract_raytracing_scene_meshes_and_materials,
+    extract_raytracing_directional_lights, extract_raytracing_environment_map_light,
+    extract_raytracing_material_assets, extract_raytracing_point_lights,
+    extract_raytracing_rect_lights, extract_raytracing_scene_meshes_and_materials,
     extract_raytracing_scene_structural, extract_raytracing_scene_transforms,
-    StandardMaterialAssets,
+    extract_raytracing_spot_lights, ExtractedEnvironmentMapLight, StandardMaterialAssets,
 };
 use tracing::warn;
 
@@ -63,6 +65,7 @@ impl Plugin for RaytracingScenePlugin {
             .extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 
         render_app
+            .init_resource::<ExtractedEnvironmentMapLight>()
             .init_gpu_resource::<BlasManager>()
             .init_gpu_resource::<StandardMaterialAssets>()
             .init_gpu_resource::<RaytracingSceneBindings>()
@@ -74,6 +77,11 @@ impl Plugin for RaytracingScenePlugin {
                     extract_raytracing_scene_transforms,
                     extract_raytracing_scene_meshes_and_materials,
                     extract_raytracing_material_assets,
+                    extract_raytracing_directional_lights,
+                    extract_raytracing_point_lights,
+                    extract_raytracing_spot_lights,
+                    extract_raytracing_rect_lights,
+                    extract_raytracing_environment_map_light,
                 ),
             )
             .add_systems(

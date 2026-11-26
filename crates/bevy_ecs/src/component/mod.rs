@@ -508,11 +508,11 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 /// #[derive(Component)]
 /// #[component(summary_tick)]
 /// struct MyComponent;
-///
 /// ```
 ///
-/// A summary tick allows systems that use [contiguous iteration] to skip entire
-/// tables if none of the components that those systems care about have changed.
+/// A summary tick allows queries to skip entire tables if none of the components
+/// that those queries care about have changed.
+///
 /// The downside is that performance of updating those components decreases, as
 /// the summary tick must be updated. Summary ticks are only valid for
 /// components with table storage; components that have sparse set storage may

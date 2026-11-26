@@ -1,0 +1,11 @@
+{
+    "MyDataAsset": (
+        text: "Hello World!",
+        color: Srgba((
+            red: 0.196,
+            green: 0.659,
+            blue: 0.322,
+            alpha: 1.0,
+        )),
+    ),
+}

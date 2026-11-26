@@ -1,30 +1,18 @@
-//! Upstream of awesome [crate](https://github.com/aevyrie/bevy_editor_cam) made by @aevyrie.
+//! A pan-orbit camera controller operates in reference to a selected point (or object) in 3D space:
+//! allowing the user to move the camera around the selected object (orbiting it), moving the perspective
+//! of the camera from side to side (panning), and zooming in and out.
 //!
-//! A production-ready camera controller for 3D editors; intended for anyone who needs to rapidly
-//! and intuitively navigate virtual spaces.
+//! This can be contrasted to a [free camera controller](crate::free_camera),
+//! which moves the camera through the scene using a first-person control scheme,
+//! moving through the scene as if flying or walking.
 //!
-//! Camera controllers are very subjective! As someone who has spent years using camera controllers
-//! in mechanical engineering CAD software, I've developed my own opinions about what matters in a
-//! camera controller. This is my attempt to make the controller I've always wanted, that fixes the
-//! annoyances I've encountered.
-//!
-//! *Because* camera controllers are so subjective, I felt the need to write out the impetus for
-//! making this thing, what matters to me, and how I decided between conflicting goals. Somehow,
-//! this ended up as a manifesto of sorts. If you came here to learn how to use or extend this
-//! plugin, I've boiled the manifesto down into two sentences:
-//!
-//! > A camera controller needs to be responsive, robust, and satisfying to use. When there is
-//! > conflict between these needs, they should be prioritized in that order.
-//!
-//! Now that you've absorbed my wisdom, feel free to skip ahead to the [Usage](crate#usage) section.
-//!
-//! Or don't. It's up to you.
+//! This control scheme is particularly useful for things like CAD applications or 3D modeling,
+//! where you want to inspect a single object from all angles.
 //!
 //! # Philosophy
 //!
-//! These are the properties of a good editor camera controller, in order of importance. These are
-//! the driving values for the choices I've made here. You might disagree and have different values
-//! or priorities!
+//! A camera controller needs to be responsive, robust, and satisfying to use. When there is
+//! conflict between these needs, they should be prioritized in that order.
 //!
 //! ## Responsive
 //!
@@ -99,24 +87,28 @@
 //!
 //! # Usage
 //!
-//! This plugin only requires three things to work. The `bevy_picking` plugin for hit tests, the
-//! [`DefaultPanOrbitCameraPlugins`] plugin group, and the [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera)
-//! component. Controller settings are configured per-camera in the
+//! This plugin requires four things to work: the `bevy_picking` plugin for hit tests, the
+//! [`DefaultPanOrbitCameraPlugins`] plugin group, the [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera)
+//! component, and an input plugin. Controller settings are configured per-camera in the
 //! [`PanOrbitCamera`](crate::pan_orbit_camera::prelude::PanOrbitCamera) component.
+//!
+//! Since Bevy doesn't provide an input plugin at this time (see
+//! [#25458](https://github.com/bevyengine/bevy/issues/25458)), you will need to provide your
+//! own. See step 4 below.
 //!
 //! ## Getting Started
 //!
 //! #### 1. Add `bevy_picking`
 //!
-//! The camera controller uses [`bevy_picking`] for pointer interactions. If you already it along
+//! The camera controller uses [`bevy_picking`] for pointer interactions. If you already use it along
 //! with a picking backend, then using this camera controller is essentially free because it can
 //! reuse those same hit tests you are already running.
 //!
 //! #### 2. Add `DefaultPanOrbitCameraPlugins`
 //!
 //! This is a plugin group that adds the camera controller, as well as all the [extensions]. You can
-//! instead add [`controller::MinimalPanOrbitCameraPlugin`], though you will need to add your own input
-//! plugin if you do.
+//! instead add [`controller::MinimalPanOrbitCameraPlugin`] if you don't want the extensions. You
+//! will still need an input plugin (step 4).
 //!
 //! ```
 //! # let mut app = bevy_app::App::new();
@@ -125,7 +117,7 @@
 //!
 //! #### 3. Insert the `PanOrbitCamera` component
 //!
-//! Finally, insert [`controller::component::PanOrbitCamera`] onto any cameras that you want to control.
+//! Insert [`controller::component::PanOrbitCamera`] onto any cameras that you want to control.
 //! This marks the cameras as controllable and holds all camera controller settings.
 //!
 //! ```
@@ -139,9 +131,14 @@
 //! # }
 //! ```
 //!
-//! # Other notable features
+//! #### 4. Add an input plugin
 //!
-//! Crate contains implementation of few other features that are handy for a camera controller like this.
+//! The controller doesn't read user input itself. An input plugin is needed to read input and tell
+//! [`controller::component::PanOrbitCamera`] how to move. Until Bevy has its own input plugin, you
+//! can copy `CustomInputPlugin` from the
+//! [`pan_orbit_camera_custom_input_plugin` example](https://github.com/bevyengine/bevy/blob/latest/examples/camera/pan_orbit_camera_custom_input_plugin.rs).
+//!
+//! # Other notable features
 //!
 //! ### Compatible with floating origins and other controllers
 //!
@@ -167,6 +164,11 @@
 //!   [`bevy_picking::backend`] for more information.
 //! - Any number of pointing inputs, including touch.
 //! - Viewports and multi-pass rendering.
+//!
+//! ## Credits
+//!
+//! This camera controller is an upstreamed fork of the awesome [crate](https://github.com/aevyrie/bevy_editor_cam) made by @aevyrie.
+//! Thanks!
 
 #![warn(missing_docs)]
 
@@ -184,7 +186,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::SystemSet;
 
-/// Adds [`pan_orbit_camera`](crate::pan_orbit_camera) functionality with all extensions and the default input plugin.
+/// Adds [`pan_orbit_camera`](crate::pan_orbit_camera) functionality with all extensions.
 ///
 /// This is intended for a quick and easy setup. You can add the individual plugins yourself if you
 /// want more control over the setup.

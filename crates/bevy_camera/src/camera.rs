@@ -139,7 +139,10 @@ impl Viewport {
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
 /// * The resolution override is specified in physical pixels.
-/// * In shaders, use `View::main_pass_viewport` instead of `View::viewport`.
+/// * In shaders, use `View::main_pass_viewport` to map main pass fragment coordinates
+///   to view coordinates. Use `View::viewport` for coordinates after upscaling.
+/// * Textures may still have the full target size; use their dimensions
+///   when converting pixel coordinates to texture UVs.
 #[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
@@ -902,7 +905,7 @@ pub enum RenderTarget {
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
-    /// example a depth prepass. See the `render_depth_to_texture` example.
+    /// example a depth prepass. See the [`render_depth_to_texture` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/render_depth_to_texture.rs).
     None {
         /// The physical size of the viewport.
         size: UVec2,
@@ -952,7 +955,7 @@ pub enum NormalizedRenderTarget {
     /// The camera won't render to any color target.
     ///
     /// This is useful when you want a camera that *only* renders prepasses, for
-    /// example a depth prepass. See the `render_depth_to_texture` example.
+    /// example a depth prepass. See the [`render_depth_to_texture` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/render_depth_to_texture.rs).
     None {
         /// The physical width of the viewport.
         width: u32,
@@ -1042,7 +1045,10 @@ impl Default for RenderTarget {
     }
 }
 
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera.
+///
+/// Cameras that render to the same render target share one main texture when their main texture format
+/// and MSAA settings match. The shared texture gets the combined usages of all of them.
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]
 #[reflect(Component, Default, Clone)]

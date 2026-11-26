@@ -11,7 +11,7 @@ use core::{
     cell::UnsafeCell,
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
-    mem::{self, ManuallyDrop, MaybeUninit},
+    mem::{self, DropGuard, ManuallyDrop, MaybeUninit},
     ops::{Deref, DerefMut, Range},
     ptr::{self, NonNull},
 };
@@ -385,7 +385,7 @@ macro_rules! impl_ptr {
             pub unsafe fn byte_offset(self, count: isize) -> Self {
                 Self(
                     // SAFETY: The caller upholds safety for `offset` and ensures the result is not null.
-                    unsafe { NonNull::new_unchecked(self.as_ptr().offset(count)) },
+                    unsafe { NonNull::new_unchecked(self.0.as_ptr().offset(count)) },
                     PhantomData,
                 )
             }
@@ -407,7 +407,7 @@ macro_rules! impl_ptr {
             pub unsafe fn byte_add(self, count: usize) -> Self {
                 Self(
                     // SAFETY: The caller upholds safety for `add` and ensures the result is not null.
-                    unsafe { NonNull::new_unchecked(self.as_ptr().add(count)) },
+                    unsafe { NonNull::new_unchecked(self.0.as_ptr().add(count)) },
                     PhantomData,
                 )
             }
@@ -607,38 +607,18 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
         // ```
         //
         // However the above might codegen to multiple `memcpy`s, while the code below will avoid that.
-
-        struct DropGuard<'a, 'b, T, A: IsAligned> {
-            src: ManuallyDrop<MovingPtr<'a, T, A>>,
-            dst: &'b mut T,
-        }
-
-        impl<'a, 'b, T, A: IsAligned> Drop for DropGuard<'a, 'b, T, A> {
-            fn drop(&mut self) {
-                // SAFETY: `self.src` is always initialized with a valid `MovingPtr` and is only ever taken here
-                // in drop. No other code can observe the invalid `self.src` after this point.
-                let src = unsafe { ManuallyDrop::take(&mut self.src) };
-
-                // SAFETY:
-                // - `dst` is a mutable borrow, it must be valid for writes.
-                // - `dst` is a mutable borrow, it must always be aligned.
-                unsafe { src.write_to(self.dst) };
-            }
-        }
-
-        let guard = DropGuard {
-            src: ManuallyDrop::new(self),
-            dst,
-        };
+        let dst: *mut T = dst;
+        // SAFETY:
+        // - `dst` is a mutable borrow, it must be valid for writes.
+        // - `dst` is a mutable borrow, it must always be aligned.
+        let _guard = DropGuard::new((), |()| unsafe { self.write_to(dst) });
 
         // SAFETY:
-        // - `guard.dst` is a mutable borrow, it must point to a valid instance of `T`.
-        // - `guard.dst` is a mutable borrow, it must point to value that is valid for dropping.
-        // - `guard.dst` is a mutable borrow, it must not alias any other access.
-        // - `guard.dst` will be overwritten when `guard` is dropped, so no other code can observe it being dropped.
-        unsafe {
-            ptr::drop_in_place(guard.dst);
-        }
+        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
+        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
+        // - `dst` is a mutable borrow, it must not alias any other access.
+        // - `dst` will be overwritten when `_guard` is dropped, so no other code can observe it being dropped.
+        unsafe { ptr::drop_in_place(dst) };
     }
 
     /// Creates a [`MovingPtr`] for a specific field within `self`.
@@ -886,8 +866,8 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     #[inline]
-    pub fn as_ptr(self) -> *mut u8 {
-        self.0.as_ptr()
+    pub fn as_ptr(self) -> *const u8 {
+        self.0.as_ptr().cast_const()
     }
 }
 
@@ -1247,15 +1227,21 @@ mod private {
 }
 
 /// Extension trait for helper methods on [`UnsafeCell`]
+#[deprecated(
+    since = "0.21.0",
+    note = "Use `UnsafeCell::as_ref_unchecked` or `UnsafeCell::as_mut_unchecked`"
+)]
 pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
     /// # Safety
     /// - The returned value must be unique and not alias any mutable or immutable references to the contents of the [`UnsafeCell`].
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    #[deprecated(since = "0.21.0", note = "Use `UnsafeCell::as_mut_unchecked`")]
     unsafe fn deref_mut(self) -> &'a mut T;
 
     /// # Safety
     /// - For the lifetime `'a` of the returned value you must not construct a mutable reference to the contents of the [`UnsafeCell`].
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    #[deprecated(since = "0.21.0", note = "Use `UnsafeCell::as_ref_unchecked`")]
     unsafe fn deref(self) -> &'a T;
 
     /// Returns a copy of the contained value.
@@ -1263,11 +1249,13 @@ pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
     /// # Safety
     /// - The [`UnsafeCell`] must not currently have a mutable reference to its content.
     /// - At all times, you must avoid data races. If multiple threads have access to the same [`UnsafeCell`], then any writes must have a proper happens-before relation to all other accesses or use atomics ([`UnsafeCell`] docs for reference).
+    #[deprecated(since = "0.21.0", note = "Use `UnsafeCell::as_ref_unchecked`")]
     unsafe fn read(self) -> T
     where
         T: Copy;
 }
 
+#[expect(deprecated, reason = "impl for trait being deprecated")]
 impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     #[inline]
     unsafe fn deref_mut(self) -> &'a mut T {
@@ -1313,6 +1301,25 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 
 #[cfg(any(not(debug_assertions), miri))]
 impl<T: Sized> DebugEnsureAligned for *mut T {
+    #[inline(always)]
+    fn debug_ensure_aligned(self) -> Self {
+        self
+    }
+}
+
+// Same as above, but for *const T.
+#[cfg(all(debug_assertions, not(miri)))]
+impl<T: Sized> DebugEnsureAligned for *const T {
+    #[track_caller]
+    fn debug_ensure_aligned(self) -> Self {
+        // Call into the *mut version.
+        self.cast_mut().debug_ensure_aligned();
+        self
+    }
+}
+
+#[cfg(any(not(debug_assertions), miri))]
+impl<T: Sized> DebugEnsureAligned for *const T {
     #[inline(always)]
     fn debug_ensure_aligned(self) -> Self {
         self

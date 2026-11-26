@@ -12,10 +12,14 @@ use bevy::{
     color::palettes::css::*,
     pbr::wireframe::{
         NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframeLineWidth,
-        WireframePlugin, WireframeTopology,
+        WireframePlugin, WireframeTopology, WireframeXray,
     },
     prelude::*,
-    render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
+    render::{
+        render_resource::{Face, WgpuFeatures},
+        settings::WgpuSettings,
+        RenderPlugin,
+    },
 };
 
 fn main() {
@@ -42,6 +46,7 @@ fn main() {
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `WireframeColor` component.
             default_color: WHITE.into(),
+            xray_mode: false,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -51,6 +56,16 @@ fn main() {
 
 #[derive(Component)]
 struct ColorToggleCube;
+
+fn color_name(color: Color) -> &'static str {
+    if color == WHITE.into() {
+        "White"
+    } else if color == DEEP_PINK.into() {
+        "Pink"
+    } else {
+        "Custom"
+    }
+}
 
 /// set up a simple 3D scene
 fn setup(
@@ -62,24 +77,25 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(RED))),
-        Transform::from_xyz(-1.5, 0.5, -1.5),
+        Transform::from_xyz(-2.0, 0.5, -2.0),
         NoWireframe,
     ));
     // Orange cube: Follows global wireframe setting
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(ORANGE))),
-        Transform::from_xyz(-0.5, 0.5, -0.5),
+        Transform::from_xyz(-1.0, 0.5, -1.0),
     ));
     // Green cube: Always renders a wireframe with custom color
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(LIME))),
-        Transform::from_xyz(0.5, 0.5, 0.5),
+        Transform::from_xyz(0.0, 0.5, 0.0),
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
         WireframeColor { color: LIME.into() },
+        WireframeXray(false),
         ColorToggleCube,
     ));
 
@@ -87,13 +103,21 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(PURPLE))),
-        Transform::from_xyz(1.5, 0.5, 1.5),
+        Transform::from_xyz(1.0, 0.5, 1.0),
         Wireframe,
         WireframeColor {
             color: YELLOW.into(),
         },
         WireframeLineWidth { width: 3.0 },
         WireframeTopology::Quads,
+    ));
+
+    // Cyan cube: no fill material, so toggling `cull_mode` shows or hides its back edges
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        Transform::from_xyz(2.0, 0.5, 2.0),
+        Wireframe,
+        WireframeColor { color: AQUA.into() },
     ));
 
     // plane
@@ -113,7 +137,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(-3.0, 3.5, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Text used to show controls
@@ -133,6 +157,7 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor, With<ColorToggleCube>>,
+    mut xray_cubes: Query<&mut WireframeXray, With<ColorToggleCube>>,
     mut wireframe_widths: Query<&mut WireframeLineWidth>,
     mut text: Single<&mut Text>,
 ) {
@@ -141,6 +166,7 @@ fn update_colors(
         .next()
         .map(|w| w.width)
         .unwrap_or(1.0);
+    let green_cube_xray = xray_cubes.iter().any(|xray| xray.0);
 
     text.0 = format!(
         "Controls
@@ -150,17 +176,24 @@ X - Change global color
 C - Change color of the green cube wireframe
 V - Line width (current: {current_width:.1}px)
 B - Toggle topology (current: {:?})
+N - Toggle global x-ray mode (current: {:?})
+M - Toggle x-ray mode for the green cube (current: {green_cube_xray})
+K - Toggle back-face culling (current: {:?})
 
 WireframeConfig
 -------------
 Global: {}
-Color: {:?}",
-        config.default_topology, config.global, config.default_color,
+Color: {}",
+        config.default_topology,
+        config.xray_mode,
+        config.cull_mode,
+        config.global,
+        color_name(config.default_color),
     );
 
     // Toggle showing a wireframe on all meshes
     if keyboard_input.just_pressed(KeyCode::KeyZ) {
-        config.global = !config.global;
+        config.global.toggle();
     }
 
     // Toggle the global wireframe color
@@ -198,6 +231,23 @@ Color: {:?}",
         config.default_topology = match config.default_topology {
             WireframeTopology::Triangles => WireframeTopology::Quads,
             WireframeTopology::Quads => WireframeTopology::Triangles,
+        };
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyN) {
+        config.xray_mode.toggle();
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        for mut xray in &mut xray_cubes {
+            xray.0.toggle();
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::KeyK) {
+        config.cull_mode = match config.cull_mode {
+            Some(_) => None,
+            None => Some(Face::Back),
         };
     }
 }

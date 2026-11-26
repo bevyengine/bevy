@@ -7,15 +7,14 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, Tick},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{EntityComponentsTrigger, Event, EventKey, Trigger},
+    event::{EntityComponentsTrigger, Event, EventKey, EventTriggerState, Trigger},
     lifecycle::{DiscardEvent, HookContext, InsertEvent, DISCARD, INSERT},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::TriggerContext,
-    prelude::{Component, QueryState},
-    query::{QueryData, QueryFilter},
+    prelude::Component,
     relationship::RelationshipHookMode,
     resource::Resource,
-    system::{Commands, Query},
+    system::Commands,
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
@@ -56,6 +55,12 @@ impl<'w> From<&'w mut World> for DeferredWorld<'w> {
         DeferredWorld {
             world: world.as_unsafe_world_cell(),
         }
+    }
+}
+
+impl<'w> From<&'w mut DeferredWorld<'_>> for DeferredWorld<'w> {
+    fn from(world: &'w mut DeferredWorld<'_>) -> DeferredWorld<'w> {
+        world.reborrow()
     }
 }
 
@@ -438,20 +443,6 @@ impl<'w> DeferredWorld<'w> {
         (fetcher, commands)
     }
 
-    /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
-    /// run queries on the [`World`] by storing and reusing the [`QueryState`].
-    ///
-    /// # Panics
-    /// If state is from a different world then self
-    #[inline]
-    pub fn query<'s, D: QueryData, F: QueryFilter>(
-        &mut self,
-        state: &'s mut QueryState<D, F>,
-    ) -> Query<'_, 's, D, F> {
-        // SAFETY: We have mutable access to the entire world
-        unsafe { state.query_unchecked(self.world) }
-    }
-
     /// Gets a mutable reference to the resource of the given type
     ///
     /// # Panics
@@ -753,11 +744,11 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// - Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
-    pub unsafe fn trigger_raw<'a, E: Event>(
+    pub unsafe fn trigger_raw<E: Event>(
         &mut self,
         event_key: EventKey,
         event: &mut E,
-        trigger: &mut E::Trigger<'a>,
+        trigger: &mut EventTriggerState<'_, E>,
         caller: MaybeLocation,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
@@ -777,7 +768,7 @@ impl<'w> DeferredWorld<'w> {
         // - trigger_context contains the correct event_key for `event`, as enforced by the call to `trigger_raw`
         // - This method is being called for an `event` whose `Event::Trigger` matches, as the input trigger is E::Trigger.
         unsafe {
-            trigger.trigger(world.reborrow(), observers, &context, event);
+            E::Trigger::trigger(trigger, world.reborrow(), observers, &context, event);
         }
     }
 
@@ -787,7 +778,10 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// [`Observer`]: crate::observer::Observer
     #[track_caller]
-    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+    pub fn trigger<E: Event>(&mut self, event: E)
+    where
+        EventTriggerState<'static, E>: Default,
+    {
         self.commands().trigger(event);
     }
 
@@ -797,6 +791,15 @@ impl<'w> DeferredWorld<'w> {
     /// - must only be used to make non-structural ECS changes
     #[inline]
     pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+        self.world
+    }
+
+    /// Gets an [`UnsafeWorldCell`] containing the underlying world.
+    ///
+    /// # Safety
+    /// - must only be used to make non-structural ECS changes
+    #[inline]
+    pub fn into_unsafe_world_cell(self) -> UnsafeWorldCell<'w> {
         self.world
     }
 

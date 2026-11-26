@@ -1,14 +1,15 @@
-// https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
+//! https://intro-to-restir.cwyman.org/presentations/2023ReSTIR_Course_Notes.pdf
 
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_u, sample_disk};
 import bevy_render::utils::octahedral_decode;
 import package::scene::brdf::{brdf_pdf, evaluate_brdf, F_AB};
 import package::realtime::gbuffer_utils::{gpixel_resolve, permute_pixel, pixel_dissimilar};
-import package::realtime::initial_path::{generate_initial_reservoir, InitialSamplingResult};
-import package::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, motion_vectors, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
-import package::scene::sampling::{balance_heuristic, calculate_resolved_light_contribution, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
-import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MAX, RAY_T_MIN, ResolvedMaterial};
+import package::realtime::initial_path::{generate_initial_path, InitialSamplingResult, nee_probability};
+import package::realtime::bindings::{depth_buffer, empty_reservoir, gbuffer, load_motion_vector, previous_depth_buffer, previous_gbuffer, previous_view, reservoirs_a, reservoirs_b, Reservoir, constants, view, view_output};
+import package::realtime::atmosphere::calculate_light_contribution;
+import package::scene::sampling::{balance_heuristic, isinf, isnan, LightSample, NULL_LIGHT_ID, power_heuristic, resolve_light_sample, ResolvedLightSample, trace_visibility, trace_visibility_previous_frame};
+import package::scene::bindings::{light_sources, LIGHT_NOT_PRESENT_THIS_FRAME, previous_frame_light_id_translations, RAY_T_MIN, ResolvedMaterial};
 import package::realtime::world_cache_query::{query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
 enable wgpu_ray_query;
@@ -16,7 +17,7 @@ enable wgpu_ray_query;
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 
 @compute @workgroup_size(8, 8, 1)
-fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
+fn initial(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
@@ -27,15 +28,30 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
         reservoirs_b[pixel_index] = empty_reservoir();
         return;
     }
-    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip, view.world_position);
 
-    let initial = generate_initial_reservoir(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
-    textureStore(view_output, global_id.xy, vec4(initial.non_resampled_radiance, 0.0));
+    let initial = generate_initial_path(surface.world_position, surface.world_normal, surface.material, workgroup_id.xy, global_id.xy, &rng);
+    textureStore(view_output, global_id.xy, vec4(initial.radiance, 0.0));
+    reservoirs_b[pixel_index] = initial.reservoir;
+}
 
-    let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
+@compute @workgroup_size(8, 8, 1)
+fn temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
+
+    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
+    var rng = pixel_index + constants.frame_rng + 0xBB67AE85u;
+
+    let depth = textureLoad(depth_buffer, global_id.xy, 0);
+    if depth == 0.0 { return; }
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip, view.world_position);
+
+    let initial_reservoir = reservoirs_b[pixel_index];
+
     let previous_camera_homogeneous = previous_view.world_from_clip * (previous_view.clip_from_view * vec4(0.0, 0.0, 0.0, 1.0));
     let previous_camera_world_position = previous_camera_homogeneous.xyz / previous_camera_homogeneous.w;
-    let merge_result = merge_reservoirs(initial.reservoir, surface.world_position, surface.world_normal, surface.material,
+    let temporal = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, previous_camera_world_position);
+    let merge_result = merge_reservoirs(initial_reservoir, surface.world_position, surface.world_normal, surface.material,
         temporal.reservoir, temporal.world_position, temporal.world_normal, temporal.material, previous_camera_world_position, &rng);
 
     reservoirs_b[pixel_index] = merge_result.merged_reservoir;
@@ -53,13 +69,9 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
         reservoirs_a[pixel_index] = empty_reservoir();
         return;
     }
-    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip, view.world_position);
 
     let input_reservoir = reservoirs_b[pixel_index];
-    let wo = normalize(view.world_position - surface.world_position);
-    let NdotV = max(dot(surface.world_normal, wo), 0.0001);
-    let F_ab = F_AB(surface.material.perceptual_roughness, NdotV);
-
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material,
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.material, view.world_position, &rng);
@@ -73,15 +85,15 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 
     @if(VISUALIZE_WORLD_CACHE)
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, RAY_T_MAX, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, WORLD_CACHE_CELL_LIFETIME, &rng) * view.exposure, 1.0));
 }
 
-fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
+fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, previous_camera_world_position: vec3<f32>) -> NeighborInfo {
     if bool(constants.reset) {
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), empty_material());
     }
 
-    let motion_vector = textureLoad(motion_vectors, pixel_id).xy;
+    let motion_vector = load_motion_vector(pixel_id);
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
 
     // If reprojection lands off-screen, fall back to this pixel's own previous reservoir rather than
@@ -97,7 +109,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
 
     // Check if the pixel features have changed heavily between the current and previous frame
     let temporal_depth = textureLoad(previous_depth_buffer, permuted_temporal_pixel_id, 0);
-    let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, permuted_temporal_pixel_id, 0), temporal_depth, permuted_temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
+    let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, permuted_temporal_pixel_id, 0), temporal_depth, permuted_temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip, previous_camera_world_position);
     if pixel_dissimilar(depth, world_position, temporal_surface.world_position, world_normal, temporal_surface.world_normal, view) {
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), empty_material());
     }
@@ -130,7 +142,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
         }
 
         let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
-        let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+        let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip, view.world_position);
         if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
             continue;
         }
@@ -156,7 +168,7 @@ struct NeighborInfo {
 }
 
 fn empty_material() -> ResolvedMaterial {
-    return ResolvedMaterial(vec3(0.0), vec3(0.0), 0.0, 0.0, 0.0, 0.0);
+    return ResolvedMaterial(vec3(0.0), vec3(0.0), 0.0, 0.0, 0.0, 0.0, false);
 }
 
 fn jacobian(
@@ -221,7 +233,7 @@ fn merge_reservoirs(
     let other_sample_at_other = reservoir_contribution(other_reservoir, other_resolved, other_world_position, other_world_normal, other_wo, other_material, other_F_ab);
 
     // Jacobians for resampling and MIS. Light samples don't need a reprojection jacobian,
-    // since calculate_resolved_light_contribution already accounts for the shading point's geometry.
+    // since calculate_light_contribution already accounts for the shading point's geometry.
     var other_sample_at_canonical_jacobian = 1.0;
     if other_reservoir.light_sample.light_id == NULL_LIGHT_ID {
         other_sample_at_canonical_jacobian = jacobian(
@@ -251,12 +263,12 @@ fn merge_reservoirs(
 
     // Visibility for the cross-domain targets
     if other_sample_at_canonical.target_function > 0.0 && other_sample_at_canonical_jacobian > 0.0 {
-        let visibility = trace_visibility(canonical_world_position + canonical_world_normal * RAY_T_MIN, other_sample_at_canonical.sample_world_position);
+        let visibility = trace_visibility(canonical_world_position + canonical_world_normal * RAY_T_MIN, other_sample_at_canonical.sample_world_position, RAY_FLAG_NONE);
         other_sample_at_canonical.target_function *= visibility;
     }
     if canonical_sample_at_other.target_function > 0.0 && canonical_sample_at_other_jacobian > 0.0 {
         @if(SPATIAL_MERGE)
-        let visibility = trace_visibility(other_world_position + other_world_normal * RAY_T_MIN, canonical_sample_at_other.sample_world_position);
+        let visibility = trace_visibility(other_world_position + other_world_normal * RAY_T_MIN, canonical_sample_at_other.sample_world_position, RAY_FLAG_NONE);
         @else
         let visibility = trace_visibility_previous_frame(other_world_position + other_world_normal * RAY_T_MIN, canonical_sample_at_other.sample_world_position);
         canonical_sample_at_other.target_function *= visibility;
@@ -320,7 +332,7 @@ struct ReservoirContribution {
 
 fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, F_ab: vec2<f32>) -> ReservoirContribution {
     if reservoir.light_sample.light_id != NULL_LIGHT_ID {
-        let light_contribution = calculate_resolved_light_contribution(resolved, world_position, world_normal);
+        let light_contribution = calculate_light_contribution(resolved, world_position, world_normal);
 
         // MIS weight against the bounce-0 BRDF-emissive strategy, recomputed from this surface's
         // brdf and material rather than baked into the unbiased contribution weight at generation. Mirrors the bounce-0
@@ -329,7 +341,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         if light_contribution.brdf_rays_can_hit && light_contribution.inverse_solid_angle_pdf > 0.0 {
             let light_count = arrayLength(&light_sources);
             let inverse_solid_angle_pdf = light_contribution.inverse_solid_angle_pdf * f32(light_count);
-            let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
+            let p_nee = nee_probability(material);
             let p_nee_strategy = f32(constants.primary_di_samples) * (1.0 / inverse_solid_angle_pdf) * p_nee;
             let p_brdf_at_nee = brdf_pdf(wo, light_contribution.wi, world_normal, material, F_ab);
             nee_mis_weight = power_heuristic(p_nee_strategy, p_brdf_at_nee);
@@ -346,7 +358,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
         // Bounce-0 BRDF-emissive sample (directly-visible light). The seed field carries the light
         // triangle's bitcast area pdf, and the stored radiance is the raw emission. Rebuild the MIS
         // weight against this surface's NEE strategy, the dual of nee_mis_weight above and a mirror
-        // of the emissive candidate in generate_initial_reservoir.
+        // of the emissive candidate in generate_initial_path.
         if reservoir.light_sample.seed != 0u {
             let area_pdf = bitcast<f32>(reservoir.light_sample.seed);
             let light_normal = octahedral_decode(reservoir.sample_point_world_normal);
@@ -355,7 +367,7 @@ fn reservoir_contribution(reservoir: Reservoir, resolved: ResolvedLightSample, w
                 brdf_radiance = vec3(0.0);
             } else {
                 let p_light = area_pdf * sample_distance * sample_distance / cos_theta_light;
-                let p_nee = mix(1.0, material.perceptual_roughness, material.metallic);
+                let p_nee = nee_probability(material);
                 let p_brdf = brdf_pdf(wo, wi, world_normal, material, F_ab);
                 brdf_radiance *= power_heuristic(p_brdf, p_light * p_nee * f32(constants.primary_di_samples));
             }

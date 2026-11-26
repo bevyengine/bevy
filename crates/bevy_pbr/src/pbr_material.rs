@@ -155,6 +155,9 @@ pub struct StandardMaterial {
     /// and the green channel contains the roughness values.
     /// Other channels are unused.
     ///
+    /// A two-channel image has no blue channel, so it is read as red = roughness,
+    /// green = metallic instead.
+    ///
     /// Those values are multiplied by the scalar ones of the material,
     /// see [`metallic`] and [`perceptual_roughness`] for details.
     ///
@@ -340,6 +343,16 @@ pub struct StandardMaterial {
     #[doc(alias = "refraction_index")]
     #[doc(alias = "refractive_index")]
     pub ior: f32,
+
+    /// The strength of chromatic dispersion, which causes different wavelengths of light to
+    /// refract at slightly different angles when passing through the material.
+    ///
+    /// - When set to `0.0` (the default) there is no dispersion (all wavelengths refract equally).
+    /// - Higher values produce a stronger rainbow/prism effect.
+    ///
+    /// **Note:** Requires [`StandardMaterial::specular_transmission`] to be greater than `0.0` to
+    /// have any visible effect. Corresponds to the `KHR_materials_dispersion` glTF extension.
+    pub dispersion: f32,
 
     /// How far, on average, light travels through the volume beneath the material's
     /// surface before being absorbed.
@@ -890,6 +903,7 @@ impl Default for StandardMaterial {
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
+            dispersion: 0.0,
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
             occlusion_channel: UvChannel::Uv0,
@@ -1000,6 +1014,7 @@ bitflags::bitflags! {
         const ANISOTROPY_TEXTURE         = 1 << 17;
         const SPECULAR_TEXTURE           = 1 << 18;
         const SPECULAR_TINT_TEXTURE      = 1 << 19;
+        const METALLIC_ROUGHNESS_RG      = 1 << 20; // Roughness in red, metallic in green
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -1047,6 +1062,8 @@ pub struct StandardMaterialUniform {
     pub thickness: f32,
     /// Index of Refraction
     pub ior: f32,
+    /// Dispersion strength
+    pub dispersion: f32,
     /// How far light travels through the volume underneath the material surface before being absorbed
     pub attenuation_distance: f32,
     pub clearcoat: f32,
@@ -1088,8 +1105,13 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.emissive_texture.is_some() {
             flags |= StandardMaterialFlags::EMISSIVE_TEXTURE;
         }
-        if self.metallic_roughness_texture.is_some() {
+        if let Some(handle) = &self.metallic_roughness_texture {
             flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_TEXTURE;
+            if images.get(handle.id()).is_some_and(|texture| {
+                texture.texture_descriptor.format.channels() == TextureChannel::RG
+            }) {
+                flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_RG;
+            }
         }
         if self.occlusion_texture.is_some() {
             flags |= StandardMaterialFlags::OCCLUSION_TEXTURE;
@@ -1222,6 +1244,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             },
             thickness: self.thickness,
             ior: self.ior,
+            dispersion: self.dispersion,
             attenuation_distance: self.attenuation_distance,
             attenuation_color: LinearRgba::from(self.attenuation_color)
                 .to_f32_array()

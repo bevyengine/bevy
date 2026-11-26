@@ -290,7 +290,7 @@ fn switch_mode(
     text.clear();
 
     if keys.just_pressed(KeyCode::Space) {
-        pause.0 = !pause.0;
+        pause.0.toggle();
     }
 
     if keys.just_pressed(KeyCode::Digit1) {
@@ -331,7 +331,7 @@ fn switch_mode(
     }
 
     if keys.just_pressed(KeyCode::KeyH) {
-        *hide_ui = !*hide_ui;
+        hide_ui.toggle();
     }
 
     if !*hide_ui {

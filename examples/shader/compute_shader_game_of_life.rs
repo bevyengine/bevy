@@ -270,17 +270,20 @@ fn game_of_life(
     match *state {
         GameOfLifeState::Loading => {}
         GameOfLifeState::Init => {
-            let init_pipeline = pipeline_cache
-                .get_compute_pipeline(pipeline.init_pipeline)
-                .unwrap();
+            let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.init_pipeline)
+            else {
+                return;
+            };
             pass.set_bind_group(0, &bind_groups.0[0], &[]);
             pass.set_pipeline(init_pipeline);
             pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
         }
         GameOfLifeState::Update(index) => {
-            let update_pipeline = pipeline_cache
-                .get_compute_pipeline(pipeline.update_pipeline)
-                .unwrap();
+            let Some(update_pipeline) =
+                pipeline_cache.get_compute_pipeline(pipeline.update_pipeline)
+            else {
+                return;
+            };
             pass.set_bind_group(0, &bind_groups.0[index], &[]);
             pass.set_pipeline(update_pipeline);
             pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
