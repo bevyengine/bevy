@@ -2,7 +2,8 @@ use crate::type_registry::TypeRegistration;
 use ::alloc::boxed::Box;
 use core::any::Any;
 
-/// A trait for representing type metadata.
+/// A trait for representing type data: runtime values (often trait implementations) associated
+/// with a type.
 ///
 /// Type data can be registered to the [`TypeRegistry`] and stored on a type's [`TypeRegistration`].
 ///

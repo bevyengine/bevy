@@ -1,7 +1,6 @@
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
-use bevy_utils::OnDrop;
-use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
+use core::{alloc::Layout, cell::UnsafeCell, mem::DropGuard, num::NonZeroUsize, ptr::NonNull};
 
 /// A flat, type-erased data storage type.
 ///
@@ -444,12 +443,12 @@ impl BlobArray {
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
-            let on_unwind = OnDrop::new(|| drop(value));
+            let on_unwind = DropGuard::new((), |()| drop(value));
 
             drop(old_value);
 
             // If the above code does not panic, make sure that `value` doesn't get dropped.
-            core::mem::forget(on_unwind);
+            DropGuard::dismiss(on_unwind);
 
             self.drop = Some(drop);
         }

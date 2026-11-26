@@ -272,8 +272,18 @@ impl AssetServer {
         loader.get().await.map_err(|_| error())
     }
 
-    /// Retrieves the default [`AssetLoader`] for the given path, if one can be found.
+    /// This method has been renamed to [`AssetServer::get_asset_loader_with_path`]
+    /// for consistency with the other `get_asset_loader_with_*` methods. Use that instead.
+    #[deprecated(since = "0.21.0", note = "Use `get_asset_loader_with_path` instead.")]
     pub async fn get_path_asset_loader<'a>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+    ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForExtensionError> {
+        self.get_asset_loader_with_path(path).await
+    }
+
+    /// Retrieves the default [`AssetLoader`] for the given path, if one can be found.
+    pub async fn get_asset_loader_with_path<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForExtensionError> {
@@ -1661,7 +1671,7 @@ impl AssetServer {
         path: impl Into<AssetPath<'_>>,
     ) -> Result<(), WriteDefaultMetaError> {
         let path = path.into();
-        let loader = self.get_path_asset_loader(&path).await?;
+        let loader = self.get_asset_loader_with_path(&path).await?;
 
         let meta = loader.default_meta();
         let serialized_meta = meta.serialize();
@@ -1763,7 +1773,7 @@ impl<'a> LoadBuilder<'a> {
     ///
     /// The guard item is dropped when either the asset is loaded or loading has failed. This allows
     /// the [`Drop`] implementation of the guard item to notify the caller in some way. See the
-    /// `multi_asset_sync` example for usage.
+    /// [`multi_asset_sync` example](https://github.com/bevyengine/bevy/blob/latest/examples/asset/multi_asset_sync.rs) for usage.
     ///
     /// Only the last guard is kept. The previous guards are dropped before the load begins.
     #[must_use = "the load doesn't start until LoadBuilder has been consumed"]

@@ -1,10 +1,14 @@
+use bevy_macro_utils::terminated_parser;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    spanned::Spanned, Data, DeriveInput, Field, Fields, Ident, Member, Path, Result, Type, Variant,
+    parse::ParseStream, spanned::Spanned, Data, DeriveInput, Field, Fields, Ident, Member, Path,
+    Result, Token, Type, Variant,
 };
 
-use crate::reflect::field_attributes::FieldAttributes;
+use crate::reflect::{
+    attributes::Metadata, field_attributes::FieldAttributes, REFLECT_ATTRIBUTE_NAME,
+};
 
 /// The fields or variants of a reflected type, parsed once from its definition.
 pub(crate) enum ReflectData<'a> {
@@ -54,13 +58,34 @@ impl<'a> ReflectData<'a> {
 pub(crate) struct ReflectVariant<'a> {
     pub(crate) variant: &'a Variant,
     pub(crate) fields: ReflectFields<'a>,
+    pub(crate) metadata: Metadata,
 }
 
 impl<'a> ReflectVariant<'a> {
     fn parse(variant: &'a Variant) -> Result<Self> {
+        let mut metadata = Metadata::default();
+        for attr in &variant.attrs {
+            if metadata.parse_meta_attribute(attr)? {
+                continue;
+            }
+            if !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME) {
+                continue;
+            }
+            attr.parse_args_with(|input: ParseStream| {
+                terminated_parser(Token![,], |input| {
+                    if !input.peek(Token![@]) {
+                        return Err(input
+                            .error("unsupported variant attribute, expected metadata (`@expr`)"));
+                    }
+                    metadata.parse_metadata_expr(input)
+                })(input)
+                .map(drop)
+            })?;
+        }
         Ok(Self {
             variant,
             fields: ReflectFields::parse(&variant.fields)?,
+            metadata,
         })
     }
 }

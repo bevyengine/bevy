@@ -187,7 +187,7 @@ const PHASE_MAPPING_N: f32 = 0.5;
 /// Nonlinear phase mapping to mitigate banding in low-resolution LUTs.
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     let normalized_altitude = (r - atmosphere.inner_radius) / (atmosphere.outer_radius - atmosphere.inner_radius);
-    let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(1.0 - abs(neg_LdotV), PHASE_MAPPING_N));
+    let phase_uv = 0.5 + 0.5 * sign(neg_LdotV) * (1.0 - pow(max(1.0 - abs(neg_LdotV), 0.0), PHASE_MAPPING_N));
     let uv = vec2(1.0 - normalized_altitude, phase_uv);
     return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
 }
@@ -232,7 +232,7 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
+        let angle_to_sun = fast_acos(neg_LdotV);
         let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
         let sun_angular_size = (*light).sun_disk_angular_size;
         let sun_intensity = (*light).sun_disk_intensity;

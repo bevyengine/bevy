@@ -70,7 +70,7 @@ use bevy_platform::{
 };
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
-use core::{any::TypeId, fmt, mem::ManuallyDrop};
+use core::{any::TypeId, fmt, mem::DropGuard};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -2904,24 +2904,14 @@ impl World {
         let changed_by = entity_mut.get_changed_by::<R>()?;
         let value = entity_mut.take::<R>()?;
 
-        // type used to manage reinserting the resource at the end of the scope. use of a drop impl means that
+        // Guard used to manage reinserting the resource at the end of the scope. use of a drop impl means that
         // the resource is inserted even if the user-provided closure unwinds.
         // this facilitates localized panic recovery and makes app shutdown in response to a panic more graceful
         // by avoiding knock-on errors.
-        struct ReinsertGuard<'a, R: Resource> {
-            world: &'a mut World,
-            entity: Entity,
-            component_id: ComponentId,
-            value: ManuallyDrop<R>,
-            caller: MaybeLocation,
-        }
-        impl<R: Resource> Drop for ReinsertGuard<'_, R> {
-            fn drop(&mut self) {
-                // take ownership of the value first so it'll get dropped if we return early
-                // SAFETY: drop semantics ensure that `self.value` will never be accessed again after this call
-                let value = unsafe { ManuallyDrop::take(&mut self.value) };
-
-                let Ok(mut entity_mut) = self.world.get_entity_mut(self.entity) else {
+        let (world, value, changed_by) = &mut *DropGuard::new(
+            (self, value, changed_by),
+            |(world, value, changed_by)| {
+                let Ok(mut entity_mut) = world.get_entity_mut(entity) else {
                     return;
                 };
 
@@ -2929,7 +2919,7 @@ impl World {
                 // resource insertion usually indicates a logic error in user code, which is useful to catch at dev time,
                 // however it does not inherently lead to corrupted state, so we avoid introducing an unnecessary crash
                 // for production builds.
-                if entity_mut.contains_id(self.component_id) {
+                if entity_mut.contains_id(component_id) {
                     #[cfg(debug_assertions)]
                     {
                         // if we're already panicking, log an error instead of panicking, as double-panics result in an abort
@@ -2985,11 +2975,11 @@ impl World {
                     //   returns.
                     let (bundle, _) = value.partial_move(|bundle| unsafe {
                         bundle_inserter.insert(
-                            self.entity,
+                            entity,
                             location,
                             bundle,
                             InsertMode::Replace,
-                            self.caller,
+                            changed_by,
                             RelationshipHookMode::Run,
                         )
                     });
@@ -3004,30 +2994,22 @@ impl World {
                     // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
                     unsafe { R::apply_effect(bundle, &mut entity_mut) };
                 }
-            }
-        }
-
-        let mut guard = ReinsertGuard {
-            world: self,
-            entity,
-            component_id,
-            value: ManuallyDrop::new(value),
-            caller: changed_by,
-        };
+            },
+        );
 
         let value_mut = Mut {
-            value: &mut *guard.value,
+            value,
             ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
-                changed_by: guard.caller.as_mut(),
+                changed_by: changed_by.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
                 summary_tick: None,
             },
         };
 
-        let result = f(guard.world, value_mut);
+        let result = f(world, value_mut);
 
         Some(result)
     }
@@ -3153,27 +3135,19 @@ impl World {
             return;
         }
 
+        let start = self.command_queue_start;
+        let end = self.command_queue.get_mut().len();
         // Prevent nested calls to `flush_commands()` from accessing the commands being run now.
         // Set `command_queue_start` to the end of the buffer,
         // and use a RAII type to set it back when done.
-        struct Guard<'a> {
-            world: &'a mut World,
-            start: usize,
-        }
-        impl Drop for Guard<'_> {
-            fn drop(&mut self) {
-                // Return `command_queue_start` to its original value.
-                // `CommandQueueRunner` will have set `len()` to `start`,
-                // so this will result in a zero-length queue.
-                debug_assert_eq!(self.world.command_queue.get_mut().len(), self.start);
-                self.world.command_queue_start = self.start;
-            }
-        }
-
-        let start = self.command_queue_start;
-        let end = self.command_queue.get_mut().len();
-        let guard = Guard { world: self, start };
-        guard.world.command_queue_start = end;
+        let mut guard = DropGuard::new(self, |world| {
+            // Return `command_queue_start` to its original value.
+            // `CommandQueueRunner` will have set `len()` to `start`,
+            // so this will result in a zero-length queue.
+            debug_assert_eq!(world.command_queue.get_mut().len(), start);
+            world.command_queue_start = start;
+        });
+        guard.command_queue_start = end;
 
         // SAFETY:
         // * The world's command queue is always returned
@@ -3181,11 +3155,7 @@ impl World {
         //   so any new commands started there
         // * `command_queue_start = end` prevents nested calls from accessing commands between `start` and `command_queue.len`
         let mut runner = unsafe {
-            CommandQueueRunner::new(
-                &mut *guard.world,
-                |world| world.command_queue.get_mut(),
-                start,
-            )
+            CommandQueueRunner::new(&mut **guard, |world| world.command_queue.get_mut(), start)
         };
         runner.run(|world| Some(world));
     }
@@ -3357,27 +3327,12 @@ impl World {
         last_change_tick: Tick,
         f: impl FnOnce(&mut World) -> T,
     ) -> T {
-        struct LastTickGuard<'a> {
-            world: &'a mut World,
-            last_tick: Tick,
-        }
-
+        let last_tick = self.last_change_tick;
         // By setting the change tick in the drop impl, we ensure that
         // the change tick gets reset even if a panic occurs during the scope.
-        impl Drop for LastTickGuard<'_> {
-            fn drop(&mut self) {
-                self.world.last_change_tick = self.last_tick;
-            }
-        }
-
-        let guard = LastTickGuard {
-            last_tick: self.last_change_tick,
-            world: self,
-        };
-
-        guard.world.last_change_tick = last_change_tick;
-
-        f(guard.world)
+        let mut guard = DropGuard::new(self, |world| world.last_change_tick = last_tick);
+        guard.last_change_tick = last_change_tick;
+        f(&mut guard)
     }
 
     /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).

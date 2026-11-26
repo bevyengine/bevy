@@ -302,6 +302,10 @@ pub fn extract_ui_texture_slices(
             commands.entity(render_entity).despawn();
         }
 
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
+
         let visual_box = match image.visual_box {
             VisualBox::ContentBox => uinode.content_box(),
             VisualBox::PaddingBox => uinode.padding_box(),
@@ -365,7 +369,7 @@ pub fn extract_ui_texture_slices(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiTextureSlice {
-                    stack_index: stack_index.0,
+                    stack_index,
                     transform: Affine2::from(*transform)
                         * Affine2::from_translation(visual_box.center()),
                     color: image.color.into(),

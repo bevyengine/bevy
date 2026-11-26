@@ -3,7 +3,7 @@ use crate::{
     component::ComponentInfo,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr, TableRow},
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr};
 use core::{cell::UnsafeCell, mem::needs_drop, num::NonZeroUsize, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.
@@ -285,7 +285,11 @@ impl Column {
             // SAFETY:
             // - Changed tick just got initialized at dst_row
             // - There are no mutable references to the changed tick
-            let row_change_tick = unsafe { changed_ticks.get_unchecked(dst_row.index()).read() };
+            let row_change_tick = unsafe {
+                *changed_ticks
+                    .get_unchecked(dst_row.index())
+                    .as_ref_unchecked()
+            };
             if row_change_tick.is_newer_than(summary_tick.get(), this_run) {
                 summary_tick.set(row_change_tick);
             }
@@ -497,12 +501,22 @@ impl Column {
     /// This function does not do any bounds checking.
     ///
     /// # Safety
-    /// `row` must be within the range `[0, self.len())`.
+    /// - `row` must be within the range `[0, self.len())`.
+    /// - no other mutable reference to the ticks of the same row can exist at the same time
     #[inline]
     pub unsafe fn get_ticks_unchecked(&self, row: TableRow) -> ComponentTicks {
-        ComponentTicks {
-            added: self.added_ticks.get_unchecked(row.index()).read(),
-            changed: self.changed_ticks.get_unchecked(row.index()).read(),
+        // SAFETY: Caller ensures row is in range and there are no mutable references to the ticks
+        unsafe {
+            ComponentTicks {
+                added: *self
+                    .added_ticks
+                    .get_unchecked(row.index())
+                    .as_ref_unchecked(),
+                changed: *self
+                    .changed_ticks
+                    .get_unchecked(row.index())
+                    .as_ref_unchecked(),
+            }
         }
     }
 

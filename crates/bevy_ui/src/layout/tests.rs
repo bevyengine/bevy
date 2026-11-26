@@ -1,6 +1,6 @@
+use crate::layout::convert::TaffyStyle;
 use crate::layout::{mark_dirty_ui_trees, update_ui_roots, UiRoots, UiTreeDirty};
 use crate::layout_tree::compute_layout;
-use crate::layout_tree::TaffyStyle;
 use crate::update_computed_nodes;
 use crate::UiSystems;
 use crate::{clear_transient_dirty_flags, update_border_radius};
@@ -520,7 +520,7 @@ fn compute_layout_uses_camera_viewport() {
             &mut node_queries.p0(),
             &EntityHashSet::default(),
             &mut buffer_query,
-            &mut font_system,
+            font_system.as_mut(),
             &mut child_stack,
             true,
             &mut ghost_stack,
@@ -3824,4 +3824,104 @@ fn nodes_with_display_none_are_fully_clipped() {
     app.update();
 
     assert!(clips_qstate.iter(app.world()).all(|clip| clip.is_none()));
+}
+
+#[test]
+fn overflowing_root_aligns_right() {
+    let mut app = setup_ui_test_app();
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            width: px(2. * TARGET_WIDTH as f32),
+            justify_self: JustifySelf::End,
+            ..default()
+        })
+        .id();
+
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<ComputedLayout>(root)
+            .unwrap()
+            .get_layout(true)
+            .unwrap()
+            .0
+            .location
+            .x,
+        -(TARGET_WIDTH as f32),
+    );
+}
+
+fn setup_ui_text_test_app() -> App {
+    let mut app = setup_ui_test_app();
+    app.init_resource::<bevy_asset::Assets<bevy_text::Font>>()
+        .init_resource::<bevy_asset::Assets<bevy_image::Image>>()
+        .init_resource::<bevy_text::FontAtlasSet>()
+        .init_resource::<bevy_text::LayoutCx>()
+        .init_resource::<bevy_text::DefaultFontSource>()
+        .add_systems(
+            PostUpdate,
+            (
+                crate::widget::measure_text_system
+                    .after(PropagateSet::<ComputedUiRenderTargetInfo>::default())
+                    .before(sync_taffy_styles_with_nodes),
+                crate::widget::text_system.after(update_computed_nodes),
+            ),
+        );
+    let font = bevy_text::Font::from_bytes(bevy_text::DEFAULT_FONT_DATA.to_vec());
+    app.world_mut()
+        .resource_mut::<bevy_text::FontCx>()
+        .collection
+        .register_fonts(font.data, None);
+    app
+}
+
+#[test]
+fn text_wraps_at_the_width_it_was_measured_at() {
+    let mut app = setup_ui_text_test_app();
+    let font = TextFont::default()
+        .with_family("Fira Mono")
+        .with_font_size(16.);
+
+    // Lay the text out on one line first. Its width is rounded up to a whole pixel.
+    let text = app
+        .world_mut()
+        .spawn((Text::new("ab abc"), font, Node::default()))
+        .id();
+    app.update();
+    let line = app
+        .world()
+        .get::<bevy_text::TextLayoutInfo>(text)
+        .unwrap()
+        .size;
+    assert!(line.x > 0.);
+
+    // Just under the rounded up width there is still room for the line. Offset by half a pixel,
+    // by a margin or by padding, rounding takes a whole pixel from the content box, leaving it
+    // narrower than the line.
+    let content_width = line.x - 0.01;
+    for node in [
+        Node {
+            width: px(content_width),
+            margin: UiRect::left(px(0.5)),
+            ..default()
+        },
+        Node {
+            width: px(content_width + 0.5),
+            padding: UiRect::left(px(0.5)),
+            ..default()
+        },
+    ] {
+        *app.world_mut().get_mut::<Node>(text).unwrap() = node;
+        app.update();
+
+        let computed = app.world().get::<ComputedNode>(text).unwrap();
+        let info = app.world().get::<bevy_text::TextLayoutInfo>(text).unwrap();
+        assert_eq!(
+            computed.content_box().size(),
+            Vec2::new(line.x - 1., line.y)
+        );
+        assert_eq!(info.size.y, line.y);
+    }
 }

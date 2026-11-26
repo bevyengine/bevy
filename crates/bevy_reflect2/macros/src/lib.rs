@@ -6,7 +6,7 @@ use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 /// Derives the `Reflect` and `Typed` trait for the given type.
-#[proc_macro_derive(Reflect, attributes(reflect))]
+#[proc_macro_derive(Reflect, attributes(reflect, meta))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     match reflect::derive_reflect(ast) {

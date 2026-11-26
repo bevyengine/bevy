@@ -13,8 +13,8 @@ use bevy_ecs::{
 use bevy_math::{Affine2, Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_ui::{
-    ComputedNode, ComputedUiRenderTargetInfo, Node, PositionType, UiGlobalTransform, UiSystems,
-    UiTransform, Val2, ValContext,
+    ComputedNode, ComputedUiRenderTargetInfo, FixedNode, Node, PositionType, UiGlobalTransform,
+    UiSystems, UiTransform, Val2, ValContext,
 };
 
 use crate::update_scrollbar_thumb;
@@ -83,6 +83,7 @@ pub struct PopoverPlacement {
 /// an parent element.
 #[derive(Component, PartialEq, Default, Reflect)]
 #[reflect(Component)]
+#[require(FixedNode)]
 pub struct Popover {
     /// List of potential positions for the popover element relative to the parent.
     pub positions: Vec<PopoverPlacement>,
@@ -317,6 +318,7 @@ impl Plugin for PopoverPlugin {
         app.add_systems(
             PostUpdate,
             position_popover
+                .ambiguous_with(UiSystems::Stack)
                 .after(UiSystems::Layout)
                 .before(UiSystems::Clipping)
                 .before(update_scrollbar_thumb),

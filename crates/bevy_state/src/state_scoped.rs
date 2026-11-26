@@ -738,11 +738,183 @@ mod tests {
     use super::*;
 
     use bevy_app::App;
+    use bevy_ecs::{bundle::Bundle, resource::Resource, system::ResMut};
 
     use crate::{
         app::{AppExtStates, StatesPlugin},
         prelude::CommandsStatesExt,
+        state::{OnEnter, OnExit, OnTransition},
     };
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
+    enum TransitionState {
+        #[default]
+        A,
+        B,
+    }
+
+    const A_TO_B: OnTransition<TransitionState> = OnTransition {
+        exited: TransitionState::A,
+        entered: TransitionState::B,
+    };
+
+    /// The entity spawned by a system returned from [`spawn_and_record`].
+    #[derive(Resource, Default)]
+    struct SpawnedEntity(Option<Entity>);
+
+    /// Returns a system that spawns the bundle made by `make` and stores the entity in
+    /// [`SpawnedEntity`].
+    fn spawn_and_record<B: Bundle>(make: fn() -> B) -> impl FnMut(Commands, ResMut<SpawnedEntity>) {
+        move |mut commands, mut spawned| {
+            spawned.0 = Some(commands.spawn(make()).id());
+        }
+    }
+
+    /// Builds an app in [`TransitionState::A`], lets `setup` configure it, then transitions
+    /// to [`TransitionState::B`].
+    fn transition_from_a_to_b(setup: impl FnOnce(&mut App)) -> App {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.init_state::<TransitionState>();
+        app.init_resource::<SpawnedEntity>();
+        setup(&mut app);
+        app.update();
+
+        app.world_mut().commands().set_state(TransitionState::B);
+        app.update();
+        app
+    }
+
+    fn spawned_entity(app: &App) -> Entity {
+        app.world()
+            .resource::<SpawnedEntity>()
+            .0
+            .expect("the spawning system should have run")
+    }
+
+    // Despawning applies its query when its command runs, so this passes on any system order.
+    // It guards against a sync point between `OnExit` and the despawn.
+    #[test]
+    fn on_exit_sees_despawn_on_exit_entities() {
+        #[derive(Resource, Default)]
+        struct Seen {
+            on_exit: usize,
+            on_transition: usize,
+        }
+
+        let app = transition_from_a_to_b(|app| {
+            app.init_resource::<Seen>();
+            app.world_mut().spawn(DespawnOnExit(TransitionState::A));
+            app.add_systems(
+                OnExit(TransitionState::A),
+                |query: Query<&DespawnOnExit<TransitionState>>, mut seen: ResMut<Seen>| {
+                    seen.on_exit = query.iter().len();
+                },
+            );
+            app.add_systems(
+                A_TO_B,
+                |query: Query<&DespawnOnExit<TransitionState>>, mut seen: ResMut<Seen>| {
+                    seen.on_transition = query.iter().len();
+                },
+            );
+        });
+
+        let seen = app.world().resource::<Seen>();
+        assert_eq!(seen.on_exit, 1);
+        assert_eq!(seen.on_transition, 0);
+    }
+
+    // Like `on_exit_sees_despawn_on_exit_entities`, this guards against a sync point.
+    #[test]
+    fn on_enter_sees_despawn_on_enter_entities() {
+        #[derive(Resource, Default)]
+        struct Seen(usize);
+
+        let mut app = transition_from_a_to_b(|app| {
+            app.init_resource::<Seen>();
+            app.world_mut().spawn(DespawnOnEnter(TransitionState::B));
+            app.add_systems(
+                OnEnter(TransitionState::B),
+                |query: Query<&DespawnOnEnter<TransitionState>>, mut seen: ResMut<Seen>| {
+                    seen.0 = query.iter().len();
+                },
+            );
+        });
+
+        assert_eq!(app.world().resource::<Seen>().0, 1);
+        let mut query = app.world_mut().query::<&DespawnOnEnter<TransitionState>>();
+        assert_eq!(query.iter(app.world()).len(), 0);
+    }
+
+    // Like `on_exit_sees_despawn_on_exit_entities`, this guards against a sync point.
+    #[test]
+    fn despawn_on_enter_despawns_entities_spawned_on_enter() {
+        let app = transition_from_a_to_b(|app| {
+            app.add_systems(
+                OnEnter(TransitionState::B),
+                spawn_and_record(|| DespawnOnEnter(TransitionState::B)),
+            );
+        });
+
+        let entity = spawned_entity(&app);
+        assert!(app.world().get_entity(entity).is_err());
+    }
+
+    #[test]
+    fn disable_on_exit_disables_entities_spawned_on_exit() {
+        let app = transition_from_a_to_b(|app| {
+            app.add_systems(
+                OnExit(TransitionState::A),
+                spawn_and_record(|| DisableOnExit(TransitionState::A)),
+            );
+        });
+
+        let entity = spawned_entity(&app);
+        assert!(app.world().entity(entity).contains::<Disabled>());
+    }
+
+    #[test]
+    fn despawn_when_despawns_entities_spawned_on_transition() {
+        let app = transition_from_a_to_b(|app| {
+            app.add_systems(
+                A_TO_B,
+                spawn_and_record(|| {
+                    DespawnWhen::new(|transition: &StateTransitionEvent<TransitionState>| {
+                        transition.entered == Some(TransitionState::B)
+                    })
+                }),
+            );
+        });
+
+        let entity = spawned_entity(&app);
+        assert!(app.world().get_entity(entity).is_err());
+    }
+
+    #[test]
+    fn disable_on_enter_disables_entities_spawned_on_enter() {
+        let app = transition_from_a_to_b(|app| {
+            app.add_systems(
+                OnEnter(TransitionState::B),
+                spawn_and_record(|| DisableOnEnter(TransitionState::B)),
+            );
+        });
+
+        let entity = spawned_entity(&app);
+        assert!(app.world().entity(entity).contains::<Disabled>());
+    }
+
+    #[test]
+    fn enable_on_enter_enables_entities_spawned_on_enter() {
+        let app = transition_from_a_to_b(|app| {
+            app.add_systems(
+                OnEnter(TransitionState::B),
+                spawn_and_record(|| (Disabled, EnableOnEnter(TransitionState::B))),
+            );
+        });
+
+        let entity = spawned_entity(&app);
+        assert!(!app.world().entity(entity).contains::<Disabled>());
+    }
 
     #[test]
     fn despawn_on_exit_from_computed_state() {

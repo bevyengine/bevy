@@ -1,4 +1,8 @@
-use bevy_derive::{Deref, DerefMut};
+use crate::{
+    layout::{convert::TaffyStyle, UiTreeDirty},
+    ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig, LayoutError, Measure,
+    MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition, UiTransform,
+};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -20,86 +24,6 @@ use taffy::{
     LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, RoundTree, RunMode,
     TraversePartialTree, TraverseTree,
 };
-
-use crate::{
-    layout::UiTreeDirty, ContentSize, FixedNode, GhostNode, IgnoreScroll, LayoutConfig,
-    LayoutError, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverrideClip, ScrollPosition,
-    UiTransform,
-};
-
-#[expect(
-    unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
-)]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
-unsafe impl Send for TaffyStyle {}
-
-#[expect(
-    unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
-)]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
-unsafe impl Sync for TaffyStyle {}
-
-#[derive(Default, Component, Clone, Deref, DerefMut)]
-pub struct TaffyStyle(pub Style);
-
-pub static VIEWPORT_NODE_TAFFY_STYLE: TaffyStyle = TaffyStyle(Style {
-    dummy: core::marker::PhantomData,
-    display: Display::Grid,
-    item_is_table: false,
-    item_is_replaced: false,
-    item_is_compressible_replaced: false,
-    box_sizing: taffy::BoxSizing::BorderBox,
-    direction: taffy::Direction::Ltr,
-    overflow: taffy::Point {
-        x: taffy::Overflow::Visible,
-        y: taffy::Overflow::Visible,
-    },
-    scrollbar_width: 0.0,
-    contain: taffy::Contain::NONE,
-    position: taffy::Position::Relative,
-    inset: taffy::Rect::auto(),
-    size: taffy::Size {
-        width: taffy::Dimension::percent(1.0),
-        height: taffy::Dimension::percent(1.0),
-    },
-    min_size: taffy::Size::auto(),
-    max_size: taffy::Size::auto(),
-    aspect_ratio: None,
-    margin: taffy::Rect::zero(),
-    padding: taffy::Rect::zero(),
-    border: taffy::Rect::zero(),
-    align_items: taffy::AlignItems::START,
-    align_self: None,
-    justify_items: taffy::JustifyItems::START,
-    justify_self: None,
-    align_content: taffy::AlignContent::NORMAL,
-    justify_content: taffy::AlignContent::NORMAL,
-    gap: taffy::Size::zero(),
-    text_align: taffy::TextAlign::Auto,
-    flex_direction: taffy::FlexDirection::Row,
-    flex_wrap: taffy::FlexWrap::NoWrap,
-    flex_basis: taffy::Dimension::auto(),
-    flex_grow: 0.0,
-    flex_shrink: 1.0,
-    grid_template_rows: Vec::new(),
-    grid_template_columns: Vec::new(),
-    grid_auto_rows: Vec::new(),
-    grid_auto_columns: Vec::new(),
-    grid_auto_flow: taffy::GridAutoFlow::Row,
-    grid_template_areas: None,
-    grid_template_column_names: Vec::new(),
-    grid_template_row_names: Vec::new(),
-    grid_row: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-    grid_column: taffy::Line {
-        start: taffy::GridPlacement::Span(1),
-        end: taffy::GridPlacement::Auto,
-    },
-});
 
 /// `NodeId`s wrap a `u64` that can be directly converted to and from an `Entity`.
 /// We create and assign the `NodeId`s ourselves in order that each `NodeId` corresponds to an `Entity`.
@@ -624,7 +548,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn style(&self, node_id: NodeId) -> &'a Style {
-        entity_from_node_id(node_id).map_or(&VIEWPORT_NODE_TAFFY_STYLE, |entity| {
+        entity_from_node_id(node_id).map_or(TaffyStyle::viewport_node(), |entity| {
             self.style_query
                 .get(entity)
                 .expect("Missing TaffyStyle on UI node.")
@@ -726,8 +650,8 @@ impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
 }
 
 impl CacheTree for UiLayoutTree<'_, '_, '_> {
-    fn cache_get(&mut self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
-        self.layout_mut(node_id).cache.get(input)
+    fn cache_get(&self, node_id: NodeId, input: &LayoutInput) -> Option<LayoutOutput> {
+        self.layout(node_id).cache.get(input)
     }
 
     fn cache_store(&mut self, node_id: NodeId, input: &LayoutInput, layout_output: LayoutOutput) {
