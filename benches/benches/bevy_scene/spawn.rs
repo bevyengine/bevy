@@ -461,4 +461,8 @@ impl AssetLoader for FakeSceneLoader {
     ) -> Result<Self::Asset, Self::Error> {
         Ok(ScenePatch::load_with(load_context, (self.0)()))
     }
+
+    fn extensions(&self) -> &[&str] {
+        &["bsn"]
+    }
 }
