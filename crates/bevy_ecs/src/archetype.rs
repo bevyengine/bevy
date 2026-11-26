@@ -28,7 +28,7 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
@@ -138,27 +138,74 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Box<[RequiredComponentConstructor]>,
-    /// The components inserted by this bundle, with added components before existing ones.
+    /// The components inserted or removed by this bundle.
     /// Added components includes any Required Components that are inserted when adding this bundle,
     /// but existing components only includes ones explicitly contributed by this bundle.
-    inserted: Box<[ComponentId]>,
-    /// The number of components added by this bundle, including Required Components.
-    added_len: usize,
+    ///
+    /// The component order is as follows:
+    /// ```none
+    /// [added, existing, removed_sparse, removed_table]
+    /// ^---inserted---^  ^--------removed_all---------^
+    /// ```
+    components: Box<[ComponentId]>,
+    existing_start_idx: u32,
+    removed_sparse_start_idx: u32,
+    removed_table_start_idx: u32,
 }
 
 impl ArchetypeAfterBundleInsert {
     pub(crate) fn inserted(&self) -> &[ComponentId] {
-        &self.inserted
+        // SAFETY: `removed_sparse_start_idx` is always in range `0..=components.len()`
+        unsafe {
+            self.components
+                .get(..self.removed_sparse_start_idx as usize)
+                .unwrap_unchecked()
+        }
     }
 
     pub(crate) fn added(&self) -> &[ComponentId] {
-        // SAFETY: `added_len` is always in range `0..=inserted.len()`
-        unsafe { self.inserted.get(..self.added_len).unwrap_unchecked() }
+        // SAFETY: `existing_start_idx` is always in range `0..=components.len()`
+        unsafe {
+            self.components
+                .get(..self.existing_start_idx as usize)
+                .unwrap_unchecked()
+        }
     }
 
     pub(crate) fn existing(&self) -> &[ComponentId] {
-        // SAFETY: `added_len` is always in range `0..=inserted.len()`
-        unsafe { self.inserted.get(self.added_len..).unwrap_unchecked() }
+        // SAFETY: `existing_start_idx` and `removed_sparse_start_idx` are always in range `0..=components.len()`
+        unsafe {
+            self.components
+                .get(self.existing_start_idx as usize..self.removed_sparse_start_idx as usize)
+                .unwrap_unchecked()
+        }
+    }
+
+    pub(crate) fn removed_all(&self) -> &[ComponentId] {
+        // SAFETY: `removed_sparse_start_idx` is always in range `0..=components.len()`
+        unsafe {
+            self.components
+                .get(self.removed_sparse_start_idx as usize..)
+                .unwrap_unchecked()
+        }
+    }
+
+    pub(crate) fn removed_sparse(&self) -> &[ComponentId] {
+        // SAFETY: `removed_sparse_start_idx` and `removed_table_start_idx` are always in range `0..=components.len()`
+        unsafe {
+            self.components
+                .get(self.removed_sparse_start_idx as usize..self.removed_table_start_idx as usize)
+                .unwrap_unchecked()
+        }
+    }
+
+    pub(crate) fn removed_table(&self) -> &[ComponentId] {
+        // SAFETY: `removed_table_start_idx` is always in range `0..=components.len()`
+        unsafe {
+            self.components
+                .get(self.removed_table_start_idx as usize..)
+                .unwrap_unchecked()
+        }
     }
 }
 
@@ -245,19 +292,30 @@ impl Edges {
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
         mut added: Vec<ComponentId>,
         existing: Vec<ComponentId>,
+        removed_sparse: HashSet<ComponentId>,
+        removed_table: HashSet<ComponentId>,
     ) {
-        let added_len = added.len();
+        let existing_start_idx = added.len() as u32;
+        let removed_sparse_start_idx = existing_start_idx + existing.len() as u32;
+        let removed_table_start_idx = removed_sparse_start_idx + removed_sparse.len() as u32;
         // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
-        added.reserve_exact(existing.len());
-        added.extend(existing);
+        added.reserve_exact(existing.len() + removed_sparse.len() + removed_table.len());
+        added.extend(
+            existing
+                .into_iter()
+                .chain(removed_sparse)
+                .chain(removed_table),
+        );
         self.insert_bundle.insert(
             bundle_id,
             ArchetypeAfterBundleInsert {
                 archetype_id,
                 bundle_status: bundle_status.into(),
                 required_components: required_components.into(),
-                added_len,
-                inserted: added.into(),
+                existing_start_idx,
+                removed_sparse_start_idx,
+                removed_table_start_idx,
+                components: added.into(),
             },
         );
     }
