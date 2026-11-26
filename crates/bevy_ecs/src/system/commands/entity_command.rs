@@ -224,7 +224,7 @@ where
 pub fn remove<T: Bundle>() -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_with_caller::<T>(caller);
+        entity.remove_with_caller::<T>(caller, RelationshipHookMode::Run);
     }
 }
 

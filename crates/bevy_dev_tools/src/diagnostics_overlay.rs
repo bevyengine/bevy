@@ -8,7 +8,7 @@ use core::time::Duration;
 use bevy_app::prelude::*;
 use bevy_color::{palettes, prelude::*};
 use bevy_diagnostic::{Diagnostic, DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy_ecs::{prelude::*, relationship::Relationship};
+use bevy_ecs::{prelude::*, relationship::SingleTargetRelationship};
 use bevy_pbr::{diagnostic::MaterialAllocatorDiagnosticPlugin, StandardMaterial};
 use bevy_picking::prelude::*;
 use bevy_render::diagnostic::MeshAllocatorDiagnosticPlugin;
