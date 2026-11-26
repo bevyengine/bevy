@@ -13,7 +13,10 @@ use core::{
 };
 use nonmax::NonMaxU32;
 use offset_allocator::{Allocation, Allocator};
-use wgpu::{BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, WriteOnly};
+use wgpu::{
+    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, WriteOnly,
+    COPY_BUFFER_ALIGNMENT,
+};
 
 use crate::{
     render_resource::Buffer,
@@ -349,6 +352,14 @@ where
 
     /// The layout of a single element (vertex or index).
     element_layout: I::Layout,
+
+    /// How many elements this slab holds.
+    ///
+    /// The GPU buffer may be larger. A buffer created with `mapped_at_creation`
+    /// has to be a multiple of [`COPY_BUFFER_ALIGNMENT`], so the allocation is
+    /// rounded up. Those extra bytes are padding and are not part of the
+    /// element range.
+    element_count: u32,
 }
 
 /// The location of an allocation and the slab it's contained in.
@@ -793,6 +804,7 @@ where
             Slab::LargeObject(LargeObjectSlab {
                 buffer: None,
                 element_layout: layout,
+                element_count: 0,
             }),
         );
     }
@@ -948,7 +960,9 @@ where
                 let buffer = large_object_slab.buffer.as_ref()?;
                 Some(SlabAllocationBufferSlice {
                     buffer,
-                    range: 0..((buffer.size() / large_object_slab.element_layout.size()) as u32),
+                    // The buffer may be padded out to `COPY_BUFFER_ALIGNMENT`.
+                    // Report the logical element count, not that padded size.
+                    range: 0..large_object_slab.element_count,
                     phantom: PhantomData,
                 })
             }
@@ -1046,6 +1060,11 @@ where
                 let buffer_usages = large_object_slab.element_layout.buffer_usages()
                     | BufferUsages::COPY_DST
                     | self.extra_buffer_usages;
+                // `BufferDescriptor::mapped_at_creation` requires `size` to be a
+                // multiple of `COPY_BUFFER_ALIGNMENT`. An odd number of `u16`
+                // indices is not. Round the allocation up and write only the
+                // logical bytes; the element range stays at that length.
+                let size = (len as u64).next_multiple_of(COPY_BUFFER_ALIGNMENT);
                 let buffer = render_device.create_buffer(&BufferDescriptor {
                     label: Some(&format!(
                         "large {} slab {} ({}buffer)",
@@ -1053,7 +1072,7 @@ where
                         slab_id,
                         buffer_usages_to_str(buffer_usages)
                     )),
-                    size: len as u64,
+                    size,
                     usage: buffer_usages,
                     mapped_at_creation: true,
                 });
@@ -1063,6 +1082,10 @@ where
                     fill_data(slice.slice(..len));
                 }
                 buffer.unmap();
+                // Whole elements that fit in the logical byte length. Dividing
+                // the padded buffer size would count the alignment bytes.
+                large_object_slab.element_count =
+                    (len as u64 / large_object_slab.element_layout.size()) as u32;
                 large_object_slab.buffer = Some(buffer);
             }
         }
@@ -1362,5 +1385,92 @@ mod tests {
             allocator.slabs.get(&slab_id),
             Some(Slab::LargeObject(_))
         ));
+    }
+
+    /// A two-byte element, like a `u16` index. Two elements fill one slot so
+    /// general slabs stay on `COPY_BUFFER_ALIGNMENT` boundaries.
+    struct IndexItem;
+
+    impl SlabItem for IndexItem {
+        type Key = u32;
+        type Layout = IndexLayout;
+
+        fn label() -> Cow<'static, str> {
+            "index".into()
+        }
+    }
+
+    #[derive(Clone, PartialEq, Eq, Hash)]
+    struct IndexLayout;
+
+    impl SlabItemLayout for IndexLayout {
+        fn size(&self) -> u64 {
+            2
+        }
+
+        fn elements_per_slot(&self) -> u32 {
+            2
+        }
+
+        fn buffer_usages(&self) -> BufferUsages {
+            BufferUsages::INDEX
+        }
+    }
+
+    /// A large-object index buffer whose byte size is not a multiple of
+    /// `COPY_BUFFER_ALIGNMENT` must still upload.
+    ///
+    /// `mapped_at_creation` requires that alignment. Three `u16` indices are
+    /// 6 bytes, so `create_buffer` used to fail validation. The padded bytes
+    /// must not show up in the element range.
+    #[test]
+    fn unaligned_large_object_index_buffer_does_not_panic() {
+        let (device, queue) = create_dummy_device();
+        let mut allocator = SlabAllocator::<IndexItem>::new();
+        let settings = SlabAllocatorSettings {
+            large_threshold: 0,
+            ..test_settings()
+        };
+
+        // Three `u16` indices: 6 bytes, not a multiple of `COPY_BUFFER_ALIGNMENT`.
+        let indices: [u8; 6] = [1, 0, 2, 0, 3, 0];
+        let mut stage = allocator.stage_allocation();
+        stage.allocate(&0, indices.len() as u64, IndexLayout, &settings);
+        stage.commit(&device, &queue);
+
+        let slab_id = allocator.key_to_slab[&0];
+        assert!(
+            matches!(allocator.slabs.get(&slab_id), Some(Slab::LargeObject(_))),
+            "a zero large threshold should put this index buffer in its own slab"
+        );
+
+        allocator.copy_element_data(
+            &0,
+            indices.len(),
+            |mut slice| {
+                assert_eq!(
+                    slice.len(),
+                    indices.len(),
+                    "the upload must not include alignment padding"
+                );
+                slice.copy_from_slice(&indices);
+            },
+            &device,
+            &queue,
+        );
+
+        let allocation = allocator
+            .slab_allocation_slice(&0, slab_id)
+            .expect("the large-object slab should be readable");
+        assert_eq!(allocation.range, 0..3, "padding must not add an index");
+        assert_eq!(
+            allocation.buffer.size(),
+            (indices.len() as u64).next_multiple_of(COPY_BUFFER_ALIGNMENT),
+            "the mapped buffer has to satisfy COPY_BUFFER_ALIGNMENT"
+        );
+        assert!(
+            allocation.buffer.size() > indices.len() as u64,
+            "this size needs padding, otherwise the test is not exercising the bug"
+        );
     }
 }
