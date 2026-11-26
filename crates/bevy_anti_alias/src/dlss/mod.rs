@@ -251,6 +251,8 @@ pub trait DlssFeature: Reflect + Clone + Default {
         device: &RenderDevice,
         queue: &RenderQueue,
     ) -> Result<Self::Context, dlss_wgpu::DlssError>;
+
+    fn remove_view_components(_entity_commands: &mut EntityCommands) {}
 }
 
 /// DLSS Super Resolution.
@@ -353,6 +355,10 @@ impl DlssFeature for DlssRayReconstructionFeature {
             device.wgpu_device(),
             queue.deref(),
         )
+    }
+
+    fn remove_view_components(entity_commands: &mut EntityCommands) {
+        entity_commands.remove::<ViewDlssRayReconstructionTextures>();
     }
 }
 
