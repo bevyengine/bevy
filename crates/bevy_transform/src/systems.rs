@@ -107,9 +107,19 @@ impl StaticTransformOptimizations {
 /// Propagates a "dirty bit" up the hierarchy towards ancestors. Transform propagation can ignore
 /// entire subtrees of the hierarchy if it encounters an entity without the dirty bit.
 ///
+/// Entities that are neither a parent ([`Children`]) nor a child ([`ChildOf`]) are skipped: they
+/// are not part of any tree, and [`sync_simple_transforms`] updates them directly.
+///
 /// Configure behavior with [`StaticTransformOptimizations`].
 pub fn mark_dirty_trees(
-    changed: Query<Entity, Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>>,
+    changed: Query<
+        Entity,
+        (
+            Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
+            // Only entities that can matter to a tree: a parent (has `Children`) or a child (has `ChildOf`).
+            Or<(With<Children>, With<ChildOf>)>,
+        ),
+    >,
     mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<&mut TransformTreeChanged>,
     parents: Query<&ChildOf>,
@@ -902,6 +912,61 @@ mod test {
             &offset_global_transform(5.5),
             "The global transform of an orphaned entity wasn't updated properly",
         );
+    }
+
+    #[test]
+    fn filtered_roots_still_propagate_reparented_trees() {
+        ComputeTaskPool::get_or_init(TaskPool::default);
+        let mut world = World::new();
+        world.insert_resource(StaticTransformOptimizations::default());
+        let mut schedule = Schedule::default();
+        schedule.add_systems(
+            (
+                mark_dirty_trees,
+                propagate_parent_transforms,
+                sync_simple_transforms,
+            )
+                .chain(),
+        );
+
+        let a = world.spawn(Transform::from_xyz(10.0, 0.0, 0.0)).id();
+        let b = world.spawn(Transform::from_xyz(100.0, 0.0, 0.0)).id();
+        let c = world.spawn(Transform::from_xyz(1.0, 0.0, 0.0)).id();
+        let g = world.spawn(Transform::from_xyz(2.0, 0.0, 0.0)).id();
+        world.entity_mut(a).add_child(c);
+        world.entity_mut(c).add_child(g);
+        schedule.run(&mut world);
+        let at =
+            |world: &World, entity| world.get::<GlobalTransform>(entity).unwrap().translation();
+        assert_eq!(at(&world, c), Vec3::new(11.0, 0.0, 0.0));
+        assert_eq!(at(&world, g), Vec3::new(13.0, 0.0, 0.0));
+
+        // Reparent the whole subtree from `a` to `b`.
+        world.entity_mut(c).remove::<ChildOf>();
+        world.entity_mut(b).add_child(c);
+        schedule.run(&mut world);
+        assert_eq!(at(&world, c), Vec3::new(101.0, 0.0, 0.0));
+        assert_eq!(at(&world, g), Vec3::new(103.0, 0.0, 0.0));
+
+        // Removing the parent makes `c` a root with a child, not an
+        // isolated root, so it still has to propagate.
+        world.entity_mut(c).remove::<ChildOf>();
+        schedule.run(&mut world);
+        assert_eq!(at(&world, c), Vec3::new(1.0, 0.0, 0.0));
+        assert_eq!(at(&world, g), Vec3::new(3.0, 0.0, 0.0));
+
+        // A leaf orphan has no `Children` and no `ChildOf`; sync_simple
+        // updates it instead of the dirty-tree pass.
+        world.entity_mut(g).remove::<ChildOf>();
+        schedule.run(&mut world);
+        assert_eq!(at(&world, g), Vec3::new(2.0, 0.0, 0.0));
+
+        // The first child of an isolated root enters the tree in one frame.
+        let d = world.spawn(Transform::from_xyz(5.0, 0.0, 0.0)).id();
+        let h = world.spawn(Transform::from_xyz(0.5, 0.0, 0.0)).id();
+        world.entity_mut(d).add_child(h);
+        schedule.run(&mut world);
+        assert_eq!(at(&world, h), Vec3::new(5.5, 0.0, 0.0));
     }
 
     #[test]
