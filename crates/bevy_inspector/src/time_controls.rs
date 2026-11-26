@@ -20,9 +20,7 @@ use bevy_ecs::{
     template::template,
 };
 use bevy_feathers::{
-    controls::{
-        ButtonVariant, FeathersNumberInput, FeathersToolButton, NumberInputStep, SoftLimit,
-    },
+    controls::{ButtonVariant, FeathersButton, FeathersNumberInput, NumberInputStep, SoftLimit},
     display::caption,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -84,13 +82,13 @@ pub fn time_controls() -> impl Scene {
             row_gap: px(3),
         }
         Children [
-            @FeathersToolButton {
+            @FeathersButton {
                 @caption: bsn! { @caption("Pause") },
             }
             TimeControl::Pause
             on(time_control_activated)
             --
-            @FeathersToolButton {
+            @FeathersButton {
                 @caption: bsn! { @caption("Step") },
             }
             TimeControl::Step
