@@ -40,7 +40,7 @@ forced into PostUpdate, even if you need them run before.
 
 You should keep in mind that animations are advanced in `PreUpdate` so for example
 `AnimationPlayer::all_finished` is true in for example the `Update` schedule before the state is
-applied and rendered. If you want to take aktion after all `ActiveAnimation`s are finished and their
+applied and rendered. If you want to take action after all `ActiveAnimation`s are finished and their
 state is applied and rendered. You can do this in the `Update` schedule with the new
 `AnimationPlayer::all_finished_and_applied` and `ActiveAnimation::is_finished_and_applied`
 functions. Any system that reads state from `AnimationTransitions` and `AnimationPlayer`s should

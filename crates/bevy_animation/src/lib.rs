@@ -1339,7 +1339,7 @@ pub struct AnimationAdvanceSystems;
 /// keep in mind, that this schedule is inserted before [`PostUpdate`], when the [`AnimationPlugin`]
 /// is building.
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// See the [`bevy_app::Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AnimationApply;
 
