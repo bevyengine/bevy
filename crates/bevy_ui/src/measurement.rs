@@ -6,7 +6,9 @@ use core::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 use taffy::MaybeMath;
 use taffy::MaybeResolve;
+use taffy::ResolveOrZero;
 
+use crate::resolve_taffy_calc;
 use crate::widget::ImageMeasure;
 
 use crate::widget::TextMeasure;
@@ -23,16 +25,35 @@ pub struct MeasureArgs<'a> {
     pub known_width: Option<f32>,
     /// The known height from Taffy if this size is definite.
     pub known_height: Option<f32>,
-    /// The horizontal space available for this UI node.
+    /// The horizontal space available to the measured node.
     pub available_width: AvailableSpace,
-    /// The vertical space available for this UI node.
+    /// The vertical space available to the measured node.
     pub available_height: AvailableSpace,
     /// Parley font database, needed for text measurement.
     pub font_system: &'a mut FontCx,
     /// Text layout buffer used to compute intrinsic text size when required.
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
-    /// Resolved style for this node in physical pixels.
-    pub style: &'a taffy::Style,
+    /// The `Taffy` style of the measured node, converted from `Node` with lengths in either
+    /// physical pixels or percentages. `Val::Calc` values that use a percentage are left unresolved.
+    pub(crate) style: &'a taffy::Style,
+}
+
+impl MeasureArgs<'_> {
+    /// The `Taffy` style of the measured node, converted from `Node` with lengths in either
+    /// physical pixels or percentages. `Val::Calc` values that use a percentage are left unresolved.
+    pub fn style(&self) -> &taffy::Style {
+        self.style
+    }
+
+    /// Resolve the measured node's padding against the given size.
+    pub fn resolve_padding(&self, size: taffy::Size<Option<f32>>) -> taffy::Rect<f32> {
+        self.style.padding.resolve_or_zero(size, resolve_taffy_calc)
+    }
+
+    /// Resolve the measured node's border against the given size.
+    pub fn resolve_border(&self, size: taffy::Size<Option<f32>>) -> taffy::Rect<f32> {
+        self.style.border.resolve_or_zero(size, resolve_taffy_calc)
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -55,11 +76,10 @@ fn resolve_axis(
     size_dim: taffy::style::Dimension,
     max_dim: taffy::style::LengthPercentageAuto,
 ) -> ResolvedAxis {
-    let calc = |_, _| 0.;
     let available = available_space.into_option();
-    let min = min_dim.maybe_resolve(available, calc);
-    let preferred = size_dim.maybe_resolve(available, calc);
-    let max = max_dim.maybe_resolve(available, calc);
+    let min = min_dim.maybe_resolve(available, resolve_taffy_calc);
+    let preferred = size_dim.maybe_resolve(available, resolve_taffy_calc);
+    let max = max_dim.maybe_resolve(available, resolve_taffy_calc);
     ResolvedAxis {
         min,
         preferred,

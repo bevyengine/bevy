@@ -1,6 +1,8 @@
 use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
+use bevy_platform::sync::RwLock;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
+use core::cell::Cell;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
@@ -190,6 +192,13 @@ pub enum Val {
     /// Unlike [`Val::Em`] this ignores the node's own font size, so it means the same
     /// length anywhere in the hierarchy. Resolved from the [`RemSize`] resource.
     Rem(f32),
+    /// A length calculated by a function, see [`Val::calc`].
+    Calc {
+        /// The function used to calculate the length.
+        calc: CalcId,
+        /// Multiplier applied to the function's result.
+        scalar: f32,
+    },
     /// The smallest size that can fit the node's contents, taking all available
     /// soft wrapping opportunities.
     ///
@@ -285,6 +294,12 @@ impl core::str::FromStr for Val {
 
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
+        if let Self::Calc { calc: a, scalar: s } = self
+            && let Self::Calc { calc: b, scalar: t } = other
+        {
+            return a == b && s == t;
+        }
+
         match (self.unit_value(), other.unit_value()) {
             // All zero-value variants are considered equal.
             (Ok((u, a)), Ok((v, b))) => (u, a) == (v, b) || (a == 0. && b == 0.),
@@ -554,6 +569,7 @@ impl MulAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value *= rhs,
+            Val::Calc { scalar, .. } => *scalar *= rhs,
             _non_numeric => {}
         }
     }
@@ -579,6 +595,7 @@ impl DivAssign<f32> for Val {
             | Val::VMax(value)
             | Val::Em(value)
             | Val::Rem(value) => *value /= rhs,
+            Val::Calc { scalar, .. } => *scalar /= rhs,
             _non_numeric => {}
         }
     }
@@ -590,7 +607,7 @@ impl Neg for Val {
     fn neg(self) -> Self::Output {
         match self.unit_value() {
             Ok((unit, value)) => unit.with_value(-value),
-            Err(_) => self,
+            Err(_) => self * -1.,
         }
     }
 }
@@ -607,7 +624,7 @@ impl Val {
     /// Resolves this [`Val`] to a value in physical pixels from the given context and `physical_base_value`.
     ///
     /// Returns a [`ValArithmeticError::NonEvaluable`] if the [`Val`] is impossible to resolve into a concrete value.
-    pub const fn resolve(
+    pub fn resolve(
         self,
         context: &ValContext,
         physical_base_value: f32,
@@ -625,7 +642,27 @@ impl Val {
             }
             Val::Em(value) => Ok(value * context.em_size * context.scale_factor),
             Val::Rem(value) => Ok(value * context.rem_size * context.scale_factor),
+            Val::Calc { calc, scalar } => Ok(calc.resolve(context, physical_base_value).0 * scalar),
             _ => Err(ValArithmeticError::NonEvaluable),
+        }
+    }
+
+    /// Creates a `Val` from a function
+    ///
+    /// The function cannot capture its environment, and is lost if it is serialized.
+    ///
+    /// ```
+    /// # use bevy_ui::Val;
+    /// // A quarter of the viewport's width, clamped between 200 and 400 logical pixels.
+    /// let sidebar_width = Val::calc(|ctx| ctx.vw(25.).clamp(200., 400.));
+    ///
+    /// // The parent's width minus a 1rem gutter on each side.
+    /// let content_width = Val::calc(|ctx| ctx.percent(100.) - 2. * ctx.rem(1.));
+    /// ```
+    pub fn calc(f: fn(&CalcContext) -> f32) -> Val {
+        Val::Calc {
+            calc: CalcId::new(f),
+            scalar: 1.,
         }
     }
 }
@@ -646,6 +683,20 @@ impl From<Val> for FontSize {
             Val::VMax(vmax) => FontSize::VMax(vmax),
             Val::Rem(rem) => FontSize::Rem(rem),
             Val::Em(em) => FontSize::Rem(em), // see comment above
+            Val::Calc { calc, scalar } => {
+                FontSize::calc(move |ctx| {
+                    calc.resolve(
+                        &ValContext {
+                            scale_factor: 1.,
+                            physical_size: ctx.view,
+                            em_size: ctx.rem,
+                            rem_size: ctx.rem,
+                        },
+                        ctx.rem,
+                    )
+                    .0
+                }) * scalar
+            }
             _ => FontSize::Rem(1.),
         }
     }
@@ -755,6 +806,141 @@ pub fn vmin<T: ValNum>(value: T) -> Val {
 /// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
 pub fn vmax<T: ValNum>(value: T) -> Val {
     Val::VMax(value.val_num_f32())
+}
+
+static CALC_FUNCTIONS: RwLock<Vec<fn(&CalcContext) -> f32>> = RwLock::new(Vec::new());
+
+/// The id of a function that calculates a length, see [`Val::calc`].
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(opaque, PartialEq, Debug, Clone)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+pub struct CalcId(u16);
+
+impl CalcId {
+    /// Registers a function and returns a 2-byte id that can be used to look it up.
+    /// Storing the id instead of a function pointer keeps [`Val`] at 8 bytes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if more than 65,536 different functions are registered.
+    pub fn new(f: fn(&CalcContext) -> f32) -> Self {
+        let index = CALC_FUNCTIONS
+            .read()
+            .unwrap()
+            .iter()
+            .position(|g| core::ptr::fn_addr_eq(*g, f));
+        let index = match index {
+            Some(index) => index,
+            None => {
+                let mut functions = CALC_FUNCTIONS.write().unwrap();
+                // Another thread may have added `f` since the read lock was released.
+                match functions.iter().position(|g| core::ptr::fn_addr_eq(*g, f)) {
+                    Some(index) => index,
+                    None => {
+                        functions.push(f);
+                        functions.len() - 1
+                    }
+                }
+            }
+        };
+        Self(u16::try_from(index).expect("too many calc functions"))
+    }
+
+    /// Resolves the `Calc` to a value in physical pixels using the given context and basis.
+    /// A result of `NaN` is replaced by `0.`, and any other result is clamped between -2^24 and 2^24.
+    /// Returns the value, along with true if the associated function used the percentage basis or false otherwise.
+    pub fn resolve(self, context: &ValContext, basis: f32) -> (f32, bool) {
+        resolve_calc(self.get(), context, basis)
+    }
+
+    /// Returns the function corresponding to this id.
+    pub fn get(self) -> fn(&CalcContext) -> f32 {
+        CALC_FUNCTIONS.read().unwrap()[self.0 as usize]
+    }
+}
+
+/// Resolves a calc function to a value in physical pixels using the given context and basis.
+/// A result of `NaN` is replaced by `0.`, and any other result is clamped between -2^24 and 2^24.
+/// Returns the value, along with true if the associated function used the percentage basis or false otherwise.
+pub fn resolve_calc(f: fn(&CalcContext) -> f32, context: &ValContext, basis: f32) -> (f32, bool) {
+    let calc_context = CalcContext {
+        context,
+        basis,
+        used_percent: Cell::new(false),
+    };
+    let value = f(&calc_context) * context.scale_factor;
+    (
+        if value.is_nan() {
+            0.
+        } else {
+            value.clamp(-16_777_216., 16_777_216.)
+        },
+        calc_context.used_percent.get(),
+    )
+}
+
+#[cfg(feature = "serialize")]
+impl serde::Serialize for CalcId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        bevy_log::warn_once!(
+            "A calc function can't be serialized, it will be deserialized as a function returning zero."
+        );
+        serializer.serialize_unit()
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl<'de> serde::Deserialize<'de> for CalcId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        <()>::deserialize(deserializer)?;
+        bevy_log::warn_once!("Deserialized a calc without a function. It will return zero.");
+        Ok(CalcId::new(|_| 0.))
+    }
+}
+
+/// Converts lengths in each [`Val`] unit to logical pixels, passed to the function of a [`Val::calc`].
+pub struct CalcContext<'a> {
+    context: &'a ValContext,
+    basis: f32,
+    used_percent: Cell<bool>,
+}
+
+impl CalcContext<'_> {
+    /// Length in logical pixels as a percentage of the parent node's length, see [`Val::Percent`].
+    pub fn percent(&self, value: f32) -> f32 {
+        self.used_percent.set(true);
+        self.basis * value / 100. / self.context.scale_factor
+    }
+
+    /// Length in logical pixels as a percentage of the viewport width.
+    pub fn vw(&self, value: f32) -> f32 {
+        self.context.physical_size.x * value / 100. / self.context.scale_factor
+    }
+
+    /// Length in logical pixels as a percentage of the viewport height.
+    pub fn vh(&self, value: f32) -> f32 {
+        self.context.physical_size.y * value / 100. / self.context.scale_factor
+    }
+
+    /// Length in logical pixels as a percentage of the viewport's smaller dimension.
+    pub fn vmin(&self, value: f32) -> f32 {
+        self.context.physical_size.min_element() * value / 100. / self.context.scale_factor
+    }
+
+    /// Length in logical pixels as a percentage of the viewport's larger dimension.
+    pub fn vmax(&self, value: f32) -> f32 {
+        self.context.physical_size.max_element() * value / 100. / self.context.scale_factor
+    }
+
+    /// Length in logical pixels as a multiple of the node's own font size.
+    pub fn em(&self, value: f32) -> f32 {
+        self.context.em_size * value
+    }
+
+    /// Length in logical pixels as a multiple of the root font size.
+    pub fn rem(&self, value: f32) -> f32 {
+        self.context.rem_size * value
+    }
 }
 
 #[cfg(test)]
@@ -1032,6 +1218,135 @@ mod tests {
     #[test]
     fn default_val_equals_const_default_val() {
         assert_eq!(Val::default(), Val::DEFAULT);
+    }
+
+    #[test]
+    fn calc_resolves_in_logical_pixels() {
+        let context = ValContext::new(2., vec2(1000., 500.), EmSize(10.), RemSize(20.));
+        let calc = Val::calc(|ctx| 10. + ctx.percent(13.) + ctx.vh(20.) + ctx.em(1.) + ctx.rem(1.));
+        assert_eq!(
+            calc.resolve(&context, 200.),
+            Ok(20. + 26. + 100. + 20. + 40.)
+        );
+    }
+
+    #[test]
+    fn calc_viewport_min_and_max() {
+        let context = ValContext::new(2., vec2(1000., 500.), EmSize(10.), RemSize(20.));
+        assert_eq!(Val::calc(|ctx| ctx.vmin(2.)).resolve(&context, 0.), Ok(10.));
+        assert_eq!(Val::calc(|ctx| ctx.vmax(2.)).resolve(&context, 0.), Ok(20.));
+    }
+
+    #[test]
+    fn calc_scales_and_negates() {
+        let context = ValContext::TEST_CONTEXT;
+        let calc = Val::calc(|ctx| 10. + ctx.percent(1.));
+        assert_eq!((calc * 2.).resolve(&context, 200.), Ok(24.));
+        assert_eq!((2. * calc).resolve(&context, 200.), Ok(24.));
+        assert_eq!((calc / 2.).resolve(&context, 200.), Ok(6.));
+        assert_eq!((-calc).resolve(&context, 200.), Ok(-12.));
+        assert_ne!(calc * 2., calc);
+    }
+
+    #[test]
+    fn calc_nan_is_zero_and_infinity_is_clamped() {
+        let context = ValContext::TEST_CONTEXT;
+        assert_eq!(Val::calc(|_| f32::NAN).resolve(&context, 0.), Ok(0.));
+        assert_eq!(
+            Val::calc(|ctx| 100. / ctx.percent(1.)).resolve(&context, 0.),
+            Ok(16_777_216.)
+        );
+    }
+
+    #[test]
+    fn calc_cannot_be_added() {
+        let calc = Val::calc(|_| 10.);
+        assert_eq!(
+            calc.try_add(Val::Px(1.)),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+        assert_eq!(
+            calc.try_sub(calc),
+            Err(ValArithmeticError::IncompatibleUnits)
+        );
+    }
+
+    #[test]
+    fn calc_equality_is_by_function() {
+        let f: fn(&CalcContext) -> f32 = |_| 10.;
+        assert_eq!(Val::calc(f), Val::calc(f));
+        assert_ne!(Val::calc(f), Val::calc(|_| 20.));
+        assert_ne!(Val::calc(f), Val::Px(10.));
+        assert_ne!(Val::calc(f), Val::Auto);
+    }
+
+    #[test]
+    fn calc_only_interpolates_with_itself() {
+        let calc = Val::calc(|_| 10.);
+        assert!(matches!(
+            calc.try_interpolate_stable(&calc, 0.5),
+            Ok(val) if val == calc
+        ));
+        assert!(calc.try_interpolate_stable(&Val::Px(10.), 0.5).is_err());
+        assert!(Val::Px(10.).try_interpolate_stable(&calc, 0.5).is_err());
+    }
+
+    #[test]
+    fn reflection_preserves_calc() {
+        use bevy_reflect::{FromReflect, PartialReflect};
+
+        let calc = Val::calc(|_| 10.);
+        let dynamic = calc.to_dynamic().unwrap();
+        assert_eq!(Val::from_reflect(dynamic.as_ref()), Some(calc));
+        let cloned = calc.reflect_clone().unwrap();
+        assert_eq!(cloned.downcast_ref::<Val>(), Some(&calc));
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn calc_serialization_is_lossy() {
+        let ron = ron::to_string(&Val::calc(|_| 10.)).unwrap();
+        let calc = ron::from_str::<Val>(&ron).unwrap();
+        assert!(matches!(calc, Val::Calc { .. }));
+        assert_eq!(calc.resolve(&ValContext::TEST_CONTEXT, 0.), Ok(0.));
+        let ron = ron::to_string(&Val::Percent(50.)).unwrap();
+        assert_eq!(ron::from_str::<Val>(&ron).unwrap(), Val::Percent(50.));
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn calc_reflect_serialization_is_lossy() {
+        use bevy_reflect::serde::{ReflectDeserializer, ReflectSerializer};
+        use bevy_reflect::{FromReflect, TypeRegistry};
+        use serde::de::DeserializeSeed;
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<Val>();
+        let calc = Val::calc(|_| 10.);
+        let ron = ron::to_string(&ReflectSerializer::new(&calc, &registry)).unwrap();
+        let mut deserializer = ron::Deserializer::from_str(&ron).unwrap();
+        let reflected = ReflectDeserializer::new(&registry)
+            .deserialize(&mut deserializer)
+            .unwrap();
+        let calc = Val::from_reflect(reflected.as_ref()).unwrap();
+        assert!(matches!(calc, Val::Calc { .. }));
+        assert_eq!(calc.resolve(&ValContext::TEST_CONTEXT, 0.), Ok(0.));
+    }
+
+    #[test]
+    fn val_is_eight_bytes() {
+        assert_eq!(size_of::<Val>(), 8);
+        assert_eq!(size_of::<crate::GridTrack>(), 16);
+    }
+
+    #[test]
+    fn font_size_from_calc() {
+        let font_size =
+            FontSize::from(Val::calc(|ctx| ctx.percent(50.) + ctx.em(1.) + ctx.vh(10.)) * 2.);
+        assert_eq!(
+            font_size.eval(vec2(1000., 500.), RemSize(20.)),
+            2. * (10. + 20. + 50.)
+        );
     }
 
     #[test]

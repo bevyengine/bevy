@@ -24,6 +24,7 @@ use layout_tree::ComputedLayout;
 use thiserror::Error;
 
 use bevy_text::{ComputedTextBlock, EmSize, FontCx, RemSize, TextFont};
+pub(crate) use convert::resolve_taffy_calc;
 pub use convert::TaffyStyle;
 
 pub mod clipping;
