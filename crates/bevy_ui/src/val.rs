@@ -1249,12 +1249,12 @@ mod tests {
     }
 
     #[test]
-    fn calc_non_finite_results_are_zero() {
+    fn calc_nan_is_zero_and_infinity_is_clamped() {
         let context = ValContext::TEST_CONTEXT;
         assert_eq!(Val::calc(|_| f32::NAN).resolve(&context, 0.), Ok(0.));
         assert_eq!(
             Val::calc(|ctx| 100. / ctx.percent(1.)).resolve(&context, 0.),
-            Ok(0.)
+            Ok(16_777_216.)
         );
     }
 
