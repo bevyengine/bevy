@@ -230,10 +230,9 @@ impl Plugin for TextInputPlugin {
         app.add_systems(
             PreUpdate,
             (
-                update_text_cursor_color,
+                (update_text_cursor_color, update_text_cursor_color_spawned).chain(),
                 update_text_input_styles,
                 update_text_input_styles_remove,
-                update_text_cursor_color_spawned,
             )
                 .in_set(PickingSystems::Last),
         );
