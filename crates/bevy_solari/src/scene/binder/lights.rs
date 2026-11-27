@@ -38,14 +38,33 @@ pub enum LightSourceId {
     RectLight(Entity),
 }
 
-#[derive(Default)]
-pub struct LightIndex {
+/// The `light_sources` buffer, and where each light is in it.
+///
+/// The buffer has no gaps, so that shaders can get the light count from `arrayLength`. Directional
+/// lights are stored first, followed by local (point, spot, rect, and emissive mesh) lights.
+pub struct LightTracker {
+    /// Only changed through `insert` and `remove`, which keep it in step with `ids`.
+    pub sources: AtomicSparseBufferVec<GpuLightSource>,
     indices: HashMap<LightSourceId, u32>,
     ids: Vec<LightSourceId>,
     changed: HashSet<LightSourceId>,
+    directional_light_count: u32,
 }
 
-impl LightIndex {
+impl LightTracker {
+    fn new() -> Self {
+        Self {
+            sources: AtomicSparseBufferVec::new(
+                BufferUsages::STORAGE,
+                "solari_light_sources".into(),
+            ),
+            indices: HashMap::default(),
+            ids: Vec::new(),
+            changed: HashSet::default(),
+            directional_light_count: 0,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.ids.len()
     }
@@ -54,40 +73,76 @@ impl LightIndex {
         self.ids.is_empty()
     }
 
+    /// Directional lights have ids `0..directional_light_count`, and local lights the rest.
+    pub fn directional_light_count(&self) -> u32 {
+        self.directional_light_count
+    }
+
     fn get(&self, id: &LightSourceId) -> Option<u32> {
         self.indices.get(id).copied()
     }
 
-    fn insert(&mut self, id: LightSourceId) -> u32 {
-        if let Some(&index) = self.indices.get(&id) {
-            return index;
-        }
-
-        let index = self.ids.len() as u32;
-        self.ids.push(id);
-        self.indices.insert(id, index);
-        self.changed.insert(id);
-        index
+    /// Sets `id`'s source, inserting `id` if it isn't present.
+    ///
+    /// A new directional light takes the first local light's index, moving that light to the end.
+    fn insert(&mut self, id: LightSourceId, source: GpuLightSource) {
+        let index = match self.indices.get(&id) {
+            Some(&index) => index,
+            None => {
+                let mut index = self.ids.len() as u32;
+                self.ids.push(id);
+                if matches!(id, LightSourceId::DirectionalLight(_)) {
+                    let first_local = self.directional_light_count;
+                    self.directional_light_count += 1;
+                    if first_local != index {
+                        self.move_light(first_local, index);
+                        index = first_local;
+                    }
+                }
+                self.ids[index as usize] = id;
+                self.indices.insert(id, index);
+                self.changed.insert(id);
+                index
+            }
+        };
+        self.sources.grow_and_set(index, source);
     }
 
-    /// Removes `id` and reports both its old index and the old final index.
+    /// Removes `id`, filling its hole so that ids stay gap-free with directional lights first.
     ///
-    /// Only the ids tracked here are swapped down. When the two indices differ, the caller has to
-    /// mirror that swap in `sources`, copying the element at the old final index into the hole.
-    fn remove(&mut self, id: LightSourceId) -> Option<(u32, u32)> {
-        let index = self.indices.remove(&id)?;
+    /// A directional light's hole is filled with the last directional light, and that light's with
+    /// the last light.
+    fn remove(&mut self, id: LightSourceId) {
+        let Some(mut hole) = self.indices.remove(&id) else {
+            return;
+        };
         self.changed.insert(id);
 
-        let last = self.ids.len() as u32 - 1;
-        self.ids.swap_remove(index as usize);
-
-        if index != last {
-            let moved = self.ids[index as usize];
-            self.indices.insert(moved, index);
-            self.changed.insert(moved);
+        if matches!(id, LightSourceId::DirectionalLight(_)) {
+            self.directional_light_count -= 1;
+            let last_directional = self.directional_light_count;
+            if hole != last_directional {
+                self.move_light(last_directional, hole);
+            }
+            hole = last_directional;
         }
 
-        Some((index, last))
+        let last = self.ids.len() as u32 - 1;
+        if hole != last {
+            self.move_light(last, hole);
+        }
+        self.ids.pop();
+    }
+
+    /// Moves the light at index `from`, both its id and its source, to index `to`.
+    fn move_light(&mut self, from: u32, to: u32) {
+        let moved = self.ids[from as usize];
+        self.ids[to as usize] = moved;
+        self.indices.insert(moved, to);
+        self.changed.insert(moved);
+
+        let source = self.sources.get(from);
+        self.sources.grow_and_set(to, source);
     }
 }
 
@@ -225,13 +280,11 @@ impl GpuRectLight {
 
 /// Light slots and the incremental previous-frame id translation state.
 pub struct LightState {
-    /// Kept gap-free because shaders derive the light count with `arrayLength`.
-    pub sources: AtomicSparseBufferVec<GpuLightSource>,
     pub directional_lights: AtomicSparseBufferVec<GpuDirectionalLight>,
     pub point_lights: AtomicSparseBufferVec<GpuPointLight>,
     pub rect_lights: AtomicSparseBufferVec<GpuRectLight>,
     pub previous_frame_id_translations: AtomicSparseBufferVec<u32>,
-    pub index: LightIndex,
+    pub tracker: LightTracker,
     /// Light ids as of the last frame whose translation table the lighting shader actually read.
     previous_index: HashMap<LightSourceId, u32>,
     nonidentity_translations: Vec<u32>,
@@ -246,10 +299,6 @@ pub struct LightState {
 impl LightState {
     pub fn new() -> Self {
         Self {
-            sources: AtomicSparseBufferVec::new(
-                BufferUsages::STORAGE,
-                "solari_light_sources".into(),
-            ),
             directional_lights: AtomicSparseBufferVec::new(
                 BufferUsages::STORAGE,
                 "solari_directional_lights".into(),
@@ -266,7 +315,7 @@ impl LightState {
                 BufferUsages::STORAGE,
                 "solari_previous_frame_light_id_translations".into(),
             ),
-            index: LightIndex::default(),
+            tracker: LightTracker::new(),
             previous_index: HashMap::default(),
             nonidentity_translations: Vec::new(),
             directional_light_slots: SlotAllocator::new(),
@@ -370,7 +419,7 @@ impl LightState {
     pub fn finish_update(&mut self) {
         self.write_light_id_translations();
 
-        if self.index.len() > u16::MAX as usize {
+        if self.tracker.len() > u16::MAX as usize {
             panic!("Too many light sources in the scene, maximum is 65535.");
         }
     }
@@ -388,20 +437,11 @@ impl LightState {
     }
 
     pub fn add_light(&mut self, id: LightSourceId, source: GpuLightSource) {
-        let index = self.index.insert(id);
-        self.sources.grow_and_set(index, source);
+        self.tracker.insert(id, source);
     }
 
-    /// Removes a light, moving the last one down into the hole so the array stays gap-free.
     pub fn remove_light(&mut self, id: LightSourceId) {
-        let Some((index, last)) = self.index.remove(id) else {
-            return;
-        };
-
-        if index != last {
-            let source = self.sources.get(last);
-            self.sources.grow_and_set(index, source);
-        }
+        self.tracker.remove(id);
     }
 
     /// Rolls the translation table over for a new frame.
@@ -418,8 +458,8 @@ impl LightState {
         }
 
         if !has_consumers || self.translations_consumed.swap(false, Ordering::Relaxed) {
-            for id in core::mem::take(&mut self.index.changed) {
-                match self.index.get(&id) {
+            for id in core::mem::take(&mut self.tracker.changed) {
+                match self.tracker.get(&id) {
                     Some(index) => self.previous_index.insert(id, index),
                     None => self.previous_index.remove(&id),
                 };
@@ -435,12 +475,12 @@ impl LightState {
     /// Records where each light that moved or disappeared this frame ended up, so that reservoirs
     /// still carrying last frame's light ids can be remapped.
     fn write_light_id_translations(&mut self) {
-        for id in &self.index.changed {
+        for id in &self.tracker.changed {
             // Lights that first appeared since the last read table have no previous id
             let Some(&previous) = self.previous_index.get(id) else {
                 continue;
             };
-            let current = self.index.get(id).unwrap_or(LIGHT_NOT_PRESENT_THIS_FRAME);
+            let current = self.tracker.get(id).unwrap_or(LIGHT_NOT_PRESENT_THIS_FRAME);
 
             if current != previous {
                 self.previous_frame_id_translations
@@ -450,7 +490,7 @@ impl LightState {
         }
 
         // Every index the shader might read has to be backed by a real element
-        let light_count = self.index.len() as u32;
+        let light_count = self.tracker.len() as u32;
         let translations = &mut self.previous_frame_id_translations;
         if translations.len() < light_count {
             let start = translations.len();
@@ -464,82 +504,151 @@ impl LightState {
 
 #[cfg(test)]
 mod tests {
-    use super::{LightIndex, LightSourceId};
+    use super::{GpuLightSource, LightSourceId, LightTracker};
     use bevy_ecs::entity::Entity;
 
     const ENTITY: Entity = Entity::PLACEHOLDER;
 
-    #[test]
-    fn light_index_keeps_sources_on_the_same_entity_independent() {
-        let mut lights = LightIndex::default();
+    /// A source tagged with `tag`, so that tests can see where it ended up in the buffer.
+    fn source(tag: u32) -> GpuLightSource {
+        GpuLightSource::new_point_light(tag)
+    }
 
-        assert_eq!(lights.insert(LightSourceId::EmissiveMesh(ENTITY)), 0);
-        assert_eq!(lights.insert(LightSourceId::DirectionalLight(ENTITY)), 1);
-        assert_eq!(lights.insert(LightSourceId::PointLight(ENTITY)), 2);
-        assert_eq!(lights.insert(LightSourceId::SpotLight(ENTITY)), 3);
-        assert_eq!(lights.insert(LightSourceId::RectLight(ENTITY)), 4);
-        assert_eq!(lights.len(), 5);
+    /// The tags of the sources in the buffer, in order.
+    fn tags(lights: &LightTracker) -> Vec<u32> {
+        (0..lights.len() as u32)
+            .map(|index| lights.sources.get(index).id)
+            .collect()
     }
 
     #[test]
-    fn light_index_insert_is_idempotent() {
+    fn light_tracker_keeps_sources_on_the_same_entity_independent() {
+        let emissive = LightSourceId::EmissiveMesh(ENTITY);
+        let directional = LightSourceId::DirectionalLight(ENTITY);
+        let mut lights = LightTracker::new();
+
+        lights.insert(emissive, source(0));
+        lights.insert(directional, source(1));
+        lights.insert(LightSourceId::PointLight(ENTITY), source(2));
+        lights.insert(LightSourceId::SpotLight(ENTITY), source(3));
+        lights.insert(LightSourceId::RectLight(ENTITY), source(4));
+
+        // Directional lights come first, so the emissive mesh moved to the end
+        assert_eq!(tags(&lights), vec![1, 0, 2, 3, 4]);
+        assert_eq!(lights.get(&directional), Some(0));
+        assert_eq!(lights.get(&emissive), Some(1));
+        assert_eq!(lights.directional_light_count(), 1);
+    }
+
+    #[test]
+    fn light_tracker_insert_of_a_directional_light_moves_the_first_local_light_to_the_end() {
+        let sun = LightSourceId::DirectionalLight(ENTITY);
+        let moon = LightSourceId::DirectionalLight(Entity::from_raw_u32(1).unwrap());
         let point = LightSourceId::PointLight(ENTITY);
-        let mut lights = LightIndex::default();
+        let emissive = LightSourceId::EmissiveMesh(ENTITY);
+        let mut lights = LightTracker::new();
+        lights.insert(sun, source(0));
+        lights.insert(point, source(1));
+        lights.insert(emissive, source(2));
 
-        assert_eq!(lights.insert(point), 0);
-        assert_eq!(lights.insert(point), 0);
-        assert_eq!(lights.len(), 1);
+        lights.insert(moon, source(3));
+
+        assert_eq!(tags(&lights), vec![0, 3, 2, 1]);
+        assert_eq!(lights.get(&sun), Some(0));
+        assert_eq!(lights.get(&moon), Some(1));
+        assert_eq!(lights.get(&emissive), Some(2));
+        assert_eq!(lights.get(&point), Some(3));
+        assert_eq!(lights.directional_light_count(), 2);
     }
 
     #[test]
-    fn light_index_remove_moves_the_last_source_into_the_hole() {
+    fn light_tracker_insert_of_a_present_light_replaces_its_source() {
+        let point = LightSourceId::PointLight(ENTITY);
+        let mut lights = LightTracker::new();
+
+        lights.insert(point, source(0));
+        lights.insert(point, source(1));
+
+        assert_eq!(tags(&lights), vec![1]);
+        assert_eq!(lights.get(&point), Some(0));
+    }
+
+    #[test]
+    fn light_tracker_remove_moves_the_last_light_into_the_hole() {
         let emissive = LightSourceId::EmissiveMesh(ENTITY);
         let point = LightSourceId::PointLight(ENTITY);
         let rect = LightSourceId::RectLight(ENTITY);
-        let mut lights = LightIndex::default();
-        lights.insert(emissive);
-        lights.insert(point);
-        lights.insert(rect);
+        let mut lights = LightTracker::new();
+        lights.insert(emissive, source(0));
+        lights.insert(point, source(1));
+        lights.insert(rect, source(2));
 
-        assert_eq!(lights.remove(emissive), Some((0, 2)));
+        lights.remove(emissive);
+
+        assert_eq!(tags(&lights), vec![2, 1]);
         assert_eq!(lights.get(&emissive), None);
         assert_eq!(lights.get(&rect), Some(0));
         assert_eq!(lights.get(&point), Some(1));
-        assert_eq!(lights.len(), 2);
     }
 
     #[test]
-    fn light_index_remove_of_the_last_source_moves_nothing() {
+    fn light_tracker_remove_of_the_last_light_moves_nothing() {
         let directional = LightSourceId::DirectionalLight(ENTITY);
         let rect = LightSourceId::RectLight(ENTITY);
-        let mut lights = LightIndex::default();
-        lights.insert(directional);
-        lights.insert(rect);
+        let mut lights = LightTracker::new();
+        lights.insert(directional, source(0));
+        lights.insert(rect, source(1));
 
-        assert_eq!(lights.remove(rect), Some((1, 1)));
+        lights.remove(rect);
+
+        assert_eq!(tags(&lights), vec![0]);
         assert_eq!(lights.get(&directional), Some(0));
-        assert_eq!(lights.len(), 1);
     }
 
     #[test]
-    fn light_index_remove_of_a_missing_source_returns_none() {
-        let mut lights = LightIndex::default();
-        lights.insert(LightSourceId::PointLight(ENTITY));
+    fn light_tracker_remove_of_a_missing_light_changes_nothing() {
+        let mut lights = LightTracker::new();
+        lights.insert(LightSourceId::PointLight(ENTITY), source(0));
 
-        assert_eq!(lights.remove(LightSourceId::RectLight(ENTITY)), None);
-        assert_eq!(lights.len(), 1);
+        lights.remove(LightSourceId::RectLight(ENTITY));
+
+        assert_eq!(tags(&lights), vec![0]);
     }
 
     #[test]
-    fn light_index_remove_of_every_source_leaves_it_empty() {
+    fn light_tracker_remove_of_every_light_leaves_it_empty() {
         let emissive = LightSourceId::EmissiveMesh(ENTITY);
         let directional = LightSourceId::DirectionalLight(ENTITY);
-        let mut lights = LightIndex::default();
-        lights.insert(emissive);
-        lights.insert(directional);
+        let mut lights = LightTracker::new();
+        lights.insert(emissive, source(0));
+        lights.insert(directional, source(1));
 
-        assert_eq!(lights.remove(emissive), Some((0, 1)));
-        assert_eq!(lights.remove(directional), Some((0, 0)));
+        lights.remove(emissive);
+        lights.remove(directional);
+
         assert!(lights.is_empty());
+        assert_eq!(lights.directional_light_count(), 0);
+    }
+
+    #[test]
+    fn light_tracker_remove_of_a_directional_light_keeps_directional_lights_first() {
+        let sun = LightSourceId::DirectionalLight(ENTITY);
+        let moon = LightSourceId::DirectionalLight(Entity::from_raw_u32(1).unwrap());
+        let point = LightSourceId::PointLight(ENTITY);
+        let emissive = LightSourceId::EmissiveMesh(ENTITY);
+        let mut lights = LightTracker::new();
+        lights.insert(sun, source(0));
+        lights.insert(moon, source(1));
+        lights.insert(point, source(2));
+        lights.insert(emissive, source(3));
+
+        lights.remove(sun);
+
+        // The last directional light fills the hole, and the last light fills its place
+        assert_eq!(tags(&lights), vec![1, 3, 2]);
+        assert_eq!(lights.get(&moon), Some(0));
+        assert_eq!(lights.get(&emissive), Some(1));
+        assert_eq!(lights.get(&point), Some(2));
+        assert_eq!(lights.directional_light_count(), 1);
     }
 }

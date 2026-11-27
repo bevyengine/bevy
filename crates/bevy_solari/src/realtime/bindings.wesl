@@ -49,11 +49,11 @@ fn load_motion_vector(pixel_id: vec2<u32>) -> vec2<f32> {
 /// state. Field order and types must match `SolariLightingUniforms` in `prepare.rs`.
 struct SolariLightingSettings {
     confidence_weight_cap: f32,
-    primary_di_samples: u32,
-    secondary_di_samples: u32,
+    primary_local_light_samples: u32,
+    secondary_local_light_samples: u32,
     max_bounces: u32,
     world_cache_max_temporal_samples: f32,
-    world_cache_direct_light_sample_count: u32,
+    world_cache_local_light_sample_count: u32,
     world_cache_max_gi_ray_distance: f32,
     world_cache_max_cell_updates_per_frame: u32,
     world_cache_position_base_cell_size: f32,
