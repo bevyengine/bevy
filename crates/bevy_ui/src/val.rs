@@ -835,35 +835,37 @@ impl Calc {
         Calc(u16::try_from(index).expect("too many calc functions"))
     }
 
-    /// Resolves the `Calc` to a value in physical pixels, or zero if the result isn't finite.
-    /// Returns the value, along with true if the function used the percentage basis or false otherwise.
-    pub(crate) fn resolve(self, context: &ValContext, basis: f32) -> (f32, bool) {
-        Self::resolve_function(self.get(), context, basis)
+    /// Resolves the `Calc` to a value in physical pixels using the given context and basis.
+    /// A result of `NaN` is replaced by `0.`, and any other result is clamped between -2^24 and 2^24.
+    /// Returns the value, along with true if the associated function used the percentage basis or false otherwise.
+    pub fn resolve(self, context: &ValContext, basis: f32) -> (f32, bool) {
+        resolve_calc(self.get(), context, basis)
     }
 
     /// Returns the function corresponding to this id.
-    pub(crate) fn get(self) -> fn(&CalcContext) -> f32 {
+    pub fn get(self) -> fn(&CalcContext) -> f32 {
         CALC_FUNCTIONS.read().unwrap()[self.0 as usize]
     }
+}
 
-    /// Resolves `f` to a value in physical pixels, or zero if the result isn't finite.
-    /// Returns the value, along with true if the function used the percentage basis or false otherwise.
-    pub(crate) fn resolve_function(
-        f: fn(&CalcContext) -> f32,
-        context: &ValContext,
-        basis: f32,
-    ) -> (f32, bool) {
-        let calc_context = CalcContext {
-            context,
-            basis,
-            used_percent: Cell::new(false),
-        };
-        let value = f(&calc_context) * context.scale_factor;
-        (
-            if value.is_finite() { value } else { 0. },
-            calc_context.used_percent.get(),
-        )
-    }
+/// Resolves a calc function to a value in physical pixels using the given context and basis.
+/// A result of `NaN` is replaced by `0.`, and any other result is clamped between -2^24 and 2^24.
+/// Returns the value, along with true if the associated function used the percentage basis or false otherwise.
+pub fn resolve_calc(f: fn(&CalcContext) -> f32, context: &ValContext, basis: f32) -> (f32, bool) {
+    let calc_context = CalcContext {
+        context,
+        basis,
+        used_percent: Cell::new(false),
+    };
+    let value = f(&calc_context) * context.scale_factor;
+    (
+        if value.is_nan() {
+            0.
+        } else {
+            value.clamp(-16_777_216., 16_777_216.)
+        },
+        calc_context.used_percent.get(),
+    )
 }
 
 #[cfg(feature = "serialize")]

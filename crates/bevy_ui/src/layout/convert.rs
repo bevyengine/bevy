@@ -4,11 +4,11 @@ use bevy_ecs::component::Component;
 use taffy::style_helpers;
 
 use crate::{
-    val::{Calc, CalcContext},
-    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
-    GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
-    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
-    RepeatedGridTrack, UiRect, Val, ValContext,
+    resolve_calc, AlignContent, AlignItems, AlignSelf, BoxSizing, CalcContext, Display,
+    FlexDirection, FlexWrap, GridAutoFlow, GridPlacement, GridTrack, GridTrackRepetition,
+    InlineDirection, JustifyContent, JustifyItems, JustifySelf, MaxTrackSizingFunction,
+    MinTrackSizingFunction, Node, OverflowAxis, PositionType, RepeatedGridTrack, UiRect, Val,
+    ValContext,
 };
 
 /// A calc function and the context needed to resolve it during layout.
@@ -77,7 +77,7 @@ pub struct TaffyStyle {
 pub(crate) fn resolve_taffy_calc(handle: taffy::CalcHandle, basis: f32) -> f32 {
     // SAFETY: Taffy hands back the handle it was given, which points into a `Box<StyleCalc>` owned by the same `TaffyStyle`
     let calc = unsafe { &*handle.ptr().cast::<StyleCalc>() };
-    Calc::resolve_function(calc.function, &calc.context, basis).0 * calc.scalar
+    resolve_calc(calc.function, &calc.context, basis).0 * calc.scalar
 }
 
 impl TaffyStyle {
