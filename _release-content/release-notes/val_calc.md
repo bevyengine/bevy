@@ -1,7 +1,7 @@
 ---
 title: "Val calc"
 authors: ["@ickshonpe"]
-pull_requests: []
+pull_requests: [26694]
 ---
 
 `Val` now has a `Calc` variant that calculates a length with a function (similar to the CSS `calc` function).
