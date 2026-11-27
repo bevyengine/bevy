@@ -3377,6 +3377,14 @@ fn create_bin_unpacking_bind_groups(
             continue;
         };
 
+        let (Some(instances_buffer), Some(bin_metadata_buffer), Some(bin_indices_buffer)) = (
+            view_phase_bin_unpacking_buffers.instances.buffer(),
+            view_phase_bin_unpacking_buffers.bin_metadata.buffer(),
+            view_phase_bin_unpacking_buffers.bin_indices.buffer(),
+        ) else {
+            continue;
+        };
+
         // Fetch the work item buffers.
         let maybe_indexed_work_item_buffer = match *work_item_buffers {
             PreprocessWorkItemBuffers::Direct(ref raw_buffer_vec) => raw_buffer_vec.buffer(),
@@ -3407,6 +3415,9 @@ fn create_bin_unpacking_bind_groups(
                                 pipeline_cache,
                                 job,
                                 bin_unpacking_metadata_buffer,
+                                instances_buffer,
+                                bin_metadata_buffer,
+                                bin_indices_buffer,
                                 indexed_work_item_buffer,
                                 true,
                             )
@@ -3425,6 +3436,9 @@ fn create_bin_unpacking_bind_groups(
                                 pipeline_cache,
                                 job,
                                 bin_unpacking_metadata_buffer,
+                                instances_buffer,
+                                bin_metadata_buffer,
+                                bin_indices_buffer,
                                 non_indexed_work_item_buffer,
                                 false,
                             )
@@ -3445,6 +3459,9 @@ fn create_bin_unpacking_bind_group(
     pipeline_cache: &PipelineCache,
     job: &SceneUnpackingJob,
     bin_unpacking_metadata_buffer: &Buffer,
+    instances_buffer: &Buffer,
+    bin_metadata_buffer: &Buffer,
+    bin_indices_buffer: &Buffer,
     work_item_buffer: &Buffer,
     indexed: bool,
 ) -> ViewPhaseBinUnpackingBindGroup {
@@ -3468,18 +3485,29 @@ fn create_bin_unpacking_bind_group(
             // @group(0) @binding(1) var<storage>
             // binned_mesh_instances:
             // array<BinnedMeshInstance>;
-            job.render_binned_mesh_instance_buffer.as_entire_binding(),
+            BindingResource::Buffer(BufferBinding {
+                buffer: instances_buffer,
+                offset: job.instances_range.start,
+                size: NonZeroU64::new(job.instances_range.end - job.instances_range.start),
+            }),
             // @group(0) @binding(2) var<storage,
             // read_write> preprocess_work_items:
             // array<PreprocessWorkItem>;
             work_item_buffer.as_entire_binding(),
             // @group(0) @binding(3) var<storage> bin_metadata:
             // array<BinMetadata>;
-            job.bin_metadata_buffer.as_entire_binding(),
+            BindingResource::Buffer(BufferBinding {
+                buffer: bin_metadata_buffer,
+                offset: job.bin_metadata_range.start,
+                size: NonZeroU64::new(job.bin_metadata_range.end - job.bin_metadata_range.start),
+            }),
             // @group(0) @binding(4) var<storage>
             // bin_index_to_bin_metadata_index: array<u32>;
-            job.bin_index_to_bin_metadata_index_buffer
-                .as_entire_binding(),
+            BindingResource::Buffer(BufferBinding {
+                buffer: bin_indices_buffer,
+                offset: job.bin_indices_range.start,
+                size: NonZeroU64::new(job.bin_indices_range.end - job.bin_indices_range.start),
+            }),
         )),
     );
     ViewPhaseBinUnpackingBindGroup {
@@ -3516,6 +3544,10 @@ fn create_uniform_allocation_bind_groups(
         else {
             continue;
         };
+        let Some(bin_metadata_buffer) = view_phase_bin_unpacking_buffers.bin_metadata.buffer()
+        else {
+            continue;
+        };
 
         // Create the actual bind groups.
         uniform_allocation_bind_groups.insert(
@@ -3537,6 +3569,7 @@ fn create_uniform_allocation_bind_groups(
                                     pipeline_cache,
                                     job,
                                     uniform_allocation_metadata_buffer,
+                                    bin_metadata_buffer,
                                     indexed_indirect_parameters_metadata_buffer,
                                     true,
                                 )
@@ -3560,6 +3593,7 @@ fn create_uniform_allocation_bind_groups(
                                     pipeline_cache,
                                     job,
                                     uniform_allocation_metadata_buffer,
+                                    bin_metadata_buffer,
                                     non_indexed_indirect_parameters_metadata_buffer,
                                     false,
                                 )
@@ -3580,6 +3614,7 @@ fn create_uniform_allocation_bind_group(
     pipeline_cache: &PipelineCache,
     job: &SceneUnpackingJob,
     uniform_allocation_metadata_buffer: &Buffer,
+    bin_metadata_buffer: &Buffer,
     indirect_parameters_metadata_buffer: &Buffer,
     indexed: bool,
 ) -> ViewPhaseUniformAllocationBindGroup {
@@ -3606,7 +3641,11 @@ fn create_uniform_allocation_bind_group(
             }),
             // @group(0) @binding(1) var<storage> bin_metadata:
             // array<BinMetadata>;
-            job.bin_metadata_buffer.as_entire_binding(),
+            BindingResource::Buffer(BufferBinding {
+                buffer: bin_metadata_buffer,
+                offset: job.bin_metadata_range.start,
+                size: NonZeroU64::new(job.bin_metadata_range.end - job.bin_metadata_range.start),
+            }),
             // @group(0) @binding(2) var<storage, read_write>
             // indirect_parameters_metadata: array<IndirectParametersMetadata>;
             indirect_parameters_metadata_buffer.as_entire_binding(),
