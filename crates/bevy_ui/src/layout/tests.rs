@@ -92,6 +92,294 @@ fn setup_ui_test_app() -> App {
 }
 
 #[test]
+fn calc_layout_resolves_percentages_and_updates_context() {
+    let mut app = setup_ui_test_app();
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::Px(400.0),
+            height: Val::Px(100.0),
+            ..default()
+        })
+        .id();
+    let width = Val::calc(|ctx| ctx.percent(50.0) - ctx.em(1.) - ctx.rem(1.));
+    let child = app
+        .world_mut()
+        .spawn((
+            Node {
+                width,
+                height: Val::Px(20.0),
+                ..default()
+            },
+            EmSize(10.0),
+        ))
+        .id();
+    app.world_mut().entity_mut(root).add_child(child);
+    app.update();
+    assert_eq!(
+        app.world().get::<ComputedNode>(child).unwrap().size(),
+        Vec2::new(170.0, 20.0)
+    );
+
+    app.world_mut().get_mut::<Node>(root).unwrap().width = Val::Px(600.0);
+    app.world_mut().get_mut::<EmSize>(child).unwrap().0 = 30.0;
+    app.world_mut().resource_mut::<RemSize>().0 = 40.0;
+    app.update();
+    assert_eq!(
+        app.world().get::<ComputedNode>(child).unwrap().size(),
+        Vec2::new(230.0, 20.0)
+    );
+
+    let style = app.world().get::<TaffyStyle>(child).unwrap();
+    assert_eq!(
+        style.calcs.0[0]
+            .calc
+            .resolve(&style.calcs.0[0].context, 600.0)
+            .0,
+        230.0
+    );
+    let mut font_system = bevy_text::FontCx::default();
+    let measure_args = crate::MeasureArgs {
+        known_width: None,
+        known_height: None,
+        available_width: crate::AvailableSpace::Definite(600.0),
+        available_height: crate::AvailableSpace::Definite(100.0),
+        font_system: &mut font_system,
+        buffer: None,
+        style: &style.style,
+    };
+    assert_eq!(measure_args.resolve_width().preferred, Some(230.0));
+    app.world_mut().get_mut::<Node>(child).unwrap().width = Val::Px(90.0);
+    app.update();
+    assert_eq!(
+        app.world().get::<ComputedNode>(child).unwrap().size().x,
+        90.0
+    );
+    app.world_mut().get_mut::<Node>(child).unwrap().width = width;
+    app.update();
+    assert_eq!(
+        app.world().get::<ComputedNode>(child).unwrap().size().x,
+        230.0
+    );
+}
+
+#[test]
+fn calc_layout_handles_containers_and_parent_width_based_padding() {
+    let mut app = setup_ui_test_app();
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::Px(400.0),
+            height: Val::Px(200.0),
+            ..default()
+        })
+        .id();
+    let child = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::calc(|ctx| ctx.percent(80.0).clamp(100.0, 300.0)),
+            height: Val::calc(|ctx| ctx.percent(50.0) - 10.0),
+            padding: UiRect::all(Val::calc(|ctx| ctx.percent(5.0) + 2.0)),
+            ..default()
+        })
+        .id();
+    let grandchild = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::calc(|ctx| ctx.percent(100.0) - 6.0),
+            height: Val::Px(10.0),
+            ..default()
+        })
+        .id();
+    app.world_mut().entity_mut(root).add_child(child);
+    app.world_mut().entity_mut(child).add_child(grandchild);
+    app.update();
+    assert_eq!(
+        app.world().get::<ComputedNode>(child).unwrap().size(),
+        Vec2::new(300.0, 90.0)
+    );
+    assert_eq!(
+        app.world()
+            .get::<ComputedNode>(child)
+            .unwrap()
+            .padding()
+            .min_inset
+            .y,
+        22.0
+    );
+    assert_eq!(
+        app.world()
+            .get::<ComputedNode>(grandchild)
+            .unwrap()
+            .size()
+            .x,
+        250.0
+    );
+}
+
+#[test]
+fn calc_without_percent_contributes_to_intrinsic_size() {
+    let mut app = setup_ui_test_app();
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::Px(400.0),
+            height: Val::Px(100.0),
+            ..default()
+        })
+        .id();
+    let parent = app.world_mut().spawn(Node::default()).id();
+    let child = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::calc(|ctx| 10.0 + ctx.rem(1.)),
+            height: Val::Px(10.0),
+            ..default()
+        })
+        .id();
+    app.world_mut().entity_mut(root).add_child(parent);
+    app.world_mut().entity_mut(parent).add_child(child);
+    app.update();
+    assert_eq!(
+        app.world().get::<ComputedNode>(parent).unwrap().size().x,
+        30.0
+    );
+    assert!(app
+        .world()
+        .get::<TaffyStyle>(child)
+        .unwrap()
+        .calcs
+        .0
+        .is_empty());
+}
+
+#[test]
+fn calc_layout_margin_border_inset_gap_and_size_constraints() {
+    let mut app = setup_ui_test_app();
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::Px(400.0),
+            height: Val::Px(200.0),
+            column_gap: Val::calc(|ctx| ctx.percent(5.0) - 10.0),
+            ..default()
+        })
+        .id();
+    let a = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::Px(100.0),
+            min_width: Val::calc(|ctx| ctx.percent(50.0) - 20.0),
+            height: Val::Px(50.0),
+            max_height: Val::calc(|ctx| ctx.percent(10.0) + 5.0),
+            margin: UiRect::left(Val::calc(|ctx| ctx.percent(10.0) + 5.0)),
+            border: UiRect::all(Val::calc(|ctx| ctx.percent(1.) + 1.0)),
+            ..default()
+        })
+        .id();
+    let b = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::Px(100.0),
+            height: Val::Px(50.0),
+            left: Val::calc(|ctx| ctx.percent(5.0) + 2.0),
+            // Without a percentage this is snapped like a `Val::Px` border.
+            border: UiRect::all(Val::calc(|_| 2.5)),
+            ..default()
+        })
+        .id();
+    app.world_mut().entity_mut(root).add_children(&[a, b]);
+    app.update();
+
+    let node_a = app.world().get::<ComputedNode>(a).unwrap();
+    assert_eq!(node_a.size(), Vec2::new(180.0, 25.0));
+    assert_eq!(node_a.border().min_inset.x, 5.0);
+    assert_eq!(
+        app.world()
+            .get::<UiGlobalTransform>(a)
+            .unwrap()
+            .translation
+            .x,
+        45.0 + 90.0
+    );
+    assert_eq!(
+        app.world()
+            .get::<ComputedNode>(b)
+            .unwrap()
+            .border()
+            .min_inset
+            .x,
+        2.0
+    );
+    assert_eq!(
+        app.world()
+            .get::<UiGlobalTransform>(b)
+            .unwrap()
+            .translation
+            .x,
+        45.0 + 180.0 + 10.0 + 22.0 + 50.0
+    );
+}
+
+#[test]
+fn calc_layout_grid_tracks() {
+    let mut app = setup_ui_test_app();
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            display: Display::Grid,
+            width: Val::Px(400.0),
+            height: Val::Px(100.0),
+            grid_template_columns: vec![
+                GridTrack::calc(|ctx| ctx.percent(50.0) - 20.0),
+                GridTrack::calc(|ctx| 10.0 + ctx.rem(1.)),
+                RepeatedGridTrack::calc(2, |ctx| ctx.percent(10.0) + 5.0),
+            ],
+            ..default()
+        })
+        .id();
+    let children = [(); 4].map(|_| app.world_mut().spawn(Node::default()).id());
+    app.world_mut().entity_mut(root).add_children(&children);
+    app.update();
+
+    let widths = children.map(|child| app.world().get::<ComputedNode>(child).unwrap().size().x);
+    assert_eq!(widths, [180.0, 30.0, 45.0, 45.0]);
+    // Only tracks using a percentage are left for layout to resolve, the min and max of each.
+    assert_eq!(
+        app.world().get::<TaffyStyle>(root).unwrap().calcs.0.len(),
+        4
+    );
+}
+
+#[test]
+fn calc_layout_applies_scale_factor() {
+    let mut app = setup_ui_test_app();
+    app.world_mut().resource_mut::<UiScale>().0 = 2.0;
+    let root = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::Px(200.0),
+            height: Val::Px(50.0),
+            ..default()
+        })
+        .id();
+    let child = app
+        .world_mut()
+        .spawn(Node {
+            width: Val::calc(|ctx| ctx.percent(50.0) - 10.0),
+            height: Val::calc(|ctx| 10.0 + ctx.vh(10.0)),
+            ..default()
+        })
+        .id();
+    app.world_mut().entity_mut(root).add_child(child);
+    app.update();
+    assert_eq!(
+        app.world().get::<ComputedNode>(child).unwrap().size(),
+        Vec2::new(180.0, 30.0)
+    );
+}
+
+#[test]
 fn ui_nodes_with_percent_100_dimensions_should_fill_their_parent() {
     let mut app = setup_ui_test_app();
 

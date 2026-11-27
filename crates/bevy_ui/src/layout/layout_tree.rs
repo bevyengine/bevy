@@ -548,10 +548,12 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
     }
 
     fn style(&self, node_id: NodeId) -> &'a Style {
-        entity_from_node_id(node_id).map_or(TaffyStyle::viewport_node(), |entity| {
-            self.style_query
+        entity_from_node_id(node_id).map_or(&TaffyStyle::viewport_node().style, |entity| {
+            &self
+                .style_query
                 .get(entity)
                 .expect("Missing TaffyStyle on UI node.")
+                .style
         })
     }
 
@@ -584,7 +586,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                 (_, false) => compute_leaf_layout(
                     inputs,
                     style,
-                    |_, _| 0.0,
+                    super::convert::resolve_calc,
                     |known_dimensions, available_space| {
                         (tree.measure_function)(
                             known_dimensions,
@@ -628,6 +630,10 @@ impl TraversePartialTree for UiLayoutTree<'_, '_, '_> {
 impl TraverseTree for UiLayoutTree<'_, '_, '_> {}
 
 impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
+    fn resolve_calc_value(&self, val: taffy::CalcHandle, basis: f32) -> f32 {
+        super::convert::resolve_calc(val, basis)
+    }
+
     type CoreContainerStyle<'a>
         = &'a Style
     where

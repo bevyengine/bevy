@@ -1,32 +1,83 @@
 use std::sync::LazyLock;
 
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Component;
 use taffy::style_helpers;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
-    GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
-    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
-    RepeatedGridTrack, UiRect, Val, ValContext,
+    val::Calc, AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap,
+    GridAutoFlow, GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent,
+    JustifyItems, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis,
+    PositionType, RepeatedGridTrack, UiRect, Val, ValContext,
 };
+
+/// A [`Calc`] and the context needed to resolve it during layout.
+#[repr(align(8))]
+pub(crate) struct StyleCalc {
+    pub(crate) calc: Calc,
+    pub(crate) scalar: f32,
+    pub(crate) context: ValContext,
+}
+
+/// Owns the `StyleCalc`s referenced by raw pointers in `style`.
+/// Boxing keeps their addresses stable when the vector reallocates.
+#[derive(Default)]
+pub(crate) struct StyleCalcs(
+    #[expect(
+        clippy::vec_box,
+        reason = "`CompactLength`s hold raw pointers to the `StyleCalc`s, boxing keeps their addresses stable if the `Vec` reallocates"
+    )]
+    pub(crate) Vec<Box<StyleCalc>>,
+);
+
+impl StyleCalcs {
+    /// Store a `Box<StyleCalc>` and return a handle pointing to its inner value.
+    fn store(&mut self, style_calc: Box<StyleCalc>) -> taffy::CalcHandle {
+        // To respect Rust's aliasing rules we need to push onto the vec before getting the raw pointer.
+        self.0.push(style_calc);
+        taffy::CalcHandle::from_ptr(core::ptr::from_ref(&**self.0.last().unwrap()).cast())
+    }
+
+    /// Invalidates all the handles returned by `store`.
+    /// Every field of the corresponding `Style` must be overwritten or dropped.
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+}
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "`TaffyStyle` uses raw pointers to its `StyleCalc` values."
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `StyleCalc` is `Send + Sync`.
 unsafe impl Send for TaffyStyle {}
 
 #[expect(
     unsafe_code,
-    reason = "taffy::Style is only thread-unsafe with the calc feature"
+    reason = "`TaffyStyle` owns the `StyleCalc`s that its `Style` points to."
 )]
-// SAFETY: taffy::Style is only thread-unsafe with the calc feature
+// SAFETY: `Style` is `!Send` because of its raw calc pointers. `StyleCalc` is `Send + Sync`.
 unsafe impl Sync for TaffyStyle {}
 
-#[derive(Default, Component, Clone, Deref, DerefMut)]
-pub struct TaffyStyle(pub taffy::Style);
+/// Cached Taffy `Style`, updated from an entity's `Node` component on changes.
+#[derive(Default, Component)]
+pub struct TaffyStyle {
+    /// Taffy `Style` converted from a `Node`.
+    pub(crate) style: taffy::Style,
+    /// Owns the `StyleCalc`s referenced by raw pointers in `style`.
+    pub(crate) calcs: StyleCalcs,
+}
+
+/// Resolves a calc handle that taffy read back out of a [`TaffyStyle`] against the
+/// percentage `basis`.
+#[expect(
+    unsafe_code,
+    reason = "Taffy hands back the handle it was given, which points into a `Box<StyleCalc>` owned by the same `TaffyStyle`"
+)]
+pub(crate) fn resolve_calc(handle: taffy::CalcHandle, basis: f32) -> f32 {
+    // SAFETY: Taffy hands back the handle it was given, which points into a `Box<StyleCalc>` owned by the same `TaffyStyle`
+    let calc = unsafe { &*handle.ptr().cast::<StyleCalc>() };
+    calc.calc.resolve(&calc.context, basis).0 * calc.scalar
+}
 
 impl TaffyStyle {
     pub fn viewport_node() -> &'static TaffyStyle {
@@ -34,8 +85,8 @@ impl TaffyStyle {
     }
 }
 
-static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| {
-    TaffyStyle(taffy::Style {
+static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| TaffyStyle {
+    style: taffy::Style {
         dummy: core::marker::PhantomData,
         display: taffy::Display::Grid,
         item_is_table: false,
@@ -96,15 +147,18 @@ static VIEWPORT_NODE_TAFFY_STYLE: LazyLock<TaffyStyle> = LazyLock::new(|| {
             start: taffy::GridPlacement::Span(1),
             end: taffy::GridPlacement::Auto,
         },
-    })
+    },
+    calcs: StyleCalcs::default(),
 });
 
 impl Val {
     pub(super) fn into_length_percentage_auto(
         self,
         context: &ValContext,
+        calcs: &mut StyleCalcs,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
+            Val::Calc { .. } => self.into_length_percentage(context, calcs).into(),
             Val::Auto
             | Val::MinContent
             | Val::MaxContent
@@ -131,8 +185,20 @@ impl Val {
     pub(super) fn into_length_percentage(
         self,
         context: &ValContext,
+        calcs: &mut StyleCalcs,
     ) -> taffy::style::LengthPercentage {
         match self {
+            // Only a calc using a percentage is left for layout to resolve.
+            Val::Calc { calc, scalar } => match calc.resolve(context, 0.) {
+                (_, true) => {
+                    taffy::style::LengthPercentage::calc(calcs.store(Box::new(StyleCalc {
+                        calc,
+                        scalar,
+                        context: *context,
+                    })))
+                }
+                (value, false) => style_helpers::length(value * scalar),
+            },
             Val::Auto
             | Val::MinContent
             | Val::MaxContent
@@ -166,8 +232,9 @@ impl Val {
     fn into_length_percentage_for_border(
         self,
         context: &ValContext,
+        calcs: &mut StyleCalcs,
     ) -> taffy::style::LengthPercentage {
-        let length = self.into_length_percentage(context);
+        let length = self.into_length_percentage(context, calcs);
         let raw = length.into_raw();
         // we're only snapping if sized in non-zero px
         if raw.tag() == taffy::style::CompactLength::LENGTH_TAG && raw.value() > 0.0 {
@@ -177,8 +244,9 @@ impl Val {
         }
     }
 
-    fn into_dimension(self, context: &ValContext) -> taffy::Dimension {
+    fn into_dimension(self, context: &ValContext, calcs: &mut StyleCalcs) -> taffy::Dimension {
         match self {
+            Val::Calc { .. } => self.into_length_percentage(context, calcs).into(),
             Val::Auto => style_helpers::auto(),
             Val::MinContent => taffy::Dimension::min_content(),
             Val::MaxContent => taffy::Dimension::max_content(),
@@ -206,7 +274,7 @@ impl Val {
 impl UiRect {
     pub(super) fn map_to_taffy_rect<T>(
         self,
-        map_fn: impl Fn(Val) -> T,
+        mut map_fn: impl FnMut(Val) -> T,
     ) -> taffy::geometry::Rect<T> {
         taffy::geometry::Rect {
             left: map_fn(self.left),
@@ -218,7 +286,14 @@ impl UiRect {
 }
 
 // Update taffy style in place from the given `Node` and context
-pub fn update_taffy_style_from_node(node: &Node, context: &ValContext, style: &mut taffy::Style) {
+pub fn update_taffy_style_from_node(
+    node: &Node,
+    context: &ValContext,
+    taffy_style: &mut TaffyStyle,
+) {
+    let TaffyStyle { style, calcs } = taffy_style;
+    calcs.clear();
+
     style.display = node.display.into();
     style.box_sizing = node.box_sizing.into();
     style.item_is_table = false;
@@ -239,65 +314,65 @@ pub fn update_taffy_style_from_node(node: &Node, context: &ValContext, style: &m
     style.justify_content = node.justify_content.into();
     style.direction = node.direction.into();
     style.inset = taffy::Rect {
-        left: node.left.into_length_percentage_auto(context),
-        right: node.right.into_length_percentage_auto(context),
-        top: node.top.into_length_percentage_auto(context),
-        bottom: node.bottom.into_length_percentage_auto(context),
+        left: node.left.into_length_percentage_auto(context, calcs),
+        right: node.right.into_length_percentage_auto(context, calcs),
+        top: node.top.into_length_percentage_auto(context, calcs),
+        bottom: node.bottom.into_length_percentage_auto(context, calcs),
     };
     style.margin = node
         .margin
-        .map_to_taffy_rect(|m| m.into_length_percentage_auto(context));
+        .map_to_taffy_rect(|m| m.into_length_percentage_auto(context, calcs));
     style.padding = node
         .padding
-        .map_to_taffy_rect(|m| m.into_length_percentage(context));
+        .map_to_taffy_rect(|m| m.into_length_percentage(context, calcs));
     // border floors >=1px sized to nearest (>=1) real pixel size, see `into_length_percentage_for_border`.
     style.border = node
         .border
-        .map_to_taffy_rect(|m| m.into_length_percentage_for_border(context));
+        .map_to_taffy_rect(|m| m.into_length_percentage_for_border(context, calcs));
     style.flex_grow = node.flex_grow;
     style.flex_shrink = node.flex_shrink;
-    style.flex_basis = node.flex_basis.into_dimension(context);
+    style.flex_basis = node.flex_basis.into_dimension(context, calcs);
     style.size = taffy::Size {
-        width: node.width.into_dimension(context),
-        height: node.height.into_dimension(context),
+        width: node.width.into_dimension(context, calcs),
+        height: node.height.into_dimension(context, calcs),
     };
     style.min_size = taffy::Size {
-        width: node.min_width.into_length_percentage_auto(context),
-        height: node.min_height.into_length_percentage_auto(context),
+        width: node.min_width.into_length_percentage_auto(context, calcs),
+        height: node.min_height.into_length_percentage_auto(context, calcs),
     };
     style.max_size = taffy::Size {
-        width: node.max_width.into_length_percentage_auto(context),
-        height: node.max_height.into_length_percentage_auto(context),
+        width: node.max_width.into_length_percentage_auto(context, calcs),
+        height: node.max_height.into_length_percentage_auto(context, calcs),
     };
     style.aspect_ratio = node.aspect_ratio;
     style.gap = taffy::Size {
-        width: node.column_gap.into_length_percentage(context),
-        height: node.row_gap.into_length_percentage(context),
+        width: node.column_gap.into_length_percentage(context, calcs),
+        height: node.row_gap.into_length_percentage(context, calcs),
     };
     style.grid_auto_flow = node.grid_auto_flow.into();
     style.grid_template_rows.clear();
     style.grid_template_rows.extend(
         node.grid_template_rows
             .iter()
-            .map(|track| track.clone_into_repeated_taffy_track(context)),
+            .map(|track| track.clone_into_repeated_taffy_track(context, calcs)),
     );
     style.grid_template_columns.clear();
     style.grid_template_columns.extend(
         node.grid_template_columns
             .iter()
-            .map(|track| track.clone_into_repeated_taffy_track(context)),
+            .map(|track| track.clone_into_repeated_taffy_track(context, calcs)),
     );
     style.grid_auto_rows.clear();
     style.grid_auto_rows.extend(
         node.grid_auto_rows
             .iter()
-            .map(|track| track.into_taffy_track(context)),
+            .map(|track| track.into_taffy_track(context, calcs)),
     );
     style.grid_auto_columns.clear();
     style.grid_auto_columns.extend(
         node.grid_auto_columns
             .iter()
-            .map(|track| track.into_taffy_track(context)),
+            .map(|track| track.into_taffy_track(context, calcs)),
     );
     style.grid_row = node.grid_row.into();
     style.grid_column = node.grid_column.into();
@@ -522,15 +597,26 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement<S
 }
 
 impl MinTrackSizingFunction {
-    fn into_taffy(self, context: &ValContext) -> taffy::style::MinTrackSizingFunction {
+    fn into_taffy(
+        self,
+        context: &ValContext,
+        calcs: &mut StyleCalcs,
+    ) -> taffy::style::MinTrackSizingFunction {
         match self {
-            MinTrackSizingFunction::Px(val) => Val::Px(val).into_length_percentage(context).into(),
-            MinTrackSizingFunction::Percent(val) => {
-                Val::Percent(val).into_length_percentage(context).into()
+            MinTrackSizingFunction::Calc(calc) => Val::Calc { calc, scalar: 1. }
+                .into_length_percentage(context, calcs)
+                .into(),
+            MinTrackSizingFunction::Px(val) => {
+                Val::Px(val).into_length_percentage(context, calcs).into()
             }
-            MinTrackSizingFunction::Em(val) => Val::Em(val).into_length_percentage(context).into(),
+            MinTrackSizingFunction::Percent(val) => Val::Percent(val)
+                .into_length_percentage(context, calcs)
+                .into(),
+            MinTrackSizingFunction::Em(val) => {
+                Val::Em(val).into_length_percentage(context, calcs).into()
+            }
             MinTrackSizingFunction::Rem(val) => {
-                Val::Rem(val).into_length_percentage(context).into()
+                Val::Rem(val).into_length_percentage(context, calcs).into()
             }
             MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::auto(),
             MinTrackSizingFunction::MinContent => {
@@ -540,27 +626,42 @@ impl MinTrackSizingFunction {
                 taffy::style::MinTrackSizingFunction::max_content()
             }
             MinTrackSizingFunction::VMin(val) => {
-                Val::VMin(val).into_length_percentage(context).into()
+                Val::VMin(val).into_length_percentage(context, calcs).into()
             }
             MinTrackSizingFunction::VMax(val) => {
-                Val::VMax(val).into_length_percentage(context).into()
+                Val::VMax(val).into_length_percentage(context, calcs).into()
             }
-            MinTrackSizingFunction::Vh(val) => Val::Vh(val).into_length_percentage(context).into(),
-            MinTrackSizingFunction::Vw(val) => Val::Vw(val).into_length_percentage(context).into(),
+            MinTrackSizingFunction::Vh(val) => {
+                Val::Vh(val).into_length_percentage(context, calcs).into()
+            }
+            MinTrackSizingFunction::Vw(val) => {
+                Val::Vw(val).into_length_percentage(context, calcs).into()
+            }
         }
     }
 }
 
 impl MaxTrackSizingFunction {
-    fn into_taffy(self, context: &ValContext) -> taffy::style::MaxTrackSizingFunction {
+    fn into_taffy(
+        self,
+        context: &ValContext,
+        calcs: &mut StyleCalcs,
+    ) -> taffy::style::MaxTrackSizingFunction {
         match self {
-            MaxTrackSizingFunction::Px(val) => Val::Px(val).into_length_percentage(context).into(),
-            MaxTrackSizingFunction::Percent(val) => {
-                Val::Percent(val).into_length_percentage(context).into()
+            MaxTrackSizingFunction::Calc(calc) => Val::Calc { calc, scalar: 1. }
+                .into_length_percentage(context, calcs)
+                .into(),
+            MaxTrackSizingFunction::Px(val) => {
+                Val::Px(val).into_length_percentage(context, calcs).into()
             }
-            MaxTrackSizingFunction::Em(val) => Val::Em(val).into_length_percentage(context).into(),
+            MaxTrackSizingFunction::Percent(val) => Val::Percent(val)
+                .into_length_percentage(context, calcs)
+                .into(),
+            MaxTrackSizingFunction::Em(val) => {
+                Val::Em(val).into_length_percentage(context, calcs).into()
+            }
             MaxTrackSizingFunction::Rem(val) => {
-                Val::Rem(val).into_length_percentage(context).into()
+                Val::Rem(val).into_length_percentage(context, calcs).into()
             }
             MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::auto(),
             MaxTrackSizingFunction::MinContent => {
@@ -572,7 +673,7 @@ impl MaxTrackSizingFunction {
             MaxTrackSizingFunction::FitContentPx(val) => {
                 taffy::style::MaxTrackSizingFunction::fit_content_px(
                     Val::Px(val)
-                        .into_length_percentage(context)
+                        .into_length_percentage(context, calcs)
                         .into_raw()
                         .value(),
                 )
@@ -580,7 +681,7 @@ impl MaxTrackSizingFunction {
             MaxTrackSizingFunction::FitContentPercent(val) => {
                 taffy::style::MaxTrackSizingFunction::fit_content_percent(
                     Val::Percent(val)
-                        .into_length_percentage(context)
+                        .into_length_percentage(context, calcs)
                         .into_raw()
                         .value(),
                 )
@@ -589,13 +690,17 @@ impl MaxTrackSizingFunction {
                 taffy::style::MaxTrackSizingFunction::fr(fraction)
             }
             MaxTrackSizingFunction::VMin(val) => {
-                Val::VMin(val).into_length_percentage(context).into()
+                Val::VMin(val).into_length_percentage(context, calcs).into()
             }
             MaxTrackSizingFunction::VMax(val) => {
-                Val::VMax(val).into_length_percentage(context).into()
+                Val::VMax(val).into_length_percentage(context, calcs).into()
             }
-            MaxTrackSizingFunction::Vh(val) => Val::Vh(val).into_length_percentage(context).into(),
-            MaxTrackSizingFunction::Vw(val) => Val::Vw(val).into_length_percentage(context).into(),
+            MaxTrackSizingFunction::Vh(val) => {
+                Val::Vh(val).into_length_percentage(context, calcs).into()
+            }
+            MaxTrackSizingFunction::Vw(val) => {
+                Val::Vw(val).into_length_percentage(context, calcs).into()
+            }
         }
     }
 }
@@ -604,9 +709,10 @@ impl GridTrack {
     pub(super) fn into_taffy_track(
         self,
         context: &ValContext,
+        calcs: &mut StyleCalcs,
     ) -> taffy::style::TrackSizingFunction {
-        let min = self.min_sizing_function.into_taffy(context);
-        let max = self.max_sizing_function.into_taffy(context);
+        let min = self.min_sizing_function.into_taffy(context, calcs);
+        let max = self.max_sizing_function.into_taffy(context, calcs);
         style_helpers::minmax(min, max)
     }
 }
@@ -615,10 +721,15 @@ impl RepeatedGridTrack {
     pub(super) fn clone_into_repeated_taffy_track(
         &self,
         context: &ValContext,
+        calcs: &mut StyleCalcs,
     ) -> taffy::style::GridTemplateComponent<String> {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
-            let min = self.tracks[0].min_sizing_function.into_taffy(context);
-            let max = self.tracks[0].max_sizing_function.into_taffy(context);
+            let min = self.tracks[0]
+                .min_sizing_function
+                .into_taffy(context, calcs);
+            let max = self.tracks[0]
+                .max_sizing_function
+                .into_taffy(context, calcs);
             let taffy_track = style_helpers::minmax(min, max);
             taffy::GridTemplateComponent::Single(taffy_track)
         } else {
@@ -626,8 +737,8 @@ impl RepeatedGridTrack {
                 .tracks
                 .iter()
                 .map(|track| {
-                    let min = track.min_sizing_function.into_taffy(context);
-                    let max = track.max_sizing_function.into_taffy(context);
+                    let min = track.min_sizing_function.into_taffy(context, calcs);
+                    let max = track.max_sizing_function.into_taffy(context, calcs);
                     style_helpers::minmax(min, max)
                 })
                 .collect();
@@ -653,6 +764,21 @@ mod tests {
     use crate::BorderRadius;
 
     use super::*;
+
+    #[test]
+    fn calc_without_percent_is_resolved_before_layout() {
+        let context = ValContext::new(2.0, Vec2::new(1000.0, 500.0), EmSize(12.0), RemSize(20.0));
+        let mut calcs = StyleCalcs::default();
+        let length =
+            (Val::calc(|ctx| 1.0 + ctx.em(1.)) * 2.).into_length_percentage(&context, &mut calcs);
+        assert_eq!(length, taffy::style::LengthPercentage::length(52.0));
+        assert!(calcs.0.is_empty());
+
+        let length = (Val::calc(|ctx| (ctx.em(1.) + ctx.percent(10.0)).min(ctx.rem(1.))) * 2.)
+            .into_length_percentage(&context, &mut calcs);
+        assert_eq!(calcs.0.len(), 1);
+        assert_eq!(resolve_calc(length.into_raw().calc_value(), 100.0), 68.0);
+    }
 
     #[test]
     fn test_convert_from() {
@@ -736,8 +862,9 @@ mod tests {
             EmSize(DEFAULT_REM_SIZE_PX),
             RemSize(DEFAULT_REM_SIZE_PX),
         );
-        let mut taffy_style = taffy::Style::default();
+        let mut taffy_style = TaffyStyle::default();
         update_taffy_style_from_node(&node, &viewport_values, &mut taffy_style);
+        let taffy_style = taffy_style.style;
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
@@ -918,7 +1045,10 @@ mod tests {
         ];
         for (val, length) in cases {
             assert!({
-                let lhs = val.into_length_percentage(&context).into_raw().value();
+                let lhs = val
+                    .into_length_percentage(&context, &mut StyleCalcs::default())
+                    .into_raw()
+                    .value();
                 let rhs = length.into_raw().value();
                 (lhs - rhs).abs() < 0.0001
             });
