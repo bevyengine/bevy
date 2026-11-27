@@ -9,6 +9,12 @@ import package::render::clustered_forward::ClusterableObjectIndexRanges;
 
 @if(LIGHTMAP) import package::render::mesh_view_types::LIGHT_PROBE_FLAG_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
 
+struct IrradianceVolumeLight {
+    irradiance: vec3<f32>,
+    /// The volumes total weight at the fragment, at most 1.
+    coverage: f32,
+}
+
 /// See:
 /// https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 /// Slide 28, "Ambient Cube Basis"
@@ -16,7 +22,7 @@ fn irradiance_volume_light(
     world_position: vec3<f32>,
     N: vec3<f32>,
     clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
-) -> vec3<f32> {
+) -> IrradianceVolumeLight {
     // Find all irradiance volumes that contain the fragment. We're going to
     // accumulate all the irradiance from them in a weighted sum.
     var iterator = light_probe_iterator_new(
@@ -80,5 +86,5 @@ fn irradiance_volume_light(
         total_irradiance /= total_weight;
     }
 
-    return total_irradiance;
+    return IrradianceVolumeLight(total_irradiance, min(total_weight, 1.0));
 }
