@@ -195,7 +195,7 @@ pub enum Val {
     /// A length calculated by a function, see [`Val::calc`].
     Calc {
         /// The function used to calculate the length.
-        calc: Calc,
+        calc: CalcId,
         /// Multiplier applied to the function's result.
         scalar: f32,
     },
@@ -661,7 +661,7 @@ impl Val {
     /// ```
     pub fn calc(f: fn(&CalcContext) -> f32) -> Val {
         Val::Calc {
-            calc: Calc::new(f),
+            calc: CalcId::new(f),
             scalar: 1.,
         }
     }
@@ -814,9 +814,9 @@ static CALC_FUNCTIONS: RwLock<Vec<fn(&CalcContext) -> f32>> = RwLock::new(Vec::n
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(opaque, PartialEq, Debug, Clone)]
 #[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
-pub struct Calc(u16);
+pub struct CalcId(u16);
 
-impl Calc {
+impl CalcId {
     /// Registers a function and returns a 2-byte id that can be used to look it up.
     /// Storing the id instead of a function pointer keeps [`Val`] at 8 bytes.
     ///
@@ -843,7 +843,7 @@ impl Calc {
                 }
             }
         };
-        Calc(u16::try_from(index).expect("too many calc functions"))
+        Self(u16::try_from(index).expect("too many calc functions"))
     }
 
     /// Resolves the `Calc` to a value in physical pixels using the given context and basis.
@@ -880,7 +880,7 @@ pub fn resolve_calc(f: fn(&CalcContext) -> f32, context: &ValContext, basis: f32
 }
 
 #[cfg(feature = "serialize")]
-impl serde::Serialize for Calc {
+impl serde::Serialize for CalcId {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         bevy_log::warn_once!(
             "A calc function can't be serialized, it will be deserialized as a function returning zero."
@@ -890,11 +890,11 @@ impl serde::Serialize for Calc {
 }
 
 #[cfg(feature = "serialize")]
-impl<'de> serde::Deserialize<'de> for Calc {
+impl<'de> serde::Deserialize<'de> for CalcId {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         <()>::deserialize(deserializer)?;
         bevy_log::warn_once!("Deserialized a calc without a function. It will return zero.");
-        Ok(Calc::new(|_| 0.))
+        Ok(CalcId::new(|_| 0.))
     }
 }
 

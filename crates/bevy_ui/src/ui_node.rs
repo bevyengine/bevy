@@ -1,7 +1,7 @@
 use crate::{
     layout::{layout_tree::ComputedLayout, TaffyStyle, UiTreeDirty},
     ui_transform::{UiGlobalTransform, UiTransform},
-    Calc, CalcContext, ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val, ValContext,
+    CalcContext, CalcId, ComputedStackIndex, ContentSize, CornerRadius, UiRect, Val, ValContext,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -1853,7 +1853,7 @@ pub enum MinTrackSizingFunction {
     /// Track minimum size should be a percent of the viewport's width dimension.
     Vw(f32),
     /// Track minimum size should be calculated by a function, see [`Val::calc`].
-    Calc(Calc),
+    Calc(CalcId),
 }
 
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
@@ -1897,7 +1897,7 @@ pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a percent of the viewport's width dimension.
     Vw(f32),
     /// Track maximum size should be calculated by a function, see [`Val::calc`].
-    Calc(Calc),
+    Calc(CalcId),
 }
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
@@ -2074,7 +2074,7 @@ impl GridTrack {
 
     /// Create a grid track with a size calculated by a function, see [`Val::calc`].
     pub fn calc<T: From<Self>>(f: fn(&CalcContext) -> f32) -> T {
-        let calc = Calc::new(f);
+        let calc = CalcId::new(f);
         Self {
             min_sizing_function: MinTrackSizingFunction::Calc(calc),
             max_sizing_function: MaxTrackSizingFunction::Calc(calc),
