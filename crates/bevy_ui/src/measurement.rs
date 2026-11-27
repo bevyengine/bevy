@@ -20,47 +20,37 @@ impl core::fmt::Debug for ContentSize {
 }
 
 /// Inputs provided to [`Measure::measure`].
-///
-/// Only the layout system builds these, which keeps the calc pointers in `style` valid.
-/// Other crates cannot construct one, even from an existing value:
-///
-/// ```compile_fail,E0451
-/// # use bevy_ui::MeasureArgs;
-/// fn rebuild(args: MeasureArgs) -> MeasureArgs {
-///     MeasureArgs { ..args }
-/// }
-/// ```
 pub struct MeasureArgs<'a> {
     /// The known width from Taffy if this size is definite.
     pub known_width: Option<f32>,
     /// The known height from Taffy if this size is definite.
     pub known_height: Option<f32>,
-    /// The horizontal space available for this UI node.
+    /// The horizontal space available to the measured node.
     pub available_width: AvailableSpace,
-    /// The vertical space available for this UI node.
+    /// The vertical space available to the measured node.
     pub available_height: AvailableSpace,
     /// Parley font database, needed for text measurement.
     pub font_system: &'a mut FontCx,
     /// Text layout buffer used to compute intrinsic text size when required.
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
-    /// The `Taffy` style for this node, converted from `Node` with lengths in either physical
-    /// pixels or percentages. `Val::Calc` values that use a percentage are left unresolved.
+    /// The `Taffy` style of the measured node, converted from `Node` with lengths in either
+    /// physical pixels or percentages. `Val::Calc` values that use a percentage are left unresolved.
     pub(crate) style: &'a taffy::Style,
 }
 
 impl MeasureArgs<'_> {
-    /// The `Taffy` style for this node, converted from `Node` with lengths in either physical
-    /// pixels or percentages. `Val::Calc` values that use a percentage are left unresolved.
+    /// The `Taffy` style of the measured node, converted from `Node` with lengths in either
+    /// physical pixels or percentages. `Val::Calc` values that use a percentage are left unresolved.
     pub fn style(&self) -> &taffy::Style {
         self.style
     }
 
-    /// Resolve the node's padding against the given size.
+    /// Resolve the measured node's padding against the given size.
     pub fn resolve_padding(&self, size: taffy::Size<Option<f32>>) -> taffy::Rect<f32> {
         self.style.padding.resolve_or_zero(size, resolve_taffy_calc)
     }
 
-    /// Resolve the node's border against the given size.
+    /// Resolve the measured node's border against the given size.
     pub fn resolve_border(&self, size: taffy::Size<Option<f32>>) -> taffy::Rect<f32> {
         self.style.border.resolve_or_zero(size, resolve_taffy_calc)
     }
