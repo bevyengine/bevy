@@ -24,13 +24,12 @@ impl core::fmt::Debug for ContentSize {
 /// Only the layout system builds these, which keeps the calc pointers in `style` valid.
 /// Other crates cannot construct one, even from an existing value:
 ///
-/// ```compile_fail,E0639
+/// ```compile_fail,E0451
 /// # use bevy_ui::MeasureArgs;
 /// fn rebuild(args: MeasureArgs) -> MeasureArgs {
 ///     MeasureArgs { ..args }
 /// }
 /// ```
-#[non_exhaustive]
 pub struct MeasureArgs<'a> {
     /// The known width from Taffy if this size is definite.
     pub known_width: Option<f32>,
