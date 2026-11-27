@@ -35,6 +35,7 @@ pub use contact_shadows::{
     ContactShadows, ContactShadowsBuffer, ContactShadowsPlugin, ContactShadowsUniform,
     ViewContactShadowsUniformOffset,
 };
+pub mod billboard;
 pub mod decal;
 pub mod deferred;
 pub mod diagnostic;
@@ -234,6 +235,7 @@ impl Plugin for PbrPlugin {
                 ContactShadowsPlugin,
             ))
             .add_plugins((
+                billboard::BillboardPlugin,
                 decal::ForwardDecalPlugin,
                 SyncComponentPlugin::<DirectionalLight, Self>::default(),
                 SyncComponentPlugin::<PointLight, Self>::default(),
