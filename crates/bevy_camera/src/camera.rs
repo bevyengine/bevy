@@ -867,6 +867,9 @@ pub enum CameraOutputMode {
     Write {
         /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
         /// If not set, the output will be written as-is, ignoring `clear_color` and the existing data in the final render target texture.
+        ///
+        /// On a render target with a PQ or extended sRGB color space, this blends encoded values,
+        /// not linear color.
         blend_state: Option<BlendState>,
         /// The clear color operation to perform on the final render target texture.
         clear_color: ClearColorConfig,
