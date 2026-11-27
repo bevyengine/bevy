@@ -55,6 +55,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
             (Has<ScreenSpaceAmbientOcclusion>, Has<DistanceFog>),
+            Option<&ScreenSpaceTransmission>,
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
@@ -79,6 +80,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         dither,
         shadow_filter_method,
         (ssao, distance_fog),
+        transmission,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         temporal_jitter,
         projection,
@@ -149,6 +151,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
         }
         if distance_fog {
             view_key |= MeshPipelineKey::DISTANCE_FOG;
+        }
+        if let Some(transmission) = transmission {
+            view_key |= MeshPipelineKey::VIEW_TRANSMISSION_TEXTURE;
+            view_key |= transmission.quality.pipeline_key();
         }
 
         view_key |= MeshPipelineKey::from_primitive_topology_and_strip_index(
