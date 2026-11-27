@@ -656,7 +656,11 @@ impl Val {
     ///
     /// ```
     /// # use bevy_ui::Val;
-    /// let width = Val::calc(|ctx| ctx.percent(50.) - 10.);
+    /// // A quarter of the viewport's width, clamped between 200 and 400 logical pixels.
+    /// let sidebar_width = Val::calc(|ctx| ctx.vw(25.).clamp(200., 400.));
+    ///
+    /// // The parent's width minus a 1rem gutter on each side.
+    /// let content_width = Val::calc(|ctx| ctx.percent(100.) - 2. * ctx.rem(1.));
     /// ```
     pub fn calc(f: fn(&CalcContext) -> f32) -> Val {
         Val::Calc {
