@@ -176,7 +176,7 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
 
     // Determine the AABB of the cluster this fragment represents.
     let cluster_position = vec3<u32>(vec2<u32>(floor(varyings.position.xy)), z_slice);
-    let cluster_aabb = compute_aabb_for_cluster(
+    var cluster_aabb = compute_aabb_for_cluster(
         z_near,
         z_far,
         tile_size,
@@ -186,6 +186,16 @@ fn fragment_main(varyings: Varyings) -> @location(0) vec4<f32> {
         lights.cluster_dimensions.xyz,
         cluster_position
     );
+    if (z_slice == lights.cluster_dimensions.z - 1u) {
+        let sphere_far_z = varyings.sphere_position.z - varyings.sphere_radius;
+        if (is_orthographic) {
+            cluster_aabb.min.z = min(cluster_aabb.min.z, sphere_far_z);
+        } else {
+            let scale = max(sphere_far_z / cluster_aabb.min.z, 1.0);
+            cluster_aabb.min = min(cluster_aabb.min, cluster_aabb.min * scale);
+            cluster_aabb.max = max(cluster_aabb.max, cluster_aabb.max * scale);
+        }
+    }
     let cluster_aabb_center = (cluster_aabb.max + cluster_aabb.min) * 0.5;
     let cluster_aabb_half_size = (cluster_aabb.max - cluster_aabb.min) * 0.5;
 
