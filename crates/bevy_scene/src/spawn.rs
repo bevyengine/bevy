@@ -436,6 +436,18 @@ pub trait EntityWorldMutSceneExt {
     /// ```
     fn queue_spawn_related_scenes<T: RelationshipTarget>(self, scenes: impl SceneList) -> Self;
 
+    /// Spawns a [`SceneList`], where each entity is related to the current entity using [`RelationshipTarget::Relationship`]. This will resolve the scene list (using [`SceneList::resolve_list`]). If that fails (for example, if there are dependencies that have not been
+    /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`SceneList`] is successful, the scene list will be spawned.
+    ///
+    /// See [`Scene`] for the features of the scene system (and how to use it).
+    ///
+    /// If your scene list has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`EntityWorldMutSceneExt::queue_spawn_related_scenes`].
+    /// Note that the `.bsn` file format is not yet released.
+    fn spawn_related_scenes<T: RelationshipTarget>(
+        &mut self,
+        scenes: impl SceneList,
+    ) -> Result<(), SpawnSceneError>;
+
     /// Applies the given [`Scene`] to the current entity immediately. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will return a [`SpawnSceneError`]. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
@@ -447,7 +459,7 @@ pub trait EntityWorldMutSceneExt {
     ///
     /// See [`Scene`] for the features of the scene system (and how to use it).
     ///
-    /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`World::queue_spawn_scene`].
+    /// If your scene has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`EntityWorldMutSceneExt::queue_apply_scene`].
     /// Note that the .bsn file format is not yet released.
     fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError>;
 
@@ -483,6 +495,25 @@ impl EntityWorldMutSceneExt for EntityWorldMut<'_> {
                 handle,
             ));
         self
+    }
+
+    fn spawn_related_scenes<T: RelationshipTarget>(
+        &mut self,
+        scenes: impl SceneList,
+    ) -> Result<(), SpawnSceneError> {
+        let assets = self.resource::<AssetServer>();
+        let mut patch = SceneListPatch::load(assets, scenes);
+        patch.resolve(assets, self.resource::<Assets<ScenePatch>>())?;
+        let target_entity = self.id();
+        self.world_scope(|world| -> Result<(), SpawnSceneError> {
+            let entities = patch.spawn(world)?;
+            for entity in entities.iter() {
+                world.entity_mut(*entity).insert(
+                    <<T as RelationshipTarget>::Relationship as Relationship>::from(target_entity),
+                );
+            }
+            Ok(())
+        })
     }
 
     fn apply_scene<S: Scene>(&mut self, scene: S) -> Result<(), SpawnSceneError> {
@@ -540,6 +571,15 @@ pub trait EntityCommandsSceneExt {
         scenes: impl SceneList,
     ) -> &mut Self;
 
+    /// Spawns a [`SceneList`], where each entity is related to the current entity using [`RelationshipTarget::Relationship`]. This will resolve the scene list (using [`SceneList::resolve_list`]). If that fails (for example, if there are dependencies that have not been
+    /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`SceneList`] is successful, the scene list will be spawned.
+    ///
+    /// See [`Scene`] for the features of the scene system (and how to use it).
+    ///
+    /// If your scene list has a dependency that might not be loaded yet (for example, it includes a `.bsn` asset file), consider using [`EntityCommandsSceneExt::queue_spawn_related_scenes`].
+    /// Note that the `.bsn` file format is not yet released.
+    fn spawn_related_scenes<T: RelationshipTarget>(&mut self, scenes: impl SceneList) -> &mut Self;
+
     /// Applies the given [`Scene`] to the current entity as soon as [`Commands`] are applied. This will resolve the Scene (using [`Scene::resolve`]). If that fails (for example, if there are dependencies that have not been
     /// loaded yet), it will log a [`SpawnSceneError`] as an error. If resolving the [`Scene`] is successful, the scene will be spawned.
     ///
@@ -571,6 +611,11 @@ impl EntityCommandsSceneExt for EntityCommands<'_> {
         self.queue(move |entity: EntityWorldMut| {
             entity.queue_spawn_related_scenes::<T>(scenes);
         });
+        self
+    }
+
+    fn spawn_related_scenes<T: RelationshipTarget>(&mut self, scenes: impl SceneList) -> &mut Self {
+        self.queue(move |mut entity: EntityWorldMut| entity.spawn_related_scenes::<T>(scenes));
         self
     }
 
