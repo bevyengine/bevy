@@ -73,7 +73,7 @@ approx = { version = "0.5", default-features = false }
 accesskit = "0.25"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
-zbus = { version = "5.13", optional = true }
+zbus = { version = "6.2", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.20.0-dev", default-features = false }
