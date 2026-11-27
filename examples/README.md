@@ -614,6 +614,7 @@ Example | Description
 [Drag to Scroll](../examples/ui/scroll_and_overflow/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
 [Editable Text Filter](../examples/ui/text/editable_text_filter.rs) | Demonstrates an 8-character hex input using EditableTextFilter
 [Feathers Counter](../examples/ui/widgets/feathers_counter.rs) | Simple counter using feathers
+[Feathers Dock](../examples/ui/widgets/feathers_dock.rs) | A dock layout styled with Feathers
 [Feathers Number Input](../examples/ui/widgets/feathers_number_input.rs) | Feathers Number Input Options
 [Feathers Widgets](../examples/ui/widgets/feathers_gallery.rs) | Gallery of Feathers Widgets
 [Fixed Node](../examples/ui/layout/fixed_node.rs) | Demonstrates how to use FixedNode to lay out a UI node as a root node

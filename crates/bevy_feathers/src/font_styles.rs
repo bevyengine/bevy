@@ -66,7 +66,7 @@ pub(crate) fn on_changed_font(
     if let Ok(inheritable_font) = font_style.get(insert.entity) {
         commands.entity(insert.entity).insert(Propagate(TextFont {
             font: inheritable_font.font.clone(),
-            font_size: inheritable_font.font_size,
+            font_size: inheritable_font.font_size.clone(),
             weight: inheritable_font.weight,
             ..Default::default()
         }));

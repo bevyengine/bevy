@@ -1,35 +1,50 @@
 //! A panel listing the resources of the local world, and the systems that keep it in sync.
 
-use alloc::{format, string::String, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 
-use bevy_app::PropagateOver;
+use bevy_app::{Propagate, PropagateOver};
 use bevy_ecs::{
+    change_detection::{DetectChanges, Ref},
     component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
+    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::With,
-    reflect::{AppTypeRegistry, ReflectComponent},
-    system::{Query, ResMut},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    resource::Resource,
+    system::{Query, Res, ResMut},
+    template::template,
     world::World,
 };
 use bevy_feathers::{
     constants::{fonts, size},
     containers::subpane_body,
-    controls::{FeathersTreeItem, FeathersTreeView},
-    theme::ThemeTextColor,
+    controls::{FeathersTextInput, FeathersTextInputContainer, FeathersTreeItem, FeathersTreeView},
+    display::icon,
+    theme::{SurfaceLevel, ThemeContext, ThemeTextColor},
     tokens,
 };
+use bevy_fuzzy::FuzzyPattern;
 use bevy_log::warn;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, bsn_list, on, Scene, WorldSceneExt};
-use bevy_text::{FontSize, FontSourceTemplate, FontWeight, LineBreak, TextFont, TextLayout};
+use bevy_text::{
+    EditableText, FontSize, FontSourceTemplate, FontWeight, LineBreak, Placeholder, TextEdit,
+    TextEditChange, TextFont, TextLayout,
+};
 use bevy_ui::{px, widget::Text, AlignItems, Node, UiRect};
 use bevy_ui_widgets::{tree_view_self_update, ValueChange};
 
 use crate::{
-    entity_tree::{row_label, rows_container},
+    entity_tree::{
+        row_label, row_label_entity, rows_container, write_label, InspectorRowLabel, FILTER_ICON,
+    },
     InspectableEntity, InspectorSelection, InspectorSource, InspectorSources, PanelSync,
 };
 
@@ -65,17 +80,32 @@ pub struct InspectorResourceRow {
 #[reflect(Component, Debug, Default, Clone)]
 pub struct InspectorResourceOverflow;
 
-/// The resources and row limit a resource list last displayed.
+/// Marker for the text input holding the resource list filter query.
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct ResourceListFilterInput;
+
+/// The query filtering the resource list.
+///
+/// While it is blank, the list shows every resource. Otherwise it shows the resources whose short
+/// type name fuzzy matches the query (see [`FuzzyPattern`]), best match first, with the matched
+/// characters highlighted.
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Resource, Debug, Default, Clone, PartialEq)]
+pub struct ResourceListFilter(pub String);
+
+/// The resources, row limit and filter query a resource list last displayed.
 #[derive(Component, Default)]
 struct ListedResources {
     resources: HashSet<Entity>,
     max_rows: usize,
+    query: String,
 }
 
 /// Pacing of the resource list synchronization pass.
 pub type ResourceListSync = PanelSync<InspectorResourceList>;
 
-/// The scrolling list of the local world's resources, one row per resource.
+/// The filter box and the scrolling list of the local world's resources, one row per resource.
 ///
 /// Resources whose type is registered with [`ReflectComponent`] come first. The others follow
 /// with dimmed labels, since the details panel cannot show their fields.
@@ -86,6 +116,27 @@ pub fn resource_list_body() -> impl Scene {
             min_height: px(0),
         }
         Children [
+            @FeathersTextInputContainer
+            Node {
+                flex_grow: 0.0,
+                flex_shrink: 0.0,
+                padding: UiRect {
+                    left: px(8.0),
+                },
+            }
+            Propagate::<ThemeContext>(ThemeContext(SurfaceLevel::Base))
+            Children [
+                @icon(FILTER_ICON)
+                --
+                ResourceListFilterInput
+                @FeathersTextInput
+                TextFont {
+                    font_size: size::SMALL_FONT,
+                }
+                template(|_| Ok(Placeholder::new("Filter...")))
+                on(inspector_resource_filter_changed)
+            ]
+            --
             InspectorResourceList
             @FeathersTreeView
             Node {
@@ -115,15 +166,48 @@ pub fn inspector_resource_selected(
         .map(|row| InspectableEntity::new(row.inspected, InspectorSource::Local));
 }
 
-/// Adds and removes resource list rows so that they match the resources of the local world.
+/// Observer that copies the filter input's text into [`ResourceListFilter`].
+pub fn inspector_resource_filter_changed(
+    change: On<TextEditChange>,
+    inputs: Query<&EditableText, With<ResourceListFilterInput>>,
+    mut filter: ResMut<ResourceListFilter>,
+) {
+    let Ok(input) = inputs.get(change.event_target()) else {
+        return;
+    };
+    let query = input.value();
+    if filter.0 != query {
+        filter.0 = query.to_string();
+    }
+}
+
+/// Shows the [`ResourceListFilter`] query in the filter inputs when it is set by other means than
+/// typing.
+pub(crate) fn sync_resource_filter_input(
+    filter: Res<ResourceListFilter>,
+    mut inputs: Query<(Ref<ResourceListFilterInput>, &mut EditableText)>,
+) {
+    for (marker, mut input) in &mut inputs {
+        if !(filter.is_changed() || marker.is_added()) || input.value() == filter.0 {
+            continue;
+        }
+        if filter.0.is_empty() {
+            input.clear();
+        } else {
+            input.queue_edit(TextEdit::SelectAll);
+            input.queue_edit(TextEdit::Insert(filter.0.as_str().into()));
+        }
+    }
+}
+
+/// Adds, removes and relabels resource list rows so that they match the resources of the local
+/// world and the [`ResourceListFilter`].
 ///
 /// The list stays empty unless [`InspectorSources`] includes [`InspectorSource::Local`]. Rows are
-/// only rebuilt when the set of resources or the row limit changes.
+/// only rebuilt when the set of resources, the row limit or the filter changes, and a filter
+/// change forces a pass.
 pub fn sync_resource_list(world: &mut World) {
-    if !ResourceListSync::tick(world) {
-        return;
-    }
-
+    let due = ResourceListSync::tick(world);
     let Some((list, max_rows)) = world
         .query::<(Entity, &InspectorResourceList)>()
         .iter(world)
@@ -132,6 +216,16 @@ pub fn sync_resource_list(world: &mut World) {
     else {
         return;
     };
+    let query = world
+        .get_resource::<ResourceListFilter>()
+        .map(|filter| filter.0.trim().to_string())
+        .unwrap_or_default();
+    let query_changed = world
+        .get::<ListedResources>(list)
+        .is_none_or(|listed| listed.query != query);
+    if !due && !query_changed {
+        return;
+    }
     let rows = rows_container(world, list);
 
     let local = world
@@ -155,6 +249,7 @@ pub fn sync_resource_list(world: &mut World) {
 
     if world.get::<ListedResources>(list).is_some_and(|listed| {
         listed.max_rows == max_rows
+            && listed.query == query
             && listed.resources.len() == resources.len()
             && resources
                 .keys()
@@ -179,8 +274,20 @@ pub fn sync_resource_list(world: &mut World) {
             .collect()
     };
     entries.sort();
-    let hidden = entries.len().saturating_sub(max_rows);
-    entries.truncate(max_rows);
+    let ranked = FuzzyPattern::new(&query).rank(&entries, |(_, label, _)| label.as_str());
+    let hidden = ranked.len().saturating_sub(max_rows);
+    let entries: Vec<(bool, InspectorRowLabel, Entity)> = ranked
+        .into_iter()
+        .take(max_rows)
+        .map(|ranked| {
+            let (unreflected, text, entity) = &entries[ranked.index];
+            let label = InspectorRowLabel {
+                text: text.clone(),
+                matched: ranked.matched.indices,
+            };
+            (*unreflected, label, *entity)
+        })
+        .collect();
 
     let shown: HashMap<Entity, usize> = entries
         .iter()
@@ -197,8 +304,6 @@ pub fn sync_resource_list(world: &mut World) {
                 .collect()
         })
         .unwrap_or_default();
-    let existing_inspected: HashSet<Entity> =
-        existing.iter().map(|(_, inspected)| *inspected).collect();
 
     for (row, inspected) in &existing {
         if !shown.contains_key(inspected)
@@ -208,15 +313,28 @@ pub fn sync_resource_list(world: &mut World) {
         }
     }
 
+    let existing_rows: HashMap<Entity, Entity> = existing
+        .iter()
+        .map(|(row, inspected)| (*inspected, *row))
+        .collect();
     for (unreflected, label, inspected) in entries {
-        if existing_inspected.contains(&inspected) {
-            continue;
-        }
-        match world.spawn_scene(resource_row(label, !unreflected)) {
-            Ok(mut row) => {
-                row.insert((InspectorResourceRow { inspected }, ChildOf(rows)));
-            }
-            Err(error) => warn!("failed to spawn an inspector resource row: {error}"),
+        let row = match existing_rows.get(&inspected) {
+            Some(row) => *row,
+            None => match world.spawn_scene(resource_row(label.text.clone(), !unreflected)) {
+                Ok(mut row) => {
+                    row.insert((InspectorResourceRow { inspected }, ChildOf(rows)));
+                    row.id()
+                }
+                Err(error) => {
+                    warn!("failed to spawn an inspector resource row: {error}");
+                    continue;
+                }
+            },
+        };
+        if let Some(label_entity) = row_label_entity(world, row)
+            && world.get::<InspectorRowLabel>(label_entity) != Some(&label)
+        {
+            write_label(world, label_entity, label);
         }
     }
 
@@ -242,6 +360,7 @@ pub fn sync_resource_list(world: &mut World) {
     world.entity_mut(list).insert(ListedResources {
         resources: resources.into_keys().collect(),
         max_rows,
+        query,
     });
 }
 
@@ -337,6 +456,7 @@ mod tests {
         reflect::ReflectResource,
         resource::{IsResource, Resource},
     };
+    use bevy_feathers::theme::ThemeToken;
     use bevy_reflect::TypePath;
 
     #[derive(Resource, Reflect, Default)]
@@ -366,6 +486,13 @@ mod tests {
 
     #[derive(Resource)]
     struct AaaUnreflected;
+
+    #[derive(Resource, Reflect, Default)]
+    #[reflect(Resource, Default)]
+    struct AzetaX;
+
+    #[derive(Resource, Reflect)]
+    struct Unregistered;
 
     fn spawn_list(app: &mut App) -> Entity {
         spawn_capped_list(app, MAX_RESOURCE_ROWS)
@@ -562,6 +689,134 @@ mod tests {
         });
         app.update();
         assert_eq!(app.world().resource::<Alpha>().value, 2.5);
+    }
+
+    fn set_filter(app: &mut App, query: &str) {
+        app.world_mut().resource_mut::<ResourceListFilter>().0 = query.into();
+        app.update();
+    }
+
+    fn label_of(app: &App, list: Entity, inspected: Entity) -> InspectorRowLabel {
+        let row = row_of(app, list, inspected).unwrap();
+        let label = row_label_entity(app.world(), row).unwrap();
+        app.world().get::<InspectorRowLabel>(label).unwrap().clone()
+    }
+
+    #[test]
+    fn filter_shows_matching_resources_with_highlighted_labels() {
+        let mut app = test_app();
+        let list = spawn_list(&mut app);
+        app.insert_resource(Alpha::default()).insert_resource(Zeta);
+        app.update();
+        sync(&mut app);
+        let alpha = resource_entity::<Alpha>(&app);
+        let zeta = resource_entity::<Zeta>(&app);
+
+        set_filter(&mut app, "zeta");
+        assert!(row_of(&app, list, alpha).is_none());
+        assert_eq!(label_of(&app, list, zeta).matched, [0, 1, 2, 3]);
+
+        set_filter(&mut app, " ");
+        assert!(row_of(&app, list, alpha).is_some());
+        assert!(label_of(&app, list, zeta).matched.is_empty());
+    }
+
+    #[test]
+    fn filtered_rows_are_ranked_and_capped() {
+        let mut app = test_app();
+        app.register_type::<AzetaX>();
+        let list = spawn_capped_list(&mut app, 1);
+        app.insert_resource(AzetaX).insert_resource(Zeta);
+        app.update();
+        sync(&mut app);
+
+        set_filter(&mut app, "zeta");
+        let shown: Vec<Entity> = rows(&app, list).into_iter().map(|(_, e)| e).collect();
+        assert_eq!(shown, [resource_entity::<Zeta>(&app)]);
+        assert_eq!(overflow_text(&app, list), Some("1 more".into()));
+    }
+
+    #[test]
+    fn a_selected_resource_is_highlighted_again_when_it_matches() {
+        let mut app = test_app();
+        let list = spawn_list(&mut app);
+        app.world_mut()
+            .entity_mut(list)
+            .insert(bevy_ui_widgets::SelectedTreeItem::default());
+        app.insert_resource(Alpha::default()).insert_resource(Zeta);
+        app.update();
+        sync(&mut app);
+        let alpha = resource_entity::<Alpha>(&app);
+        let selected = |app: &App| {
+            app.world()
+                .get::<bevy_ui_widgets::SelectedTreeItem>(list)
+                .unwrap()
+                .0
+        };
+
+        app.world_mut().resource_mut::<InspectorSelection>().0 =
+            Some(InspectableEntity::new(alpha, InspectorSource::Local));
+        app.update();
+        assert_eq!(selected(&app), row_of(&app, list, alpha));
+
+        set_filter(&mut app, "zeta");
+        assert!(row_of(&app, list, alpha).is_none());
+        set_filter(&mut app, "");
+        let row = row_of(&app, list, alpha);
+        assert!(row.is_some());
+        assert_eq!(selected(&app), row);
+        assert_eq!(
+            app.world().resource::<InspectorSelection>().0,
+            Some(InspectableEntity::new(alpha, InspectorSource::Local))
+        );
+    }
+
+    #[test]
+    fn highlighted_labels_of_dimmed_rows_stay_dimmed() {
+        let mut app = test_app();
+        let list = spawn_list(&mut app);
+        app.register_type::<Unregistered>();
+        app.insert_resource(Unregistered);
+        app.update();
+        set_filter(&mut app, "unreg");
+
+        let row = rows(&app, list)[0].0;
+        let label = row_label_entity(app.world(), row).unwrap();
+        let colors: Vec<ThemeToken> = app
+            .world()
+            .get::<Children>(label)
+            .unwrap()
+            .iter()
+            .filter_map(|span| app.world().get::<ThemeTextColor>(*span))
+            .map(|color| color.0.clone())
+            .collect();
+        assert!(colors.contains(&tokens::TEXT_ACCENT));
+        assert!(colors.contains(&tokens::LISTROW_TEXT_DISABLED));
+    }
+
+    #[test]
+    fn filter_input_and_resource_stay_in_step() {
+        let mut app = test_app();
+        app.add_plugins(bevy_text::TextPlugin);
+        let input = app
+            .world_mut()
+            .spawn((ResourceListFilterInput, EditableText::default()))
+            .observe(inspector_resource_filter_changed)
+            .id();
+        app.update();
+
+        set_filter(&mut app, "time");
+        assert_eq!(
+            app.world().get::<EditableText>(input).unwrap().value(),
+            "time"
+        );
+
+        app.world_mut()
+            .get_mut::<EditableText>(input)
+            .unwrap()
+            .queue_edit(TextEdit::Insert("r".into()));
+        app.update();
+        assert_eq!(app.world().resource::<ResourceListFilter>().0, "timer");
     }
 
     #[cfg(feature = "remote")]

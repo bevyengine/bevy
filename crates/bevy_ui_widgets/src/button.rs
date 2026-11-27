@@ -13,8 +13,9 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{Focusable, FocusedInput};
-use bevy_picking::events::{
-    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+use bevy_picking::{
+    events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
+    pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{InteractionDisabled, Pressed};
@@ -67,6 +68,9 @@ fn button_on_pointer_click(
     >,
     mut commands: Commands,
 ) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((pressed, disabled, activate_on_press)) = q_state.get_mut(click.entity) {
         click.propagate(false);
         if pressed && !disabled && !activate_on_press {
@@ -90,6 +94,9 @@ fn button_on_pointer_down(
     >,
     mut commands: Commands,
 ) {
+    if press.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((button, disabled, pressed, activate_on_press)) = q_state.get_mut(press.entity) {
         press.propagate(false);
         if !disabled && !pressed {
@@ -106,6 +113,9 @@ fn button_on_pointer_up(
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {
+    if release.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((button, disabled, pressed)) = q_state.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {

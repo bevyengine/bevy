@@ -64,7 +64,7 @@ use bevy_picking::{backend::PointerHits, pointer::PointerInput};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::EditableTextSystems;
-use bevy_time::{Time, Timer, TimerMode};
+use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
 use bevy_ui_widgets::SelectedTreeItem;
 
@@ -81,7 +81,8 @@ use crate::entity_tree::{
 use crate::overlay::InspectorOverlay;
 use crate::picking::pick_for_inspector;
 use crate::resource_list::{
-    sync_resource_list, InspectorResourceList, InspectorResourceRow, ResourceListSync,
+    sync_resource_filter_input, sync_resource_list, InspectorResourceList, InspectorResourceRow,
+    ResourceListFilter, ResourceListSync,
 };
 
 /// Where the inspector reads its data from.
@@ -285,10 +286,10 @@ impl<M: Component> PanelSync<M> {
         self.timer.almost_finish();
     }
 
-    /// Advances the timer by the frame's [`Time`] delta, returning `true` if a pass is due.
+    /// Advances the timer by the frame's [`Time<Real>`] delta, returning `true` if a pass is due.
     pub(crate) fn tick(world: &mut World) -> bool {
         let delta = world
-            .get_resource::<Time>()
+            .get_resource::<Time<Real>>()
             .map(Time::delta)
             .unwrap_or_default();
         world
@@ -482,6 +483,7 @@ impl Plugin for InspectorPlugin {
             .init_resource::<EntityTreeFilterState>()
             .init_resource::<TreeReveal>()
             .init_resource::<ResourceListSync>()
+            .init_resource::<ResourceListFilter>()
             .init_resource::<DetailsIndex>()
             .init_resource::<DetailsCollapsed>()
             .init_resource::<DetailsColumnSplits>()
@@ -532,7 +534,9 @@ impl Plugin for InspectorPlugin {
             )
             .add_systems(
                 PostUpdate,
-                sync_entity_tree_filter_input.before(EditableTextSystems),
+                (sync_entity_tree_filter_input, sync_resource_filter_input)
+                    .chain()
+                    .before(EditableTextSystems),
             )
             .add_systems(
                 PostUpdate,
@@ -571,7 +575,7 @@ impl Plugin for InspectorPlugin {
                     .after(remote::poll_remote_connections)
                     // These conflict on `EditableText` and should be disjoint, but squashing
                     // the ambiguity is good.
-                    .after(sync_entity_tree_filter_input)
+                    .after(sync_resource_filter_input)
                     .before(UiSystems::Prepare),
             );
     }

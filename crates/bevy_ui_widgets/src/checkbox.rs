@@ -13,8 +13,9 @@ use bevy_ecs::{
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::{FocusCause, Focusable, FocusedInput, InputFocus, InputFocusVisible};
-use bevy_picking::events::{
-    PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease,
+use bevy_picking::{
+    events::{PointerCancel, PointerClick, PointerDragEnd, PointerPress, PointerRelease},
+    pointer::PointerButton,
 };
 use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled, Pressed};
@@ -78,6 +79,9 @@ fn checkbox_on_pointer_click(
     >,
     mut commands: Commands,
 ) {
+    if click.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((is_checked, disabled)) = q_checkbox.get(click.entity) {
         click.propagate(false);
         if !disabled {
@@ -106,6 +110,9 @@ fn checkbox_on_pointer_down(
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
+    if press.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((checkbox, disabled, checked, pressed, activate_on_press)) =
         q_checkbox.get_mut(press.entity)
     {
@@ -137,6 +144,9 @@ fn checkbox_on_pointer_up(
     mut q_checkbox: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Checkbox>>,
     mut commands: Commands,
 ) {
+    if release.button != PointerButton::Primary {
+        return;
+    }
     if let Ok((checkbox, disabled, pressed)) = q_checkbox.get_mut(release.entity) {
         release.propagate(false);
         if !disabled && pressed {
