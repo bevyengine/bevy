@@ -193,7 +193,7 @@ fn scale_factor(mut entity: Entity, nodes: &Query<Geometry>) -> Option<f32> {
     }
 }
 
-fn update_column_splits(
+pub(crate) fn update_column_splits(
     q_splits: Query<(Entity, &ColumnSplit)>,
     q_handles: Query<(Entity, &ChildOf), With<ColumnSplitHandle>>,
     q_leading: Query<Entity, With<ColumnSplitLeading>>,

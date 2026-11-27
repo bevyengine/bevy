@@ -38,7 +38,7 @@ use bevy_feathers::{
 };
 use bevy_input::{keyboard::KeyCode, ButtonInput, InputSystems};
 use bevy_log::warn;
-use bevy_picking::{cursor::EntityCursor, Pickable, PickingSystems};
+use bevy_picking::{cursor::EntityCursor, Pickable};
 use bevy_scene::prelude::*;
 use bevy_ui::{
     percent, px, AlignItems, BackgroundColor, BorderRadius, DefaultUiCamera, Display,
@@ -82,7 +82,7 @@ impl Plugin for InspectorOverlayPlugin {
                 PreUpdate,
                 toggle_inspector_overlay
                     .after(InputSystems)
-                    .before(PickingSystems::Last),
+                    .before(bevy_picking::hover::generate_hovermap),
             )
             .add_systems(Update, sync_mode_toggles)
             .add_systems(

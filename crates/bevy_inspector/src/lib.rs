@@ -537,14 +537,16 @@ impl Plugin for InspectorPlugin {
                 PostUpdate,
                 (sync_entity_tree_filter_input, sync_resource_filter_input)
                     .chain()
-                    .before(EditableTextSystems),
+                    .before(EditableTextSystems)
+                    .before(UiSystems::Prepare),
             )
             .add_systems(
                 PostUpdate,
                 update_tree_guides
                     .run_if(entity_tree_visible)
                     .in_set(UiSystems::Content)
-                    .after(FeathersSystems),
+                    .after(FeathersSystems)
+                    .after(column_split::update_column_splits),
             );
 
         #[cfg(feature = "remote")]
