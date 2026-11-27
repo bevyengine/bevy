@@ -20,6 +20,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.20.0-dev" }
 # other
 rodio = { version = "0.23", default-features = false, features = [
   "playback",
+  "realtime",
   "tracing",
 ] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
