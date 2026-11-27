@@ -647,12 +647,9 @@ impl Val {
         }
     }
 
-    /// Creates a `Val` calculated by `f`, which is given a [`CalcContext`] to convert lengths to logical pixels
-    /// and returns a length in logical pixels. A result that isn't finite is treated as zero.
+    /// Creates a `Val` from a function
     ///
-    /// `f` can't capture its environment, should be pure and must not panic.
-    ///
-    /// The function is lost when a calc `Val` is serialized. It is deserialized as a calc that returns zero.
+    /// The function cannot capture its environment, and is lost if it is serialized.
     ///
     /// ```
     /// # use bevy_ui::Val;
