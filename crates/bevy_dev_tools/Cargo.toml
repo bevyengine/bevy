@@ -20,6 +20,9 @@ render = [
 ]
 webgl = ["dep:bevy_render", "bevy_render?/webgl"]
 webgpu = ["dep:bevy_render", "bevy_render?/webgpu"]
+# Clippy runs with --all-features, which turns this on for bevy_render and
+# adds a parameter to RenderCreation::manual. The test has to see the same flag.
+raw_vulkan_init = ["bevy_render?/raw_vulkan_init"]
 schedule_data = ["dep:serde", "dep:ron", "dep:thiserror"]
 serialize = [
   "dep:serde",
@@ -80,6 +83,8 @@ strsim = { version = "0.11", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.20.0-dev", features = [
   "debug",
 ] }
+# Headless renderer for the overlay startup test. CI's build job has no GPU.
+wgpu = { version = "30", default-features = false, features = ["noop"] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 x264 = { version = "0.5.0", optional = true }
