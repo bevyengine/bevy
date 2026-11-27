@@ -386,23 +386,20 @@ impl Type {
         // 3) The function only returns true in the case where it writes an initialized value into
         //    `field_ptr`, and we check that the type
         let initialized = unsafe {
-            variant.initialize_variant_raw(
-                |field_index, field_ptr| {
-                    let field = &variant.fields[field_index];
-                    let Some(value) = (func)(field_index, field) else {
-                        return false;
-                    };
-                    if field.ty.get().type_id != value.as_ref().type_id() {
-                        return false;
-                    }
-                    // SAFETY: `initialize_variant_raw` guarantees the field ptr is valid for writes
-                    // of the field type, and we've checked above that `value` matches the field
-                    // type for this index.
-                    move_box_into(value, field_ptr.as_ptr());
-                    true
-                },
-                ptr,
-            )
+            variant.initialize_variant_raw(ptr, |field_index, field_ptr| {
+                let field = &variant.fields[field_index];
+                let Some(value) = (func)(field_index, field) else {
+                    return false;
+                };
+                if field.ty.get().type_id != value.as_ref().type_id() {
+                    return false;
+                }
+                // SAFETY: `initialize_variant_raw` guarantees the field ptr is valid for writes
+                // of the field type, and we've checked above that `value` matches the field
+                // type for this index.
+                move_box_into(value, field_ptr.as_ptr());
+                true
+            })
         };
 
         if !initialized {

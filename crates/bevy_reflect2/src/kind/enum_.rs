@@ -125,8 +125,8 @@ impl Variant {
     // it's just slightly more convenient to call.
     pub unsafe fn initialize_variant_raw(
         &self,
-        mut func: impl FnMut(usize, NonNull<u8>) -> bool,
         dst: NonNull<u8>,
+        mut func: impl FnMut(usize, NonNull<u8>) -> bool,
     ) -> bool {
         let Some(init) = self.init else {
             // SAFETY: By the safety precondition, we know there is an `init` implementation.
