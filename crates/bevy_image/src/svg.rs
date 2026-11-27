@@ -761,11 +761,8 @@ mod tests {
 
         // Embedded data, including nested SVGs, is not resolved either.
         for mime in ["image/png", "image/svg+xml"] {
-            let resolved_data = (options.image_href_resolver.resolve_data)(
-                mime,
-                Arc::new(Vec::new()),
-                &options,
-            );
+            let resolved_data =
+                (options.image_href_resolver.resolve_data)(mime, Arc::new(Vec::new()), &options);
             assert!(resolved_data.is_none(), "{mime}");
         }
     }
@@ -821,6 +818,7 @@ mod tests {
         let from_asset = Svg::parse(bytes, path).unwrap().rasterize(size).unwrap();
         let settings = SvgLoaderSettings {
             size,
+            generate_mipmap: false,
             ..Default::default()
         };
         let from_loader = rasterize(bytes, &settings, path).unwrap();
