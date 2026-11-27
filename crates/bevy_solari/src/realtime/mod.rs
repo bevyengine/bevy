@@ -227,7 +227,8 @@ pub struct SolariLighting {
     /// Defaults to `true`.
     pub world_cache_force_opaque: bool,
 
-    /// Set to true to delete the saved temporal history (past frames).
+    /// Set to true to delete Solari's temporal history (data from previous frames),
+    /// including cached lighting in the world cache.
     ///
     /// Useful for preventing ghosting when the history is no longer
     /// representative of the current frame, such as in sudden camera cuts.
@@ -235,9 +236,6 @@ pub struct SolariLighting {
     /// Also useful when switching the scene's primary light (such as the sun) off.
     /// Setting this on the frame of the switch removes stale cached light
     /// immediately, instead of letting it fade out over many frames.
-    ///
-    /// This clears all of Solari's temporal history, including the world cache,
-    /// so it is not meant for gradual lighting changes.
     ///
     /// After setting this to true, it will automatically be toggled
     /// back to false at the end of the frame.
