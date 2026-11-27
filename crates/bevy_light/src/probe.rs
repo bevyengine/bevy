@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle, HandleTemplate, RenderAssetUsages};
 use bevy_camera::visibility::{self, ViewVisibility, Visibility, VisibilityClass};
-use bevy_color::{Color, ColorToComponents, LinearRgba};
+use bevy_color::{Color, ColorToComponents, LinearRgba, Mix};
 use bevy_ecs::prelude::*;
 use bevy_ecs::template::{FromTemplate, OptionTemplate};
 use bevy_image::Image;
@@ -182,6 +182,9 @@ impl EnvironmentMapLight {
         self
     }
 
+    // Bilinear filtering of smaller faces reveals the shape of the cube.
+    const HEMISPHERICAL_GRADIENT_FACE_SIZE: u32 = 32;
+
     pub(crate) fn hemispherical_gradient_cubemap(
         top_color: Color,
         mid_color: Color,
@@ -190,6 +193,30 @@ impl EnvironmentMapLight {
         let top_color: LinearRgba = top_color.into();
         let mid_color: LinearRgba = mid_color.into();
         let bottom_color: LinearRgba = bottom_color.into();
+        // A uniform color doesn't need more than one texel.
+        let size = if top_color == mid_color && mid_color == bottom_color {
+            1
+        } else {
+            Self::HEMISPHERICAL_GRADIENT_FACE_SIZE
+        };
+
+        // Faces are in wgpu order: +X, -X, +Y, -Y, +Z, -Z.
+        let texel_color = |face: u32, x: u32, y: u32| {
+            // Texel center in [-1, 1], rows go top to bottom.
+            let u = (2 * x + 1) as f32 / size as f32 - 1.0;
+            let v = (2 * y + 1) as f32 / size as f32 - 1.0;
+            let up = match face {
+                2 => 1.0,
+                3 => -1.0,
+                _ => -v,
+            } / Vec3::new(u, v, 1.0).length();
+            if up >= 0.0 {
+                mid_color.mix(&top_color, up)
+            } else {
+                mid_color.mix(&bottom_color, -up)
+            }
+        };
+
         Image {
             texture_view_descriptor: Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
@@ -197,23 +224,19 @@ impl EnvironmentMapLight {
             }),
             ..Image::new(
                 Extent3d {
-                    width: 1,
-                    height: 1,
+                    width: size,
+                    height: size,
                     depth_or_array_layers: 6,
                 },
                 TextureDimension::D2,
-                [
-                    mid_color,
-                    mid_color,
-                    top_color,
-                    bottom_color,
-                    mid_color,
-                    mid_color,
-                ]
-                .into_iter()
-                .flat_map(|c| c.to_f32_array().map(half::f16::from_f32))
-                .flat_map(half::f16::to_le_bytes)
-                .collect(),
+                (0..6)
+                    .flat_map(|face| {
+                        (0..size).flat_map(move |y| (0..size).map(move |x| (face, x, y)))
+                    })
+                    .map(|(face, x, y)| texel_color(face, x, y))
+                    .flat_map(|c| c.to_f32_array().map(half::f16::from_f32))
+                    .flat_map(half::f16::to_le_bytes)
+                    .collect(),
                 TextureFormat::Rgba16Float,
                 RenderAssetUsages::RENDER_WORLD,
             )
@@ -479,5 +502,74 @@ pub fn automatically_add_parallax_correction_components(
         commands
             .entity(entity)
             .insert(ParallaxCorrection::default());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const POS_Y: u32 = 2;
+    const NEG_Y: u32 = 3;
+    const POS_Z: u32 = 4;
+
+    fn texel(image: &Image, face: u32, x: u32, y: u32) -> [f32; 4] {
+        let size = image.width();
+        let data = image.data.as_ref().unwrap();
+        let offset = (((face * size + y) * size + x) * 8) as usize;
+        core::array::from_fn(|i| {
+            let bytes = [data[offset + i * 2], data[offset + i * 2 + 1]];
+            half::f16::from_le_bytes(bytes).to_f32()
+        })
+    }
+
+    fn gradient() -> Image {
+        EnvironmentMapLight::hemispherical_gradient_cubemap(
+            Color::linear_rgb(2.0, 2.0, 2.0),
+            Color::linear_rgb(1.0, 1.0, 1.0),
+            Color::linear_rgb(0.0, 0.0, 0.0),
+        )
+    }
+
+    #[test]
+    fn gradient_matches_colors_at_zenith_horizon_and_nadir() {
+        let image = gradient();
+        let center = image.width() / 2;
+        let close = |a: f32, b: f32| (a - b).abs() < 0.1;
+        assert!(close(texel(&image, POS_Y, center, center)[0], 2.0));
+        assert!(close(texel(&image, NEG_Y, center, center)[0], 0.0));
+        assert!(close(texel(&image, POS_Z, center, center)[0], 1.0));
+    }
+
+    #[test]
+    fn gradient_is_continuous_across_cube_edges() {
+        let image = gradient();
+        let size = image.width();
+        assert!(size > 1, "a 1x1 face cannot represent a gradient");
+        for x in 0..size {
+            let top_edge = texel(&image, POS_Y, x, size - 1)[0];
+            let side_edge = texel(&image, POS_Z, x, 0)[0];
+            assert!(
+                (top_edge - side_edge).abs() < 0.1,
+                "seam at column {x}: {top_edge} vs {side_edge}"
+            );
+        }
+    }
+
+    #[test]
+    fn solid_color_is_uniform() {
+        let image = EnvironmentMapLight::hemispherical_gradient_cubemap(
+            Color::WHITE,
+            Color::WHITE,
+            Color::WHITE,
+        );
+        let size = image.width();
+        for face in 0..6 {
+            for y in 0..size {
+                for x in 0..size {
+                    assert_eq!(texel(&image, face, x, y), [1.0; 4]);
+                }
+            }
+        }
     }
 }
