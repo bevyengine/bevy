@@ -132,10 +132,7 @@ fn calc_layout_resolves_percentages_and_updates_context() {
 
     let style = app.world().get::<TaffyStyle>(child).unwrap();
     assert_eq!(
-        style.calcs.0[0]
-            .calc
-            .resolve(&style.calcs.0[0].context, 600.0)
-            .0,
+        Calc::resolve_function(style.calcs.0[0].function, &style.calcs.0[0].context, 600.0).0,
         230.0
     );
     let mut font_system = bevy_text::FontCx::default();

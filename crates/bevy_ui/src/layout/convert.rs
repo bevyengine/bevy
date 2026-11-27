@@ -4,16 +4,17 @@ use bevy_ecs::component::Component;
 use taffy::style_helpers;
 
 use crate::{
-    val::Calc, AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap,
-    GridAutoFlow, GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent,
-    JustifyItems, JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis,
-    PositionType, RepeatedGridTrack, UiRect, Val, ValContext,
+    val::{Calc, CalcContext},
+    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    GridPlacement, GridTrack, GridTrackRepetition, InlineDirection, JustifyContent, JustifyItems,
+    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
+    RepeatedGridTrack, UiRect, Val, ValContext,
 };
 
-/// A [`Calc`] and the context needed to resolve it during layout.
+/// A calc function and the context needed to resolve it during layout.
 #[repr(align(8))]
 pub(crate) struct StyleCalc {
-    pub(crate) calc: Calc,
+    pub(crate) function: fn(&CalcContext) -> f32,
     pub(crate) scalar: f32,
     pub(crate) context: ValContext,
 }
@@ -76,7 +77,7 @@ pub struct TaffyStyle {
 pub(crate) fn resolve_calc(handle: taffy::CalcHandle, basis: f32) -> f32 {
     // SAFETY: Taffy hands back the handle it was given, which points into a `Box<StyleCalc>` owned by the same `TaffyStyle`
     let calc = unsafe { &*handle.ptr().cast::<StyleCalc>() };
-    calc.calc.resolve(&calc.context, basis).0 * calc.scalar
+    Calc::resolve_function(calc.function, &calc.context, basis).0 * calc.scalar
 }
 
 impl TaffyStyle {
@@ -192,7 +193,7 @@ impl Val {
             Val::Calc { calc, scalar } => match calc.resolve(context, 0.) {
                 (_, true) => {
                     taffy::style::LengthPercentage::calc(calcs.store(Box::new(StyleCalc {
-                        calc,
+                        function: calc.function(),
                         scalar,
                         context: *context,
                     })))

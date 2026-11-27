@@ -836,7 +836,21 @@ impl Calc {
     /// Resolves the `Calc` to a value in physical pixels, or zero if the result isn't finite.
     /// Also returns true if the function used the percentage basis.
     pub(crate) fn resolve(self, context: &ValContext, basis: f32) -> (f32, bool) {
-        let f = CALC_FUNCTIONS.read().unwrap()[self.0 as usize];
+        Self::resolve_function(self.function(), context, basis)
+    }
+
+    /// Returns the function with this id.
+    pub(crate) fn function(self) -> fn(&CalcContext) -> f32 {
+        CALC_FUNCTIONS.read().unwrap()[self.0 as usize]
+    }
+
+    /// Resolves `f` to a value in physical pixels, or zero if the result isn't finite.
+    /// Also returns true if the function used the percentage basis.
+    pub(crate) fn resolve_function(
+        f: fn(&CalcContext) -> f32,
+        context: &ValContext,
+        basis: f32,
+    ) -> (f32, bool) {
         let calc_context = CalcContext {
             context,
             basis,
