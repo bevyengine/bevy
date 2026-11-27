@@ -1,0 +1,7 @@
+@Container {
+    @items: bsn_list! {
+        #Item1 SomeComponent
+        --
+        #Item2 @some_scene()
+    }
+}

@@ -1,0 +1,1 @@
+Foo { a: const { 1 + 2 }, b: unsafe { read() } }
