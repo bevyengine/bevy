@@ -3,7 +3,7 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::{Camera3d, MainPassResolutionOverride, Viewport};
+use bevy_camera::{visibility::RenderLayers, Camera3d, MainPassResolutionOverride, Viewport};
 use bevy_color::ColorToComponents as _;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -241,8 +241,15 @@ pub fn init_volumetric_fog_pipeline(
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
+    view_targets: Extract<Query<(RenderEntity, &VolumetricFog, Option<&RenderLayers>)>>,
+    fog_volumes: Extract<
+        Query<(
+            RenderEntity,
+            &FogVolume,
+            &GlobalTransform,
+            Option<&RenderLayers>,
+        )>,
+    >,
     volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
@@ -258,19 +265,24 @@ pub fn extract_volumetric_fog(
         return;
     }
 
-    for (entity, volumetric_fog) in view_targets.iter() {
-        commands
+    for (entity, volumetric_fog, maybe_layers) in view_targets.iter() {
+        let mut cmds = commands
             .get_entity(entity)
-            .expect("Volumetric fog entity wasn't synced.")
-            .insert(*volumetric_fog);
+            .expect("Volumetric fog entity wasn't synced.");
+        cmds.insert(*volumetric_fog);
+        if let Some(layers) = maybe_layers {
+            cmds.insert(layers.clone());
+        }
     }
 
-    for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
-        commands
+    for (entity, fog_volume, fog_transform, maybe_layers) in fog_volumes.iter() {
+        let mut cmds = commands
             .get_entity(entity)
-            .expect("Fog volume entity wasn't synced.")
-            .insert((*fog_volume).clone())
-            .insert(*fog_transform);
+            .expect("Fog volume entity wasn't synced.");
+        cmds.insert((*fog_volume).clone()).insert(*fog_transform);
+        if let Some(layers) = maybe_layers {
+            cmds.insert(layers.clone());
+        }
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
@@ -632,15 +644,20 @@ pub fn prepare_volumetric_fog_pipelines(
 pub fn prepare_volumetric_fog_uniforms(
     mut commands: Commands,
     mut volumetric_lighting_uniform_buffer: ResMut<VolumetricFogUniformBuffer>,
-    view_targets: Query<(Entity, &ExtractedView, &VolumetricFog)>,
-    fog_volumes: Query<(Entity, &FogVolume, &GlobalTransform)>,
+    view_targets: Query<(
+        Entity,
+        &ExtractedView,
+        &VolumetricFog,
+        Option<&RenderLayers>,
+    )>,
+    fog_volumes: Query<(Entity, &FogVolume, &GlobalTransform, Option<&RenderLayers>)>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut local_from_world_matrices: Local<Vec<Affine3A>>,
 ) {
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
-    for (_, _, fog_transform) in fog_volumes.iter() {
+    for (_, _, fog_transform, _) in fog_volumes.iter() {
         local_from_world_matrices.push(fog_transform.affine().inverse());
     }
 
@@ -652,14 +669,23 @@ pub fn prepare_volumetric_fog_uniforms(
         return;
     };
 
-    for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
+    let default_render_layers = RenderLayers::default();
+
+    for (view_entity, extracted_view, volumetric_fog, view_render_layers) in view_targets.iter() {
         let world_from_view = extracted_view.world_from_view.affine();
 
         let mut view_fog_volumes = vec![];
+        let view_layers = view_render_layers.unwrap_or(&default_render_layers);
 
-        for ((_, fog_volume, _), local_from_world) in
+        for ((_, fog_volume, _, fog_render_layers), local_from_world) in
             fog_volumes.iter().zip(local_from_world_matrices.iter())
         {
+            // The render layers must match
+            let fog_layers = fog_render_layers.unwrap_or(&default_render_layers);
+            if !fog_layers.intersects(view_layers) {
+                continue;
+            }
+
             // Calculate the transforms to and from 1×1×1 local space.
             let local_from_view = *local_from_world * world_from_view;
             let view_from_local = local_from_view.inverse();
