@@ -1,13 +1,12 @@
 import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_range_u, sample_cosine_hemisphere};
 import bevy_render::maths::PI;
-import package::realtime::presample_light_tiles::unpack_resolved_light_sample;
+import package::realtime::light_candidates::{generate_directional_light_candidate, generate_local_light_candidate, light_candidate_split, LightCandidate};
 import package::realtime::atmosphere::calculate_light_contribution;
 import package::scene::sampling::{trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN};
 import package::realtime::world_cache_query::query_world_cache;
 import package::realtime::bindings::{
-    light_tile_resolved_samples,
     view,
     constants,
     world_cache,
@@ -77,39 +76,49 @@ fn get_active_cell(thread_id: u32) -> u32 {
 }
 
 fn sample_random_light_ris(world_position: vec3<f32>, world_normal: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> vec3<f32> {
+    let split = light_candidate_split(constants.world_cache_local_light_sample_count);
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
-    var weight_sum = 0.0;
-    var selected_sample_radiance = vec3(0.0);
-    var selected_sample_target_function = 0.0;
-    var selected_sample_world_position = vec4(0.0);
-    let mis_weight = 1.0 / f32(constants.world_cache_direct_light_sample_count);
-    for (var i = 0u; i < constants.world_cache_direct_light_sample_count; i++) {
-        let tile_sample = light_tile_start + rand_range_u(1024u, rng);
-        let resolved_light_sample = unpack_resolved_light_sample(light_tile_resolved_samples[tile_sample], view.exposure);
-        let light_contribution = calculate_light_contribution(resolved_light_sample, world_position, world_normal);
-
-        let contribution = light_contribution.radiance * saturate(dot(light_contribution.wi, world_normal));
-        let target_function = luminance(contribution);
-        let resampling_weight = mis_weight * (target_function * light_contribution.inverse_pdf);
-
-        weight_sum += resampling_weight;
-
-        if rand_f(rng) * weight_sum < resampling_weight {
-            selected_sample_radiance = contribution;
-            selected_sample_target_function = target_function;
-            selected_sample_world_position = resolved_light_sample.world_position;
-        }
+    var ris: WorldCacheLightRisState;
+    for (var i = 0u; i < split.directional; i++) {
+        add_world_cache_light_ris_candidate(&ris, generate_directional_light_candidate(split, rng), world_position, world_normal, rng);
+    }
+    for (var i = 0u; i < split.local; i++) {
+        add_world_cache_light_ris_candidate(&ris, generate_local_light_candidate(split, light_tile_start, rng), world_position, world_normal, rng);
     }
 
     var unbiased_contribution_weight = 0.0;
-    if any(selected_sample_radiance != vec3(0.0)) {
-        let inverse_target_function = select(0.0, 1.0 / selected_sample_target_function, selected_sample_target_function > 0.0);
-        unbiased_contribution_weight = weight_sum * inverse_target_function;
+    if any(ris.selected_sample_radiance != vec3(0.0)) {
+        let inverse_target_function = select(0.0, 1.0 / ris.selected_sample_target_function, ris.selected_sample_target_function > 0.0);
+        unbiased_contribution_weight = ris.weight_sum * inverse_target_function;
 
-        unbiased_contribution_weight *= trace_visibility(world_position + (world_normal * RAY_T_MIN), selected_sample_world_position, WORLD_CACHE_RAY_FLAG);
+        unbiased_contribution_weight *= trace_visibility(world_position + (world_normal * RAY_T_MIN), ris.selected_sample_world_position, WORLD_CACHE_RAY_FLAG);
     }
 
-    return selected_sample_radiance * unbiased_contribution_weight;
+    return ris.selected_sample_radiance * unbiased_contribution_weight;
+}
+
+struct WorldCacheLightRisState {
+    weight_sum: f32,
+    selected_sample_radiance: vec3<f32>,
+    selected_sample_target_function: f32,
+    selected_sample_world_position: vec4<f32>,
+}
+
+fn add_world_cache_light_ris_candidate(ris: ptr<function, WorldCacheLightRisState>, candidate: LightCandidate, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) {
+    let resolved_light_sample = candidate.resolved_light_sample;
+    let light_contribution = calculate_light_contribution(resolved_light_sample, world_position, world_normal);
+
+    let contribution = light_contribution.radiance * saturate(dot(light_contribution.wi, world_normal));
+    let target_function = luminance(contribution);
+    let resampling_weight = target_function * light_contribution.inverse_pdf;
+
+    (*ris).weight_sum += resampling_weight;
+
+    if rand_f(rng) * (*ris).weight_sum < resampling_weight {
+        (*ris).selected_sample_radiance = contribution;
+        (*ris).selected_sample_target_function = target_function;
+        (*ris).selected_sample_world_position = resolved_light_sample.world_position;
+    }
 }

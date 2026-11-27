@@ -52,6 +52,7 @@ impl Plugin for SolariLightingPlugin {
         load_shader_library!(app, "bindings.wesl");
         load_shader_library!(app, "atmosphere.wesl");
         load_shader_library!(app, "presample_light_tiles.wesl");
+        load_shader_library!(app, "light_candidates.wesl");
         load_shader_library!(app, "initial_path.wesl");
         embedded_asset!(app, "restir.wesl");
         embedded_asset!(app, "no_restir.wesl");
@@ -141,21 +142,22 @@ pub struct SolariLighting {
     /// and will lead to increased artifacts.
     pub confidence_weight_cap: f32,
 
-    /// Number of direct light samples taken for the camera's primary hit during
-    /// initial sampling.
+    /// Number of local (point, spot, rect, and emissive mesh) light samples taken for the
+    /// camera's primary hit during pathtracing. Directional lights get one sample of their own
+    /// on top of these.
     ///
     /// Higher values reduce noise in directly-lit areas at the cost of more work
     /// per frame. Lower values are faster but noisier.
-    pub primary_di_samples: u32,
+    pub primary_local_light_samples: u32,
 
-    /// Number of direct light samples taken at each indirect bounce during
-    /// initial sampling.
+    /// Number of local (point, spot, rect, and emissive mesh) light samples taken at each indirect
+    /// bounce during pathtracing. Directional lights get one sample of their own on top of these.
     ///
     /// Higher values reduce noise in indirect lighting at the cost of more work
     /// per frame. Lower values are faster but noisier.
-    pub secondary_di_samples: u32,
+    pub secondary_local_light_samples: u32,
 
-    /// Maximum number of bounces traced when generating an initial path.
+    /// Maximum number of bounces traced when pathtracing.
     ///
     /// Higher values capture more detail in nested reflections and more indirect lighting,
     /// at the cost of more rays traced per frame. Lower values are faster but lose
@@ -169,12 +171,13 @@ pub struct SolariLighting {
     /// but are noisier and less stable.
     pub world_cache_max_temporal_samples: f32,
 
-    /// How many direct light samples each world cache cell takes when updating
-    /// each frame.
+    /// How many local (point, spot, rect, and emissive mesh) light samples each world cache cell
+    /// takes when updating each frame. Directional lights get one sample of their own on top of
+    /// these.
     ///
     /// Higher values reduce noise in cached lighting at the cost of more work
     /// per frame. Lower values are faster but noisier.
-    pub world_cache_direct_light_sample_count: u32,
+    pub world_cache_local_light_sample_count: u32,
 
     /// Maximum distance to trace GI rays between two world cache cells.
     ///
@@ -242,11 +245,11 @@ impl Default for SolariLighting {
         Self {
             restir: false,
             confidence_weight_cap: 8.0,
-            primary_di_samples: 8,
-            secondary_di_samples: 4,
+            primary_local_light_samples: 8,
+            secondary_local_light_samples: 4,
             max_bounces: 3,
             world_cache_max_temporal_samples: 32.0,
-            world_cache_direct_light_sample_count: 32,
+            world_cache_local_light_sample_count: 32,
             world_cache_max_gi_ray_distance: 50.0,
             world_cache_max_cell_updates_per_frame: 40000,
             world_cache_position_base_cell_size: 0.15,
