@@ -193,7 +193,7 @@ impl Val {
             Val::Calc { calc, scalar } => match calc.resolve(context, 0.) {
                 (_, true) => {
                     taffy::style::LengthPercentage::calc(calcs.store(Box::new(StyleCalc {
-                        function: calc.function(),
+                        function: calc.get(),
                         scalar,
                         context: *context,
                     })))

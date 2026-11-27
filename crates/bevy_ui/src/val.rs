@@ -817,11 +817,12 @@ static CALC_FUNCTIONS: RwLock<Vec<fn(&CalcContext) -> f32>> = RwLock::new(Vec::n
 pub struct Calc(u16);
 
 impl Calc {
-    /// Returns the id of `f`, see [`Val::calc`].
+    /// Registers a function and returns a 2-byte id that can be used to look it up.
+    /// Storing the id instead of a function pointer keeps [`Val`] at 8 bytes.
     ///
     /// # Panics
     ///
-    /// Panics if more than `u16::MAX + 1` different functions are used.
+    /// Panics if more than 65,536 different functions are registered.
     pub fn new(f: fn(&CalcContext) -> f32) -> Self {
         let mut functions = CALC_FUNCTIONS.write().unwrap();
         let index = match functions.iter().position(|g| core::ptr::fn_addr_eq(*g, f)) {
@@ -835,18 +836,18 @@ impl Calc {
     }
 
     /// Resolves the `Calc` to a value in physical pixels, or zero if the result isn't finite.
-    /// Also returns true if the function used the percentage basis.
+    /// Returns the value, along with true if the function used the percentage basis or false otherwise.
     pub(crate) fn resolve(self, context: &ValContext, basis: f32) -> (f32, bool) {
-        Self::resolve_function(self.function(), context, basis)
+        Self::resolve_function(self.get(), context, basis)
     }
 
-    /// Returns the function with this id.
-    pub(crate) fn function(self) -> fn(&CalcContext) -> f32 {
+    /// Returns the function corresponding to this id.
+    pub(crate) fn get(self) -> fn(&CalcContext) -> f32 {
         CALC_FUNCTIONS.read().unwrap()[self.0 as usize]
     }
 
     /// Resolves `f` to a value in physical pixels, or zero if the result isn't finite.
-    /// Also returns true if the function used the percentage basis.
+    /// Returns the value, along with true if the function used the percentage basis or false otherwise.
     pub(crate) fn resolve_function(
         f: fn(&CalcContext) -> f32,
         context: &ValContext,
