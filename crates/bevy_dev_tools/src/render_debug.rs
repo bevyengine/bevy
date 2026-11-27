@@ -794,6 +794,8 @@ mod tests {
                 RenderAdapterInfo::new(adapter_info),
                 RenderAdapter::new(adapter),
                 RenderInstance::new(instance),
+                #[cfg(feature = "raw_vulkan_init")]
+                bevy_render::renderer::raw_vulkan_init::AdditionalVulkanFeatures::default(),
             ),
             ..Default::default()
         }

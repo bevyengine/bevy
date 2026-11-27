@@ -20,6 +20,9 @@ render = [
 ]
 webgl = ["dep:bevy_render", "bevy_render?/webgl"]
 webgpu = ["dep:bevy_render", "bevy_render?/webgpu"]
+# Clippy runs with --all-features, which turns this on for bevy_render and
+# adds a parameter to RenderCreation::manual. The test has to see the same flag.
+raw_vulkan_init = ["bevy_render?/raw_vulkan_init"]
 schedule_data = ["dep:serde", "dep:ron", "dep:thiserror"]
 serialize = [
   "dep:serde",
