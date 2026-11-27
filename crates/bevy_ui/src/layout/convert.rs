@@ -74,7 +74,7 @@ pub struct TaffyStyle {
     unsafe_code,
     reason = "Taffy hands back the handle it was given, which points into a `Box<StyleCalc>` owned by the same `TaffyStyle`"
 )]
-pub(crate) fn resolve_calc(handle: taffy::CalcHandle, basis: f32) -> f32 {
+pub(crate) fn resolve_taffy_calc(handle: taffy::CalcHandle, basis: f32) -> f32 {
     // SAFETY: Taffy hands back the handle it was given, which points into a `Box<StyleCalc>` owned by the same `TaffyStyle`
     let calc = unsafe { &*handle.ptr().cast::<StyleCalc>() };
     Calc::resolve_function(calc.function, &calc.context, basis).0 * calc.scalar
@@ -778,7 +778,10 @@ mod tests {
         let length = (Val::calc(|ctx| (ctx.em(1.) + ctx.percent(10.0)).min(ctx.rem(1.))) * 2.)
             .into_length_percentage(&context, &mut calcs);
         assert_eq!(calcs.0.len(), 1);
-        assert_eq!(resolve_calc(length.into_raw().calc_value(), 100.0), 68.0);
+        assert_eq!(
+            resolve_taffy_calc(length.into_raw().calc_value(), 100.0),
+            68.0
+        );
     }
 
     #[test]

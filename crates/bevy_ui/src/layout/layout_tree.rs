@@ -586,7 +586,7 @@ impl<'a> UiLayoutTree<'a, '_, '_> {
                 (_, false) => compute_leaf_layout(
                     inputs,
                     style,
-                    super::convert::resolve_calc,
+                    super::convert::resolve_taffy_calc,
                     |known_dimensions, available_space| {
                         (tree.measure_function)(
                             known_dimensions,
@@ -631,7 +631,7 @@ impl TraverseTree for UiLayoutTree<'_, '_, '_> {}
 
 impl<'tree, 'w, 's> LayoutPartialTree for UiLayoutTree<'tree, 'w, 's> {
     fn resolve_calc_value(&self, val: taffy::CalcHandle, basis: f32) -> f32 {
-        super::convert::resolve_calc(val, basis)
+        super::convert::resolve_taffy_calc(val, basis)
     }
 
     type CoreContainerStyle<'a>

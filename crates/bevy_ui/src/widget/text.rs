@@ -1,5 +1,5 @@
 use crate::{
-    layout_tree::ComputedLayout, resolve_calc, ComputedNode, ComputedUiRenderTargetInfo,
+    layout_tree::ComputedLayout, resolve_taffy_calc, ComputedNode, ComputedUiRenderTargetInfo,
     ContentSize, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
 };
 use bevy_asset::Assets;
@@ -218,8 +218,8 @@ impl Measure for TextMeasure {
                 width: width.effective,
                 height: height.effective,
             };
-            let padding = style.padding.resolve_or_zero(context, resolve_calc);
-            let border = style.border.resolve_or_zero(context, resolve_calc);
+            let padding = style.padding.resolve_or_zero(context, resolve_taffy_calc);
+            let border = style.border.resolve_or_zero(context, resolve_taffy_calc);
             let total_x_inset = padding.left + padding.right + border.left + border.right;
             width.min = width.min.map(|min| (min - total_x_inset).max(0.));
             width.max = width.max.map(|max| (max - total_x_inset).max(0.));

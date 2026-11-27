@@ -8,7 +8,7 @@ use taffy::MaybeMath;
 use taffy::MaybeResolve;
 use taffy::ResolveOrZero;
 
-use crate::resolve_calc;
+use crate::resolve_taffy_calc;
 use crate::widget::ImageMeasure;
 
 use crate::widget::TextMeasure;
@@ -58,12 +58,12 @@ impl MeasureArgs<'_> {
 
     /// Resolve the node's padding against the given size.
     pub fn resolve_padding(&self, size: taffy::Size<Option<f32>>) -> taffy::Rect<f32> {
-        self.style.padding.resolve_or_zero(size, resolve_calc)
+        self.style.padding.resolve_or_zero(size, resolve_taffy_calc)
     }
 
     /// Resolve the node's border against the given size.
     pub fn resolve_border(&self, size: taffy::Size<Option<f32>>) -> taffy::Rect<f32> {
-        self.style.border.resolve_or_zero(size, resolve_calc)
+        self.style.border.resolve_or_zero(size, resolve_taffy_calc)
     }
 }
 
@@ -88,9 +88,9 @@ fn resolve_axis(
     max_dim: taffy::style::LengthPercentageAuto,
 ) -> ResolvedAxis {
     let available = available_space.into_option();
-    let min = min_dim.maybe_resolve(available, resolve_calc);
-    let preferred = size_dim.maybe_resolve(available, resolve_calc);
-    let max = max_dim.maybe_resolve(available, resolve_calc);
+    let min = min_dim.maybe_resolve(available, resolve_taffy_calc);
+    let preferred = size_dim.maybe_resolve(available, resolve_taffy_calc);
+    let max = max_dim.maybe_resolve(available, resolve_taffy_calc);
     ResolvedAxis {
         min,
         preferred,
