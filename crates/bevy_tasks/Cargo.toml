@@ -59,7 +59,7 @@ web-task = "1"
 async-task = { version = "4.4.0", default-features = false, features = [
   "portable-atomic",
 ] }
-heapless = { version = "0.9", default-features = false, features = [
+heapless = { version = "0.9.4", default-features = false, features = [
   "portable-atomic",
 ] }
 atomic-waker = { version = "1", default-features = false, features = [
