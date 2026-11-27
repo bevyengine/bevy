@@ -748,9 +748,56 @@ mod tests {
     use bevy_image::ImagePlugin;
     use bevy_input::InputPlugin;
     use bevy_mesh::MeshPlugin;
-    use bevy_render::{renderer::RenderDevice, RenderApp, RenderPlugin};
+    use bevy_platform::future::block_on;
+    use bevy_render::{
+        renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue},
+        settings::RenderCreation,
+        RenderApp, RenderPlugin,
+    };
     use bevy_time::TimePlugin;
     use bevy_window::{ExitCondition, WindowPlugin};
+    use wgpu::{
+        BackendOptions, Backends, DeviceDescriptor, Instance, InstanceDescriptor, InstanceFlags,
+        NoopBackendOptions, RequestAdapterOptions,
+    };
+
+    /// `RenderPlugin::default()` asks wgpu for a real adapter. The CI build
+    /// machines have no GPU, so this test builds the same renderer resources
+    /// on wgpu's noop backend.
+    fn headless_render_plugin() -> RenderPlugin {
+        let instance = Instance::new(InstanceDescriptor {
+            backends: Backends::NOOP,
+            flags: InstanceFlags::default(),
+            memory_budget_thresholds: Default::default(),
+            display: None,
+            backend_options: BackendOptions {
+                noop: NoopBackendOptions {
+                    enable: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        });
+        let adapter = block_on(instance.request_adapter(&RequestAdapterOptions::default()))
+            .expect("the noop backend should always produce an adapter");
+        let adapter_info = adapter.get_info();
+        let (device, queue) = block_on(adapter.request_device(&DeviceDescriptor {
+            required_limits: adapter.limits(),
+            ..Default::default()
+        }))
+        .expect("the noop backend should always produce a device");
+
+        RenderPlugin {
+            render_creation: RenderCreation::manual(
+                RenderDevice::new(device),
+                RenderQueue::new(queue),
+                RenderAdapterInfo::new(adapter_info),
+                RenderAdapter::new(adapter),
+                RenderInstance::new(instance),
+            ),
+            ..Default::default()
+        }
+    }
 
     /// `dev` can be enabled without `3d`, which does not insert [`MeshPipelineViewLayouts`].
     /// Starting the overlay plugin in that state must not panic. See bevyengine/bevy#26618.
@@ -770,7 +817,7 @@ mod tests {
             InputPlugin,
             MeshPlugin,
             CameraPlugin,
-            RenderPlugin::default(),
+            headless_render_plugin(),
             ImagePlugin::default(),
             CorePipelinePlugin,
             RenderDebugOverlayPlugin,
@@ -781,7 +828,7 @@ mod tests {
 
         let render_world = app
             .get_sub_app(RenderApp)
-            .expect("render app should exist when a GPU backend is available")
+            .expect("render app should exist")
             .world();
         assert!(
             render_world.contains_resource::<RenderDevice>(),
