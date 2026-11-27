@@ -10,7 +10,7 @@ use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     token::{Comma, DotDot},
-    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result, Type,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
@@ -82,7 +82,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     // (see https://github.com/gfx-rs/wgpu/pull/9081), this conditional
     // can be removed and BUFFER_BINDING_ARRAY required unconditionally.
     let mut has_buffer_binding_arrays = false;
-    let mut attr_prepared_data_ident = None;
+    let mut attr_prepared_data_type = None;
     // After the first attribute pass, this will be `None` if the object isn't
     // bindless and `Some` if it is.
     let mut attr_bindless_count = None;
@@ -105,11 +105,14 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     for attr in &ast.attrs {
         if let Some(attr_ident) = attr.path().get_ident() {
             if attr_ident == BIND_GROUP_DATA_ATTRIBUTE_NAME {
-                if let Ok(prepared_data_ident) =
-                    attr.parse_args_with(|input: ParseStream| input.parse::<Ident>())
-                {
-                    attr_prepared_data_ident = Some(prepared_data_ident);
-                }
+                // Accept any type, including paths such as `my_mod::MyData`.
+                let prepared_data_type = attr.parse_args::<Type>().map_err(|err| {
+                    Error::new(
+                        err.span(),
+                        "Expected a type, e.g. `#[bind_group_data(MyData)]` or `#[bind_group_data(my_mod::MyData)]`",
+                    )
+                })?;
+                attr_prepared_data_type = Some(prepared_data_type);
             } else if attr_ident == BINDLESS_ATTRIBUTE_NAME {
                 attr_bindless_count = Some(BindlessSlabResourceLimitAttr::Auto);
                 if let Meta::List(_) = attr.meta {
@@ -919,7 +922,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    let (prepared_data, get_prepared_data) = if let Some(prepared) = attr_prepared_data_ident {
+    let (prepared_data, get_prepared_data) = if let Some(prepared) = attr_prepared_data_type {
         let get_prepared_data = quote! { self.into() };
         (quote! {#prepared}, get_prepared_data)
     } else {
