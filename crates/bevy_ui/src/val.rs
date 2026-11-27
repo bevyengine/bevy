@@ -1,9 +1,9 @@
 use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
+use bevy_platform::sync::RwLock;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{EmSize, FontSize, RemSize, DEFAULT_REM_SIZE_PX};
 use core::cell::Cell;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
-use std::sync::RwLock;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
