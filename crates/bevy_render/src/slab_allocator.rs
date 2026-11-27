@@ -407,8 +407,12 @@ where
     pub allocator: &'a mut SlabAllocator<I>,
     /// The set of slabs that have grown and need to be reallocated.
     slabs_to_reallocate: HashMap<SlabId<I>, SlabToReallocate>,
-    /// IDs of slabs that became empty because everything in them was
-    /// reallocated elsewhere.
+    /// IDs of slabs that became empty because everything in them was freed,
+    /// whether by [`Self::free`] or by an allocation being reallocated
+    /// elsewhere.
+    ///
+    /// Slabs are only dropped when the stage is committed, so one that gets
+    /// refilled before then survives.
     empty_slabs: HashSet<SlabId<I>>,
 }
 
@@ -433,8 +437,8 @@ where
     /// Allocates space for an object of the given size with the given key and layout.
     ///
     /// If the key already corresponds to a live allocation, that allocation is
-    /// freed first. Prefer freeing it through a [`DeallocationStage`] before the
-    /// allocation stage begins, so that the allocator has every one of the
+    /// freed first. Prefer freeing it with [`Self::free`] before allocating
+    /// anything in this stage, so that the allocator has every one of the
     /// frame's holes to choose from rather than just this object's.
     pub fn allocate(
         &mut self,
@@ -464,11 +468,22 @@ where
         self.allocator.allocate_large(key, layout);
     }
 
+    /// Schedules a free operation for the allocation with the given key.
+    ///
+    /// If this empties the allocation's slab, that slab is dropped at commit
+    /// unless a later allocation in this stage refills it. Freeing a key that
+    /// holds no allocation is a no-op, so callers are free to speculatively
+    /// free keys that may never have been allocated.
+    pub fn free(&mut self, key: &I::Key) {
+        self.allocator
+            .free_existing_allocation(key, &mut self.empty_slabs);
+    }
+
     /// Completes the transaction, performing any queued resize operations.
     pub fn commit(mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        // Drop slabs that were emptied by their contents being reallocated
-        // elsewhere. Do this before growing anything, so that we never create a
-        // buffer for a slab we're about to throw away.
+        // Drop slabs that were emptied by frees or by their contents being
+        // reallocated elsewhere. Do this before growing anything, so that we
+        // never create a buffer for a slab we're about to throw away.
         self.allocator.free_empty_slabs(self.empty_slabs.drain());
 
         for (slab_id, slab_to_grow) in self.slabs_to_reallocate.drain() {

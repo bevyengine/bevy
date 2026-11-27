@@ -24,8 +24,8 @@ use crate::{
     render_asset::{prepare_assets, ExtractedAssets},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     slab_allocator::{
-        Slab, SlabAllocationBufferSlice, SlabAllocator, SlabAllocatorSettings, SlabId, SlabItem,
-        SlabItemLayout,
+        AllocationStage, Slab, SlabAllocationBufferSlice, SlabAllocator, SlabAllocatorSettings,
+        SlabId, SlabItem, SlabItemLayout,
     },
     GpuResourceAppExt, Render, RenderApp, RenderSystems,
 };
@@ -257,10 +257,8 @@ pub fn allocate_and_free_meshes(
     // Clear the list of meshes displaced by last frame's slab growth.
     mesh_allocator.clear_displaced_keys();
 
-    // Process removed or modified meshes.
-    mesh_allocator.free_meshes(&extracted_meshes);
-
-    // Process newly-added or modified meshes.
+    // Free the data of removed or modified meshes, then process the
+    // newly-added or modified ones.
     mesh_allocator.allocate_meshes(
         &mesh_allocator_settings,
         &extracted_meshes,
@@ -415,8 +413,9 @@ impl MeshAllocator {
         })
     }
 
-    /// Processes newly-loaded meshes, allocating room in the slabs for their
-    /// mesh data and performing upload operations as appropriate.
+    /// Frees the old data of the frame's removed and modified meshes, then
+    /// processes the newly-loaded ones, allocating room in the slabs for
+    /// their mesh data and performing upload operations as appropriate.
     fn allocate_meshes(
         &mut self,
         mesh_allocator_settings: &MeshAllocatorSettings,
@@ -426,6 +425,13 @@ impl MeshAllocator {
         render_queue: &RenderQueue,
     ) {
         let mut allocation_stage = self.slab_allocator.stage_allocation();
+
+        // Free the data of the removed, modified, and re-extracted meshes
+        // before allocating anything, so that the allocations below can reuse
+        // the holes left behind. Freeing into the same stage as the
+        // allocations keeps a reallocated mesh's slabs alive: slabs emptied
+        // by the frees are only dropped at commit if nothing refills them.
+        Self::free_meshes(&mut allocation_stage, extracted_meshes);
 
         // Loop over each mesh that was extracted this frame.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
@@ -625,10 +631,14 @@ impl MeshAllocator {
     }
 
     /// Frees allocations for meshes that were removed, modified, or re-extracted
-    /// this frame.
-    fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
-        let mut deallocation_stage = self.slab_allocator.stage_deallocation();
-
+    /// this frame, recording the frees in the given [`AllocationStage`].
+    ///
+    /// A slab emptied by the frees is dropped when the stage is committed,
+    /// unless it's refilled before then.
+    fn free_meshes(
+        allocation_stage: &mut AllocationStage<'_, MeshSlabItem>,
+        extracted_meshes: &ExtractedAssets<RenderMesh>,
+    ) {
         // TODO: Consider explicitly reusing allocations for changed meshes of
         // the same size
 
@@ -644,14 +654,12 @@ impl MeshAllocator {
             .chain(extracted_meshes.added.iter());
 
         for mesh_id in meshes_to_free {
-            deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Metadata));
-            deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Vertex));
-            deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Index));
+            allocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Metadata));
+            allocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Vertex));
+            allocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::Index));
             #[cfg(feature = "morph")]
-            deallocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget));
+            allocation_stage.free(&MeshAllocationKey::new(*mesh_id, ElementClass::MorphTarget));
         }
-
-        deallocation_stage.commit();
     }
 }
 
@@ -752,6 +760,7 @@ mod tests {
     use super::*;
     use crate::test_utils::create_dummy_device;
     use bevy_asset::{uuid::Uuid, RenderAssetUsages};
+    use bevy_ecs::{system::RunSystemOnce, world::World};
     use bevy_mesh::PrimitiveTopology;
     use bevy_shape::Aabb3d;
     use glam::{Vec2, Vec3};
@@ -850,6 +859,22 @@ mod tests {
         extracted_meshes
     }
 
+    /// Runs [`MeshAllocator::free_meshes`] on the given extraction output,
+    /// committing the stage afterwards so that the frees take effect.
+    ///
+    /// This mirrors the first step of `allocate_meshes`, letting tests free
+    /// meshes without allocating any new data.
+    fn free_meshes(
+        mesh_allocator: &mut MeshAllocator,
+        extracted_meshes: &ExtractedAssets<RenderMesh>,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+    ) {
+        let mut allocation_stage = mesh_allocator.stage_allocation();
+        MeshAllocator::free_meshes(&mut allocation_stage, extracted_meshes);
+        allocation_stage.commit(render_device, render_queue);
+    }
+
     /// `free_meshes` must release meshes that are merely being re-extracted, not
     /// only those flagged `removed` or `modified`.
     #[test]
@@ -873,7 +898,12 @@ mod tests {
 
         // Being present in `added` alone must be enough to release the previous
         // allocation.
-        mesh_allocator.free_meshes(&extracted_meshes);
+        free_meshes(
+            &mut mesh_allocator,
+            &extracted_meshes,
+            &render_device,
+            &render_queue,
+        );
 
         assert!(
             mesh_allocator.key_to_slab.is_empty(),
@@ -906,7 +936,12 @@ mod tests {
 
         let mut extracted_meshes = ExtractedAssets::<RenderMesh>::default();
         extracted_meshes.modified.insert(mesh_id);
-        mesh_allocator.free_meshes(&extracted_meshes);
+        free_meshes(
+            &mut mesh_allocator,
+            &extracted_meshes,
+            &render_device,
+            &render_queue,
+        );
 
         assert!(
             mesh_allocator.key_to_slab.is_empty(),
@@ -956,7 +991,12 @@ mod tests {
             ElementClass::MorphTarget
         ));
 
-        mesh_allocator.free_meshes(&extracted_meshes);
+        free_meshes(
+            &mut mesh_allocator,
+            &extracted_meshes,
+            &render_device,
+            &render_queue,
+        );
 
         assert!(
             mesh_allocator.key_to_slab.is_empty(),
@@ -990,7 +1030,6 @@ mod tests {
 
         // The same ID comes back as a bare vertex-only mesh.
         let extracted_meshes = extracted_mesh(mesh_id, test_mesh());
-        mesh_allocator.free_meshes(&extracted_meshes);
         mesh_allocator.allocate_meshes(
             &settings,
             &extracted_meshes,
@@ -1043,7 +1082,6 @@ mod tests {
         // Adding a normal attribute widens the vertex, which needs a slab with a
         // different element layout.
         let extracted_meshes = extracted_mesh(mesh_id, wider_vertex_mesh());
-        mesh_allocator.free_meshes(&extracted_meshes);
         mesh_allocator.allocate_meshes(
             &settings,
             &extracted_meshes,
@@ -1064,6 +1102,46 @@ mod tests {
             "the slab the mesh moved out of was not reclaimed"
         );
         assert!(mesh_allocator.mesh_vertex_slice(&mesh_id).is_some());
+    }
+
+    /// Re-extracting the only mesh in its slabs must keep those slabs rather
+    /// than tearing them down and recreating them: the mesh is freed and
+    /// reallocated in a single stage, so its slabs are refilled before commit
+    /// can drop them.
+    #[test]
+    fn reextracting_the_only_mesh_in_its_slabs_keeps_them() {
+        let (render_device, render_queue) = create_dummy_device();
+        let mut world = World::new();
+        world.insert_resource(mesh_allocator(true));
+        world.insert_resource(MeshAllocatorSettings::default());
+        world.insert_resource(MeshVertexBufferLayouts::default());
+        world.insert_resource(render_device);
+        world.insert_resource(render_queue);
+
+        let mesh_id = mesh_id(1);
+        let frame = |world: &mut World, extracted_meshes: ExtractedAssets<RenderMesh>| {
+            world.insert_resource(extracted_meshes);
+            world.run_system_once(allocate_and_free_meshes).unwrap();
+            let mesh_allocator = world.resource::<MeshAllocator>();
+            [ElementClass::Vertex, ElementClass::Index].map(|class| {
+                mesh_allocator
+                    .key_to_slab
+                    .get(&MeshAllocationKey::new(mesh_id, class))
+                    .copied()
+            })
+        };
+
+        let original_slabs = frame(&mut world, extracted_mesh(mesh_id, full_mesh()));
+        assert!(original_slabs.iter().all(Option::is_some));
+
+        for build in [extracted_mesh, modified_mesh] {
+            for _ in 0..4 {
+                assert_eq!(
+                    frame(&mut world, build(mesh_id, full_mesh())),
+                    original_slabs
+                );
+            }
+        }
     }
 
     /// One frame-loop scenario for [`assert_steady_state`].
@@ -1105,7 +1183,6 @@ mod tests {
         let mut baseline = None;
         for _ in 0..rounds {
             let extracted_meshes = build(mesh_id, build_mesh());
-            mesh_allocator.free_meshes(&extracted_meshes);
             mesh_allocator.allocate_meshes(
                 &settings,
                 &extracted_meshes,
