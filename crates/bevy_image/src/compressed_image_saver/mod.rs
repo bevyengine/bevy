@@ -119,6 +119,17 @@ pub struct CompressedImageSaver {
     inner: CompressedImageSaverUniversal,
 }
 
+impl CompressedImageSaver {
+    /// The name of the default processor registered by the [`ImagePlugin`].
+    ///
+    /// [`ImagePlugin`]: crate::ImagePlugin
+    pub const DEFAULT_PROCESSOR_NAME: &'static str = "CompressImage";
+    /// The name of the default processor for HDR images registered by the [`ImagePlugin`].
+    ///
+    /// [`ImagePlugin`]: crate::ImagePlugin
+    pub const DEFAULT_HDR_PROCESSOR_NAME: &'static str = "CompressHdrImage";
+}
+
 impl AssetSaver for CompressedImageSaver {
     type Asset = Image;
 
