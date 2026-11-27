@@ -94,6 +94,9 @@ arrayvec = { version = "0.7", default-features = false }
 indexmap = { version = "2" }
 wgpu-types = "30"
 
+[dev-dependencies]
+wgpu = { version = "30", default-features = false, features = ["noop"] }
+
 [lints]
 workspace = true
 
