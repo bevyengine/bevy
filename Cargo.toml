@@ -5496,14 +5496,6 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "testbed_full_ui"
-path = "examples/testbed/full_ui.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.testbed_full_ui]
-hidden = true
-
-[[example]]
 name = "testbed_text"
 path = "examples/testbed/text.rs"
 doc-scrape-examples = true
