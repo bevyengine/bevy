@@ -824,12 +824,23 @@ impl Calc {
     ///
     /// Panics if more than 65,536 different functions are registered.
     pub fn new(f: fn(&CalcContext) -> f32) -> Self {
-        let mut functions = CALC_FUNCTIONS.write().unwrap();
-        let index = match functions.iter().position(|g| core::ptr::fn_addr_eq(*g, f)) {
+        let index = CALC_FUNCTIONS
+            .read()
+            .unwrap()
+            .iter()
+            .position(|g| core::ptr::fn_addr_eq(*g, f));
+        let index = match index {
             Some(index) => index,
             None => {
-                functions.push(f);
-                functions.len() - 1
+                let mut functions = CALC_FUNCTIONS.write().unwrap();
+                // Another thread may have added `f` since the read lock was released.
+                match functions.iter().position(|g| core::ptr::fn_addr_eq(*g, f)) {
+                    Some(index) => index,
+                    None => {
+                        functions.push(f);
+                        functions.len() - 1
+                    }
+                }
             }
         };
         Calc(u16::try_from(index).expect("too many calc functions"))
