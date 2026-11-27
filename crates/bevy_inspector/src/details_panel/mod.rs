@@ -5,6 +5,7 @@ mod edit;
 mod entity_section;
 mod rows;
 mod sync;
+mod ticks;
 mod walk;
 
 #[cfg(test)]
@@ -28,6 +29,7 @@ use alloc::{
 
 use bevy_color::Color;
 use bevy_ecs::{
+    change_detection::{ComponentTicks, Tick},
     component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
     event::EntityEvent,
@@ -301,6 +303,7 @@ pub(crate) struct ComponentDetails {
     pub(crate) name: String,
     pub(crate) memory: String,
     pub(crate) fields: Vec<FieldEntry>,
+    pub(crate) ticks: Option<ComponentTicks>,
 }
 
 /// The group spawned for one component, whether its fields were spawned, and the rows they were
@@ -310,6 +313,8 @@ struct GroupWidget {
     entity: Entity,
     expanded: bool,
     layout: Vec<RowLayout>,
+    name: Option<Entity>,
+    ticks: Option<Entity>,
 }
 
 /// The parts of a field row that decide which widgets it is spawned with.
@@ -374,6 +379,8 @@ pub struct DetailsIndex {
     body: Option<Entity>,
     selection: Option<InspectableEntity>,
     empty: Option<EmptyState>,
+    changed: HashMap<ComponentKey, Tick>,
+    inspector_writes: HashMap<(Entity, ComponentKey), Tick>,
 }
 
 impl DetailsIndex {

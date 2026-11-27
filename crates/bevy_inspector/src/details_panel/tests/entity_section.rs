@@ -246,7 +246,7 @@ fn an_unchanged_entity_keeps_its_row_texts_across_refreshes() {
     assert_eq!(text_ticks(&mut app, group), ticks);
 }
 
-fn text_ticks(app: &mut App, root: Entity) -> Vec<(Entity, bevy_ecs::change_detection::Tick)> {
+fn text_ticks(app: &mut App, root: Entity) -> Vec<(Entity, Tick)> {
     let mut ticks = Vec::new();
     let mut stack = alloc::vec![root];
     while let Some(entity) = stack.pop() {

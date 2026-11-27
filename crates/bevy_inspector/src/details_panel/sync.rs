@@ -13,7 +13,7 @@ use bevy_dev_tools::inspection::{
     extension_methods::WorldInspectionExtensionTrait,
 };
 use bevy_ecs::{
-    component::ComponentInfo,
+    component::{Component, ComponentInfo},
     entity::Entity,
     hierarchy::{ChildOf, Children},
     query::With,
@@ -48,6 +48,7 @@ use super::{
     entity_section::prepend_entity_section,
     inspector_details_toggled,
     rows::{apply_value, descendant_with, spawn_child_scene, spawn_fields},
+    ticks::{show_ticks, spawn_ticks_row, written_by_app},
     walk::field_entries,
     ComponentDetails, ComponentKey, DetailsCollapsed, DetailsColumnSplits, DetailsIndex,
     DetailsPanelSync, EmptyState, FieldEntry, FieldValue, GroupWidget, InspectorDetailsBody,
@@ -102,10 +103,15 @@ pub fn sync_details_panel(world: &mut World) {
         reset_body(world, body, selection.clone(), empty);
     } else if selection_changed {
         discard_focused_group(world);
-        world.resource_mut::<DetailsIndex>().selection = selection.clone();
+        let mut index = world.resource_mut::<DetailsIndex>();
+        index.selection = selection.clone();
+        index.changed.clear();
     }
+    let written = maybe_selected
+        .map(|entity| written_by_app(world, entity, &components))
+        .unwrap_or_default();
     if !components.is_empty() {
-        sync_groups(world, body, &components);
+        sync_groups(world, body, &components, &written);
     }
 }
 
@@ -193,6 +199,11 @@ pub(crate) fn inspect_components(
             if !(local && mutable) {
                 fields = fields.into_iter().map(FieldEntry::into_read_only).collect();
             }
+            let ticks = world
+                .get_entity(selection.entity)
+                .ok()
+                .filter(|_| local)
+                .and_then(|entity| entity.get_change_ticks_by_id(component.component_id));
             let display_name = FieldAnnotations::of_type(
                 component
                     .reflected_value
@@ -207,6 +218,7 @@ pub(crate) fn inspect_components(
                     .unwrap_or_else(|| crate::component_short_name(world, component.component_id)),
                 memory: component.memory_size.to_string(),
                 fields,
+                ticks,
             }
         })
         .collect();
@@ -270,7 +282,12 @@ fn reset_body(
 ///
 /// Groups of removed components, and groups whose collapsed state or field layout changed, are
 /// respawned or despawned. The remaining groups have their widget values updated in place.
-fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails]) {
+fn sync_groups(
+    world: &mut World,
+    body: Entity,
+    components: &[ComponentDetails],
+    written: &HashSet<ComponentKey>,
+) {
     let collapsed = world.resource::<DetailsCollapsed>().clone();
     let present: HashSet<&ComponentKey> =
         components.iter().map(|component| &component.key).collect();
@@ -290,19 +307,18 @@ fn sync_groups(world: &mut World, body: Entity, components: &[ComponentDetails])
     }
 
     for component in components {
-        if world
+        let kept = world
             .resource::<DetailsIndex>()
             .groups
             .contains_key(&component.key)
-        {
-            if update_in_place(world, component) {
-                continue;
-            }
+            && update_in_place(world, component);
+        if !kept {
             despawn_group(world, &component.key);
+            let expanded = !collapsed.is_collapsed(&component.key);
+            spawn_group(world, body, component, expanded);
+            reordered = true;
         }
-        let expanded = !collapsed.is_collapsed(&component.key);
-        spawn_group(world, body, component, expanded);
-        reordered = true;
+        show_ticks(world, component, written.contains(&component.key));
     }
 
     if reordered {
@@ -321,6 +337,9 @@ fn update_in_place(world: &mut World, component: &ComponentDetails) -> bool {
         let Some(group) = index.groups.get(&component.key) else {
             return false;
         };
+        if group.ticks.is_some() != (group.expanded && component.ticks.is_some()) {
+            return false;
+        }
         if !group.expanded {
             return true;
         }
@@ -392,12 +411,18 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
     ) else {
         return;
     };
+    let name = descendant_with::<InspectorDetailsName>(world, group);
+    let ticks = expanded
+        .then(|| spawn_ticks_row(world, group, component))
+        .flatten();
     world.resource_mut::<DetailsIndex>().groups.insert(
         component.key.clone(),
         GroupWidget {
             entity: group,
             expanded,
             layout: component.fields.iter().map(RowLayout::new).collect(),
+            name,
+            ticks,
         },
     );
 
@@ -435,6 +460,9 @@ fn spawn_group(world: &mut World, body: Entity, component: &ComponentDetails, ex
 
     spawn_fields(world, container, component, &component.fields, 0);
 }
+
+#[derive(Component, Debug, Default, Clone, Copy)]
+struct InspectorDetailsName;
 
 fn component_group(name: String, memory: String) -> impl Scene {
     bsn! {
@@ -491,6 +519,8 @@ fn component_group(name: String, memory: String) -> impl Scene {
                 }
                 Children [
                     @caption(name)
+                    InspectorDetailsName
+                    ThemeTextColor(tokens::LISTROW_TEXT)
                     Node {
                         flex_shrink: 0.0,
                     }

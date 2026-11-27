@@ -58,6 +58,7 @@ mod edit;
 mod entity_section;
 mod rows;
 mod sync;
+mod ticks;
 mod walk;
 
 #[derive(Reflect, Debug, Default)]

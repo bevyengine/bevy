@@ -717,7 +717,7 @@ pub(super) fn replace_text(world: &mut World, entity: Option<Entity>, text: &str
 }
 
 /// Replaces the [`Text`] of `entity` with `value`, unless it already shows `value`.
-fn set_text(world: &mut World, entity: Option<Entity>, value: String) {
+pub(super) fn set_text(world: &mut World, entity: Option<Entity>, value: String) {
     let Some(mut text) = entity.and_then(|entity| world.get_mut::<Text>(entity)) else {
         return;
     };

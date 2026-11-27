@@ -64,6 +64,7 @@ fn entity_section(world: &World, entity: Entity) -> Option<ComponentDetails> {
         name: "Entity".to_string(),
         memory: String::new(),
         fields: rows.into_iter().map(row).collect(),
+        ticks: None,
     })
 }
 

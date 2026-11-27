@@ -42,8 +42,9 @@ use super::{
     annotations::clamp_to_range,
     rows::{apply_value, color_to_hex, replace_text},
     sync::refresh_details_panel,
+    ticks::record_inspector_write,
     walk::{scalar_value, walk_entries},
-    DetailsIndex, FieldEdit, FieldValue, InspectorField,
+    ComponentKey, DetailsIndex, FieldEdit, FieldValue, InspectorField,
 };
 use crate::{InspectorSource, InspectorSources};
 
@@ -340,9 +341,8 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     if world.get_entity(edit.entity).is_err() {
         return;
     }
-    let mutable = world
-        .components()
-        .get_id(registration.type_id())
+    let id = world.components().get_id(registration.type_id());
+    let mutable = id
         .and_then(|id| world.components().get_info(id))
         .map(ComponentInfo::mutable);
     if mutable == Some(false) {
@@ -387,6 +387,14 @@ fn write_field_edit(world: &mut World, edit: &FieldEdit) {
     };
     if write == FieldWrite::Written {
         component.set_changed();
+        if let Some(id) = id {
+            record_inspector_write(
+                world,
+                edit.entity,
+                ComponentKey::from(edit.component.as_str()),
+                id,
+            );
+        }
     }
     if write == FieldWrite::Rejected && !typing_a_char {
         warn!(
