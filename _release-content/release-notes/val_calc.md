@@ -14,8 +14,8 @@ Val::calc(|ctx| (ctx.percent(50.) - 10.).max(ctx.vh(25.)))
 
 The function is given a context that converts lengths in each unit to logical pixels, and returns a length in logical pixels.
 
-
 `MinTrackSizingFunction` and `MaxTrackSizingFunction` can also accept `Calc`s:
+
 ```rust
 GridTrack::calc(|ctx| ctx.vw(25.).clamp(200., 400.));
 RepeatedGridTrack::calc(2, |ctx| ctx.percent(50.) - 8.);
