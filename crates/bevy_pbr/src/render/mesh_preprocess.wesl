@@ -15,7 +15,8 @@
 //! respectively.
 
 import bevy_render::occlusion_culling::mesh_preprocess_types::{
-    IndirectParametersMetadata, MeshInput, PreviousMeshInput, PreprocessWorkItem
+    IndirectParametersMetadata, MeshCullingData, MeshInput, PreviousMeshInput,
+    PreprocessWorkItem
 };
 import package::render::mesh_types::{
     Mesh, MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT,
@@ -30,18 +31,6 @@ import package::render::view_transformations::{
 };
 import bevy_render::maths;
 import bevy_render::view::View;
-
-/// Information about each mesh instance needed to cull it on GPU.
-///
-/// At the moment, this just consists of its axis-aligned bounding box (AABB).
-struct MeshCullingData {
-    /// The 3D center of the AABB in model space, padded with an extra unused
-    /// float value.
-    aabb_center: vec4<f32>,
-    /// The 3D extents of the AABB in model space, divided by two, padded with
-    /// an extra unused float value.
-    aabb_half_extents: vec4<f32>,
-}
 
 /// The parameters for the indirect compute dispatch for the late mesh
 /// preprocessing phase.
@@ -197,10 +186,14 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
 
 @if(FRUSTUM_CULLING) {
+    if (mesh_culling_data[input_index].is_active == 0u) {
+        return;
+    }
+
     // Frustum cull if necessary.
     if ((current_input[input_index].flags & MESH_FLAGS_NO_FRUSTUM_CULLING_BIT) == 0u) {
-        let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
-        let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
+        let aabb_center = mesh_culling_data[input_index].aabb_center;
+        let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents;
 
         // Do an OBB-based frustum cull.
         let model_center = world_from_local * vec4(aabb_center, 1.0);
@@ -220,7 +213,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         // Otherwise, just use the center of the transform.
         var world_pos: vec3<f32>;
         if ((current_input[input_index].flags & MESH_FLAGS_AABB_BASED_VISIBILITY_RANGE_BIT) != 0u) {
-            let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
+            let aabb_center = mesh_culling_data[input_index].aabb_center;
             world_pos = (world_from_local * vec4(aabb_center, 1.0)).xyz;
         } else {
             world_pos = world_from_local[3].xyz;
@@ -261,8 +254,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // hierarchical Z-buffer, then this mesh must be occluded, and we can skip
     // rendering it.
 @if(OCCLUSION_CULLING) {
-    let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
-    let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
+    let aabb_center = mesh_culling_data[input_index].aabb_center;
+    let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents;
 
     // Initialize the AABB and the maximum depth.
     let infinity = bitcast<f32>(0x7f800000u);
