@@ -55,9 +55,10 @@ fn update_world_cache(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(g
 
     // https://bsky.app/profile/gboisse.bsky.social/post/3m5blga3ftk2a
     let sample_count = min(old_radiance.a + 1.0, constants.world_cache_max_temporal_samples);
-    let alpha = abs(luminance_delta) / max(luminance(old_radiance.rgb), 0.001);
-    let max_sample_count = mix(constants.world_cache_max_temporal_samples, 1.0, pow(saturate(alpha), 1.0 / 8.0));
     let frames_between_updates = ceil(f32(world_cache.active_cells_count) / f32(constants.world_cache_max_cell_updates_per_frame));
+    let trend = abs(luminance_delta) * min(16.0 / frames_between_updates, 8.0);
+    let alpha = trend / max(luminance(old_radiance.rgb), 0.001);
+    let max_sample_count = mix(constants.world_cache_max_temporal_samples, 1.0, pow(saturate(alpha), 1.0 / 8.0));
     let blend_amount = max(1.0 / min(sample_count, max_sample_count), saturate(frames_between_updates / constants.world_cache_max_temporal_samples));
 
     let blended_radiance = mix(old_radiance.rgb, new_radiance, blend_amount);

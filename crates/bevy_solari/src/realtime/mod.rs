@@ -232,6 +232,13 @@ pub struct SolariLighting {
     /// Useful for preventing ghosting when the history is no longer
     /// representative of the current frame, such as in sudden camera cuts.
     ///
+    /// Also useful when switching the scene's primary light (such as the sun) off.
+    /// Setting this on the frame of the switch removes stale cached light
+    /// immediately, instead of letting it fade out over many frames.
+    ///
+    /// This clears all of Solari's temporal history, including the world cache,
+    /// so it is not meant for gradual lighting changes.
+    ///
     /// After setting this to true, it will automatically be toggled
     /// back to false at the end of the frame.
     pub reset: bool,
@@ -245,7 +252,7 @@ impl Default for SolariLighting {
             primary_di_samples: 8,
             secondary_di_samples: 4,
             max_bounces: 3,
-            world_cache_max_temporal_samples: 32.0,
+            world_cache_max_temporal_samples: 24.0,
             world_cache_direct_light_sample_count: 32,
             world_cache_max_gi_ray_distance: 50.0,
             world_cache_max_cell_updates_per_frame: 40000,
