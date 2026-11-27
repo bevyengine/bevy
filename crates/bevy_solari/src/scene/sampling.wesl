@@ -147,10 +147,12 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
     return light_contribution;
 }
 
-fn random_emissive_light_pdf(hit: ResolvedRayHitFull, ray_distance: f32, NdotV: f32) -> f32 {
-    let light_count = arrayLength(&light_sources);
-    let area_pdf = 1.0 / (f32(light_count) * f32(hit.triangle_count) * hit.triangle_area);
-    return area_pdf * (ray_distance * ray_distance) / NdotV;
+fn emissive_light_area_pdf(hit: ResolvedRayHitFull, light_count: u32) -> f32 {
+    return 1.0 / (f32(light_count) * f32(hit.triangle_count) * hit.triangle_area);
+}
+
+fn area_to_solid_angle_pdf(area_pdf: f32, light_distance: f32, cos_theta_light: f32) -> f32 {
+    return area_pdf * (light_distance * light_distance) / cos_theta_light;
 }
 
 fn sample_environment_map_light(world_direction: vec3<f32>) -> vec3<f32> {

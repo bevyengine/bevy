@@ -6,7 +6,7 @@ import package::scene::brdf::{brdf_pdf, evaluate_and_sample_brdf, evaluate_brdf,
 import package::realtime::light_candidates::{candidate_light_sample, generate_directional_light_candidate, generate_local_light_candidate, light_candidate_split, LightCandidate};
 import package::realtime::bindings::{empty_reservoir, Reservoir, constants, view};
 import package::realtime::atmosphere::calculate_light_contribution;
-import package::scene::sampling::{isinf, local_light_count, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
+import package::scene::sampling::{area_to_solid_angle_pdf, emissive_light_area_pdf, isinf, local_light_count, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
 
@@ -353,8 +353,8 @@ fn generate_emissive_candidate(
     rng: ptr<function, u32>,
 ) {
     let NdotV_hit = max(dot(ray_hit.world_normal, -wi), 0.0001);
-    let area_pdf = 1.0 / (f32(local_light_count()) * f32(ray_hit.triangle_count) * ray_hit.triangle_area);
-    let p_light = area_pdf * ray_t * ray_t / NdotV_hit;
+    let area_pdf = emissive_light_area_pdf(ray_hit, local_light_count());
+    let p_light = area_to_solid_angle_pdf(area_pdf, ray_t, NdotV_hit);
     let p_nee = nee_probability((*path).material);
     let emissive_mis_weight = power_heuristic(p_brdf, p_light * p_nee * f32(di_samples));
 

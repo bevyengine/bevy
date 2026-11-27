@@ -2,8 +2,8 @@ import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance;
 import bevy_pbr::render::utils::{rand_f, rand_vec2f};
 import bevy_render::view::View;
 import package::scene::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, F_AB};
-import package::scene::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic, sample_environment_map_light};
-import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::sampling::{sample_random_light, area_to_solid_angle_pdf, emissive_light_area_pdf, power_heuristic, sample_environment_map_light};
+import package::scene::bindings::{trace_ray, resolve_ray_hit_full, light_sources, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD};
 
 enable wgpu_ray_query;
 
@@ -49,7 +49,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             // Emissive contribution
             var mis_weight = 1.0;
             if p_bounce != 0.0 { // Not first bounce
-                let p_light = random_emissive_light_pdf(ray_hit, ray.t, NdotV);
+                let p_light = area_to_solid_angle_pdf(emissive_light_area_pdf(ray_hit, arrayLength(&light_sources)), ray.t, NdotV);
                 mis_weight = power_heuristic(p_bounce, p_light);
             }
             if dot(ray_hit.world_normal, wo) > 0.0 {
