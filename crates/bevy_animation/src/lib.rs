@@ -37,14 +37,13 @@ use crate::{
     prelude::{BlendableProperty, EvaluatorId},
 };
 
-use bevy_app::{AnimationSystems, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, AssetEventSystems, Assets};
-use bevy_ecs::{prelude::*, resource::IsResource, world::EntityMutExcept};
+use bevy_app::{App, MainScheduleOrder, Plugin, PostUpdate, PreUpdate};
+use bevy_asset::{Asset, AssetApp, Assets};
+use bevy_ecs::{prelude::*, resource::IsResource, schedule::ScheduleLabel, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
-use bevy_transform::TransformSystems;
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdHashMap};
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
@@ -58,8 +57,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         animated_field, animation_curves::*, blendable::*, graph::*, transition::*,
-        ActiveAnimation, AnimatedBy, AnimationClip, AnimationEvent, AnimationPlayer,
-        AnimationPlugin, AnimationTargetId, RepeatAnimation, VariableCurve,
+        ActiveAnimation, AnimatedBy, AnimationAdvanceSystems, AnimationApply,
+        AnimationApplySystems, AnimationClip, AnimationEvent, AnimationPlayer, AnimationPlugin,
+        AnimationTargetId, RepeatAnimation, VariableCurve,
     };
 }
 
@@ -560,7 +560,8 @@ impl Default for ActiveAnimation {
 }
 
 impl ActiveAnimation {
-    /// Check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// Check if the animation has finished, based on its repetition behavior and the number of
+    /// times it has repeated.
     ///
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
     #[inline]
@@ -570,6 +571,14 @@ impl ActiveAnimation {
             RepeatAnimation::Never => self.completions >= 1,
             RepeatAnimation::Count(n) => self.completions >= n,
         }
+    }
+
+    /// Check if the animation has finished, based on its repetition behavior and the number of
+    /// times it has repeated, since at least the last frame.
+    ///
+    /// Note: An animation with `RepeatAnimation::Forever` will never finish.
+    pub fn is_finished_and_applied(&self) -> bool {
+        self.is_finished() && !self.just_completed()
     }
 
     /// Update the animation given the delta time and the duration of the clip being played.
@@ -922,6 +931,21 @@ impl AnimationPlayer {
         self.active_animations
             .values()
             .all(ActiveAnimation::is_finished)
+    }
+
+    /// Check if all playing animations have finished, according to the repetition behavior, since
+    /// at least the last frame.
+    pub fn all_finished_and_applied(&self) -> bool {
+        self.active_animations
+            .values()
+            .all(ActiveAnimation::is_finished_and_applied)
+    }
+
+    /// Check if any playing animation has just completed.
+    pub fn any_just_completed(&self) -> bool {
+        self.active_animations
+            .values()
+            .any(ActiveAnimation::just_completed)
     }
 
     /// Check if all playing animations are paused.
@@ -1302,37 +1326,77 @@ pub fn animate_targets(
         });
 }
 
+/// Systems that move state forward.
+///
+/// This set exists in [`PreUpdate`].
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AnimationAdvanceSystems;
+
+/// The schedule that contains animation systems that catch up state changes and put them in action.
+///
+/// This is inserted before [`PostUpdate`].
+/// If you want to order your own schedule relative this schedule and the [`PostUpdate`] schedule,
+/// keep in mind, that this schedule is inserted before [`PostUpdate`], when the [`AnimationPlugin`]
+/// is building.
+///
+/// See the [`bevy_app::Main`] schedule for some details about how schedules are run.
+#[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AnimationApply;
+
+/// This set exists in [`AnimationApply`].
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AnimationApplySystems {
+    /// Systems that extract, process or rebuild data or data structures to ensure they are ready
+    /// for the update.
+    Prepare,
+    /// Systems that catch up state changes and put them in action.
+    Apply,
+    /// Systems that have to run last and complete the update cycle.
+    Cleanup,
+}
+
 /// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
+        app.init_schedule(AnimationApply);
+        let mut main_schedule_order = app.world_mut().resource_mut::<MainScheduleOrder>();
+        main_schedule_order.insert_before(PostUpdate, AnimationApply);
+
         app.init_asset::<AnimationClip>()
             .init_asset::<BlendGraph>()
             .init_asset_loader::<BlendGraphAssetLoader>()
             .register_asset_reflect::<AnimationClip>()
             .register_asset_reflect::<BlendGraph>()
             .init_resource::<ThreadedBlendGraphs>()
-            .add_systems(
-                PostUpdate,
+            .configure_sets(
+                AnimationApply,
                 (
-                    graph::thread_blend_graphs.before(AssetEventSystems),
-                    advance_transitions,
-                    advance_animations,
-                    // TODO: `animate_targets` can animate anything, so
-                    // ambiguity testing currently considers it ambiguous with
-                    // every other system in `PostUpdate`. We may want to move
-                    // it to its own system set after `Update` but before
-                    // `PostUpdate`. For now, we just disable ambiguity testing
-                    // for this system.
-                    animate_targets.ambiguous_with_all(),
-                    trigger_untargeted_animation_events,
-                    expire_completed_transitions,
+                    AnimationApplySystems::Prepare,
+                    AnimationApplySystems::Apply,
+                    AnimationApplySystems::Cleanup,
                 )
-                    .chain()
-                    .in_set(AnimationSystems)
-                    .before(TransformSystems::Propagate),
+                    .chain(),
+            )
+            .add_systems(
+                PreUpdate,
+                (
+                    advance_transitions.in_set(AnimationAdvanceSystems),
+                    advance_animations.in_set(AnimationAdvanceSystems),
+                )
+                    .chain(),
+            )
+            .add_systems(
+                AnimationApply,
+                (
+                    graph::thread_blend_graphs.in_set(AnimationApplySystems::Prepare),
+                    animate_targets.in_set(AnimationApplySystems::Apply),
+                    trigger_untargeted_animation_events.in_set(AnimationApplySystems::Apply),
+                    expire_completed_transitions.in_set(AnimationApplySystems::Cleanup),
+                )
+                    .chain(),
             );
     }
 }

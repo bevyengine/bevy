@@ -77,7 +77,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
+use bevy_app::{prelude::*, HierarchyPropagatePlugin, PropagateSet};
 use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use layout::clipping::update_clipping_system;
@@ -155,7 +155,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystems,
-                    UiSystems::Prepare.after(AnimationSystems),
+                    UiSystems::Prepare,
                     UiSystems::Propagate,
                     UiSystems::Content,
                     UiSystems::Layout,

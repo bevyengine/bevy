@@ -174,7 +174,9 @@ pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
-/// This runs after [`Update`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
+/// This runs after [`Update`] and before [`PostUpdate`].
+///
+/// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
@@ -194,10 +196,6 @@ pub struct PostUpdate;
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Last;
-
-/// Animation system set. This exists in [`PostUpdate`].
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct AnimationSystems;
 
 /// Set enum for the systems relating to scene spawning.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
