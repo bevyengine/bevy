@@ -1,7 +1,11 @@
 use super::*;
-use crate::details_panel::{entity_section::SECTION_KEY, ticks::is_highlighted};
+use crate::details_panel::{
+    entity_section::SECTION_KEY,
+    ticks::{header_marked, marked_paths, name_color},
+};
 use bevy_app::Update;
 use bevy_ecs::change_detection::DetectChangesMut;
+use bevy_feathers::tokens;
 
 fn ticks_shown(app: &App, component: &str) -> Option<String> {
     let world = app.world();
@@ -22,8 +26,12 @@ fn expected_ticks(app: &App, entity: Entity, component: ComponentId) -> String {
     )
 }
 
-fn highlighted(app: &App, component: &str) -> bool {
-    is_highlighted(app.world(), component)
+fn marked(app: &App, component: &str) -> bool {
+    header_marked(app.world(), component)
+}
+
+fn marked_rows(app: &App, component: &str) -> Vec<String> {
+    marked_paths(app.world(), component)
 }
 
 fn speed_up(mut motions: Query<&mut Motion>) {
@@ -69,40 +77,123 @@ fn the_shown_ticks_follow_a_write() {
 }
 
 #[test]
-fn a_component_written_every_frame_stays_highlighted() {
+fn a_component_written_every_frame_stays_marked() {
     let (mut app, _) = motion_app();
-    assert!(!highlighted(&app, Motion::type_path()));
+    assert!(!marked(&app, Motion::type_path()));
 
     for _ in 0..3 {
         refresh(&mut app);
-        assert!(highlighted(&app, Motion::type_path()));
+        assert!(marked(&app, Motion::type_path()));
+        assert_eq!(marked_rows(&app, Motion::type_path()), ["speed"]);
     }
 }
 
 #[test]
-fn an_idle_component_is_not_highlighted() {
+fn an_idle_component_is_not_marked() {
     let (mut app, _) = motion_app();
     settle(&mut app);
 
-    assert!(highlighted(&app, Motion::type_path()));
-    assert!(!highlighted(&app, Subject::type_path()));
+    assert!(marked(&app, Motion::type_path()));
+    assert!(!marked(&app, Subject::type_path()));
 }
 
 #[test]
-fn the_highlight_clears_after_a_refresh_without_a_write() {
+fn the_marks_clear_after_a_refresh_without_a_write() {
     let mut app = test_app();
     let entity = inspect(&mut app, Subject::default());
 
     app.world_mut().get_mut::<Subject>(entity).unwrap().scale = 2.0;
     refresh(&mut app);
-    assert!(highlighted(&app, Subject::type_path()));
+    assert!(marked(&app, Subject::type_path()));
+    assert_eq!(marked_rows(&app, Subject::type_path()), ["scale"]);
 
     refresh(&mut app);
-    assert!(!highlighted(&app, Subject::type_path()));
+    assert!(!marked(&app, Subject::type_path()));
+    assert!(marked_rows(&app, Subject::type_path()).is_empty());
 }
 
 #[test]
-fn a_collapsed_component_is_highlighted_while_written_and_shows_no_ticks() {
+fn only_the_rows_of_the_changed_fields_are_marked() {
+    let mut app = test_app();
+    let entity = inspect(&mut app, Subject::default());
+
+    let mut subject = app.world_mut().get_mut::<Subject>(entity).unwrap();
+    subject.enabled = true;
+    subject.nested.depth = 3;
+    refresh(&mut app);
+
+    assert_eq!(
+        marked_rows(&app, Subject::type_path()),
+        ["enabled", "nested.depth"]
+    );
+}
+
+#[test]
+fn a_changed_variant_marks_its_row() {
+    let mut app = test_app();
+    let entity = inspect(&mut app, Subject::default());
+
+    app.world_mut().get_mut::<Subject>(entity).unwrap().mode = Mode::Running;
+    refresh(&mut app);
+
+    assert!(marked(&app, Subject::type_path()));
+    assert_eq!(marked_rows(&app, Subject::type_path()), ["mode"]);
+}
+
+#[test]
+fn a_changed_vector_axis_marks_the_vector_row() {
+    let mut app = test_app();
+    app.register_type::<Motion>();
+    let entity = inspect(&mut app, Motion::default());
+
+    app.world_mut()
+        .get_mut::<Motion>(entity)
+        .unwrap()
+        .velocity
+        .y = 1.0;
+    refresh(&mut app);
+
+    let marked = marked_rows(&app, Motion::type_path());
+    assert!(marked.contains(&"velocity.y".to_string()));
+    assert!(!marked.contains(&"speed".to_string()));
+}
+
+#[test]
+fn a_write_that_keeps_every_value_marks_only_the_header() {
+    let mut app = test_app();
+    let entity = inspect(&mut app, Subject::default());
+
+    app.world_mut()
+        .get_mut::<Subject>(entity)
+        .unwrap()
+        .set_changed();
+    refresh(&mut app);
+
+    assert!(marked(&app, Subject::type_path()));
+    assert!(marked_rows(&app, Subject::type_path()).is_empty());
+}
+
+#[test]
+fn a_written_component_keeps_the_color_of_its_name() {
+    let mut app = test_app();
+    let entity = inspect(&mut app, Subject::default());
+    assert_eq!(
+        name_color(app.world(), Subject::type_path()),
+        Some(tokens::LISTROW_TEXT)
+    );
+
+    app.world_mut().get_mut::<Subject>(entity).unwrap().scale = 2.0;
+    refresh(&mut app);
+
+    assert!(marked(&app, Subject::type_path()));
+    assert_eq!(
+        name_color(app.world(), Subject::type_path()),
+        Some(tokens::LISTROW_TEXT)
+    );
+}
+
+#[test]
+fn a_collapsed_component_is_marked_while_written_and_shows_no_ticks() {
     let mut app = test_app();
     app.world_mut()
         .resource_mut::<DetailsCollapsed>()
@@ -116,7 +207,8 @@ fn a_collapsed_component_is_highlighted_while_written_and_shows_no_ticks() {
         .set_changed();
     refresh(&mut app);
 
-    assert!(highlighted(&app, Subject::type_path()));
+    assert!(marked(&app, Subject::type_path()));
+    assert!(marked_rows(&app, Subject::type_path()).is_empty());
     assert_eq!(ticks_shown(&app, Subject::type_path()), None);
 }
 
@@ -144,7 +236,7 @@ fn expanding_a_collapsed_component_shows_its_ticks() {
 }
 
 #[test]
-fn an_edit_made_through_the_panel_is_not_highlighted() {
+fn an_edit_made_through_the_panel_marks_nothing() {
     let mut app = test_app();
     app.insert_resource(InspectorSources::local());
     let entity = inspect(&mut app, Subject::default());
@@ -155,11 +247,12 @@ fn an_edit_made_through_the_panel_is_not_highlighted() {
 
     assert_eq!(app.world().get::<Subject>(entity).unwrap().scale, 4.0);
     assert_ne!(ticks_shown(&app, Subject::type_path()), before);
-    assert!(!highlighted(&app, Subject::type_path()));
+    assert!(!marked(&app, Subject::type_path()));
+    assert!(marked_rows(&app, Subject::type_path()).is_empty());
 }
 
 #[test]
-fn an_app_write_after_a_panel_edit_is_highlighted() {
+fn an_app_write_after_a_panel_edit_is_marked() {
     let mut app = test_app();
     app.insert_resource(InspectorSources::local());
     let entity = inspect(&mut app, Subject::default());
@@ -169,11 +262,12 @@ fn an_app_write_after_a_panel_edit_is_highlighted() {
     app.world_mut().get_mut::<Subject>(entity).unwrap().scale = 5.0;
     refresh(&mut app);
 
-    assert!(highlighted(&app, Subject::type_path()));
+    assert!(marked(&app, Subject::type_path()));
+    assert_eq!(marked_rows(&app, Subject::type_path()), ["scale"]);
 }
 
 #[test]
-fn selecting_another_entity_does_not_highlight_its_components() {
+fn selecting_another_entity_does_not_mark_its_components() {
     let mut app = test_app();
     inspect(&mut app, Subject::default());
     let other = app.world_mut().spawn(Subject::default()).id();
@@ -187,7 +281,7 @@ fn selecting_another_entity_does_not_highlight_its_components() {
         Some(InspectableEntity::new(other, InspectorSource::Local)),
     );
 
-    assert!(!highlighted(&app, Subject::type_path()));
+    assert!(!marked(&app, Subject::type_path()));
     let id = app.world().component_id::<Subject>().unwrap();
     assert_eq!(
         ticks_shown(&app, Subject::type_path()),
@@ -196,7 +290,7 @@ fn selecting_another_entity_does_not_highlight_its_components() {
 }
 
 #[test]
-fn the_entity_section_has_no_ticks_or_highlight() {
+fn the_entity_section_has_no_ticks_or_marks() {
     let (mut app, _) = motion_app();
     settle(&mut app);
 
@@ -206,11 +300,11 @@ fn the_entity_section_has_no_ticks_or_highlight() {
         .group(SECTION_KEY)
         .is_some());
     assert_eq!(ticks_shown(&app, SECTION_KEY), None);
-    assert!(!highlighted(&app, SECTION_KEY));
+    assert!(!marked(&app, SECTION_KEY));
 }
 
 #[test]
-fn a_resource_written_between_refreshes_is_highlighted() {
+fn a_resource_written_between_refreshes_is_marked() {
     #[derive(Resource, Reflect, Default)]
     #[reflect(Resource)]
     struct Gauge {
@@ -231,14 +325,14 @@ fn a_resource_written_between_refreshes_is_highlighted() {
         ticks_shown(&app, Gauge::type_path()),
         Some(expected_ticks(&app, gauge, id))
     );
-    assert!(!highlighted(&app, Gauge::type_path()));
+    assert!(!marked(&app, Gauge::type_path()));
 
     app.world_mut().resource_mut::<Gauge>().level = 1.0;
     refresh(&mut app);
-    assert!(highlighted(&app, Gauge::type_path()));
+    assert!(marked(&app, Gauge::type_path()));
 
     refresh(&mut app);
-    assert!(!highlighted(&app, Gauge::type_path()));
+    assert!(!marked(&app, Gauge::type_path()));
 }
 
 #[cfg(feature = "remote")]
@@ -280,5 +374,5 @@ fn a_remote_selection_shows_no_ticks() {
     let index = app.world().resource::<DetailsIndex>();
     assert!(index.group(Name::type_path()).is_some());
     assert_eq!(ticks_shown(&app, Name::type_path()), None);
-    assert!(!highlighted(&app, Name::type_path()));
+    assert!(!marked(&app, Name::type_path()));
 }

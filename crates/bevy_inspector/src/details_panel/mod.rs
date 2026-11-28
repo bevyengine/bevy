@@ -78,6 +78,11 @@ const MAX_ITEMS: usize = 16;
 const INDENT: f32 = 12.0;
 /// The corner radius of a component card and of the blocks inside it, in logical pixels.
 const CARD_RADIUS: f32 = 5.0;
+/// The padding inside a component card and the blocks inside it, in logical pixels.
+///
+/// Field rows reach the right edge of their card or block and hold the right padding themselves,
+/// so that their write bars line up along that edge.
+const CARD_PADDING: f32 = 6.0;
 
 /// Marker for the scrollable column holding the component groups of the details panel.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
@@ -287,11 +292,13 @@ impl FieldEntry {
     }
 }
 
-/// The widgets rendering one field, and the value they were last given.
+/// The widgets rendering one field, the row that marks an app write to it, and the value they
+/// were last given.
 #[derive(Debug, Clone)]
 struct FieldWidget {
     entity: Entity,
     text: Option<Entity>,
+    row: Option<Entity>,
     value: FieldValue,
 }
 
@@ -306,15 +313,16 @@ pub(crate) struct ComponentDetails {
     pub(crate) ticks: Option<ComponentTicks>,
 }
 
-/// The group spawned for one component, whether its fields were spawned, and the rows they were
-/// spawned for.
+/// The group spawned for one component, whether its fields were spawned, the rows they were
+/// spawned for, and the rows currently marked as written by the app.
 #[derive(Debug, Clone)]
 struct GroupWidget {
     entity: Entity,
     expanded: bool,
     layout: Vec<RowLayout>,
-    name: Option<Entity>,
+    header: Option<Entity>,
     ticks: Option<Entity>,
+    marked: HashSet<Entity>,
 }
 
 /// The parts of a field row that decide which widgets it is spawned with.

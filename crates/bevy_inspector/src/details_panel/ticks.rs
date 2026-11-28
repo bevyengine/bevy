@@ -1,7 +1,14 @@
-//! The change ticks of the components shown in the details panel, and the highlight on the names
-//! of components the app writes between refreshes.
+//! The change ticks of the components shown in the details panel, and the marks on the
+//! components and fields the app writes between refreshes.
+//!
+//! A component the app wrote since the previous refresh shows an accent bar on the right edge of
+//! its card header, whether the card is expanded or collapsed. Change ticks are kept per
+//! component, not per field, so within an expanded card the same bar marks each row whose shown
+//! value differs from the one shown before the refresh. A write that leaves every value as it was
+//! marks only the header. Edits made through the panel mark nothing, and every mark clears on the
+//! next refresh without a write.
 
-use alloc::{format, string::String};
+use alloc::{format, string::String, vec::Vec};
 
 use bevy_ecs::{
     change_detection::ComponentTicks, component::ComponentId, entity::Entity, hierarchy::Children,
@@ -11,7 +18,7 @@ use bevy_feathers::{
     constants::{fonts, size},
     display::caption,
     font_styles::InheritableFont,
-    theme::{ThemeTextColor, ThemeToken},
+    theme::{ThemeBorderColor, ThemeTextColor, ThemeToken},
     tokens,
 };
 use bevy_platform::collections::{HashMap, HashSet};
@@ -20,11 +27,14 @@ use bevy_text::{FontSourceTemplate, FontWeight, LineBreak, TextLayout};
 use bevy_ui::{px, widget::Text, Node, UiRect};
 
 use super::{
+    edit::same_value,
     rows::{descendant_with, set_text, spawn_child_scene},
     ComponentDetails, ComponentKey, DetailsIndex,
 };
 
-const WRITTEN_NAME_TEXT: ThemeToken = tokens::TEXT_ACCENT;
+pub(super) const WRITE_BAR_WIDTH: f32 = 2.0;
+pub(super) const UNWRITTEN_BAR: ThemeToken = tokens::TAB_STRIPE;
+const WRITTEN_BAR: ThemeToken = tokens::TAB_STRIPE_SELECTED;
 
 fn ticks_text(ticks: ComponentTicks) -> String {
     format!(
@@ -91,41 +101,104 @@ pub(super) fn spawn_ticks_row(
     descendant_with::<Text>(world, row)
 }
 
-pub(super) fn show_ticks(world: &mut World, component: &ComponentDetails, written: bool) {
-    let Some((name, row)) = world
-        .resource::<DetailsIndex>()
-        .groups
-        .get(&component.key)
-        .map(|group| (group.name, group.ticks))
-    else {
+pub(super) fn changed_paths(world: &World, component: &ComponentDetails) -> Vec<String> {
+    let index = world.resource::<DetailsIndex>();
+    component
+        .fields
+        .iter()
+        .filter(|entry| {
+            index
+                .fields
+                .get(&(component.key.clone(), entry.path.clone()))
+                .is_some_and(|widget| !same_value(&widget.value, &entry.value))
+        })
+        .map(|entry| entry.path.clone())
+        .collect()
+}
+
+pub(super) fn rows_of(world: &World, component: &ComponentKey, paths: &[String]) -> Vec<Entity> {
+    let index = world.resource::<DetailsIndex>();
+    paths
+        .iter()
+        .filter_map(|path| index.fields.get(&(component.clone(), path.clone()))?.row)
+        .collect()
+}
+
+pub(super) fn show_ticks(
+    world: &mut World,
+    component: &ComponentDetails,
+    written: bool,
+    changed: &[Entity],
+) {
+    let marked: HashSet<Entity> = match written {
+        true => changed.iter().copied().collect(),
+        false => HashSet::default(),
+    };
+    let mut index = world.resource_mut::<DetailsIndex>();
+    let Some(group) = index.groups.get_mut(&component.key) else {
         return;
     };
+    let (header, row) = (group.header, group.ticks);
+    let previous = core::mem::replace(&mut group.marked, marked.clone());
     if let Some(ticks) = component.ticks {
         set_text(world, row, ticks_text(ticks));
     }
-    let token = if written {
-        WRITTEN_NAME_TEXT
-    } else {
-        tokens::LISTROW_TEXT
+    if let Some(header) = header {
+        show_bar(world, header, written);
+    }
+    for &row in previous.difference(&marked) {
+        show_bar(world, row, false);
+    }
+    for &row in marked.difference(&previous) {
+        show_bar(world, row, true);
+    }
+}
+
+fn show_bar(world: &mut World, entity: Entity, written: bool) {
+    let token = match written {
+        true => WRITTEN_BAR,
+        false => UNWRITTEN_BAR,
     };
-    if let Some(name) = name
-        && world
-            .get::<ThemeTextColor>(name)
+    if let Ok(mut entity) = world.get_entity_mut(entity)
+        && entity
+            .get::<ThemeBorderColor>()
             .is_none_or(|color| color.0 != token)
     {
-        world.entity_mut(name).insert(ThemeTextColor(token));
+        entity.insert(ThemeBorderColor(token));
     }
 }
 
 #[cfg(test)]
-pub(super) fn is_highlighted(world: &World, component: &str) -> bool {
-    world
+fn bar_shown(world: &World, entity: Option<Entity>) -> bool {
+    entity
+        .and_then(|entity| world.get::<ThemeBorderColor>(entity))
+        .is_some_and(|color| color.0 == WRITTEN_BAR)
+}
+
+#[cfg(test)]
+pub(super) fn header_marked(world: &World, component: &str) -> bool {
+    let group = world.resource::<DetailsIndex>().groups.get(component);
+    bar_shown(world, group.and_then(|group| group.header))
+}
+
+#[cfg(test)]
+pub(super) fn marked_paths(world: &World, component: &str) -> Vec<String> {
+    let mut paths: Vec<String> = world
         .resource::<DetailsIndex>()
-        .groups
-        .get(component)
-        .and_then(|group| group.name)
-        .and_then(|name| world.get::<ThemeTextColor>(name))
-        .is_some_and(|color| color.0 == WRITTEN_NAME_TEXT)
+        .fields
+        .iter()
+        .filter(|((key, _), widget)| &*key.0 == component && bar_shown(world, widget.row))
+        .map(|((_, path), _)| path.clone())
+        .collect();
+    paths.sort();
+    paths
+}
+
+#[cfg(test)]
+pub(super) fn name_color(world: &World, component: &str) -> Option<ThemeToken> {
+    let group = world.resource::<DetailsIndex>().group(component)?;
+    let name = descendant_with::<super::sync::InspectorDetailsName>(world, group)?;
+    Some(world.get::<ThemeTextColor>(name)?.0.clone())
 }
 
 fn ticks_row(text: String) -> impl Scene {
