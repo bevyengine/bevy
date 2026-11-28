@@ -211,7 +211,7 @@ impl Default for GltfMaterial {
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
-            // <https://google.github.io/filament/Material%20Properties.pdf>
+            // <https://google.github.io/filament/notes/material_properties.html>
             reflectance: 0.5,
             specular_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]

@@ -66,11 +66,11 @@ pub struct MaterialProperties {
     /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
     pub depth_bias: f32,
     /// Whether the material would like to read from
-    /// [`ViewTransmissionTexture`](https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.ViewTransmissionTexture.html).
+    /// [`ViewTransmissionTexture`](https://docs.rs/bevy/latest/bevy/pbr/struct.ViewTransmissionTexture.html).
     ///
     /// This allows taking color output from the [`Opaque3d`](https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Opaque3d.html)
     /// pass as an input, (for screen-space transmission) but requires rendering to take place in a separate
-    /// [`Transmissive3d`](https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Transmissive3d.html) pass.
+    /// [`Transmissive3d`](https://docs.rs/bevy/latest/bevy/pbr/struct.Transmissive3d.html) pass.
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
     pub material_layout: Option<BindGroupLayoutDescriptor>,

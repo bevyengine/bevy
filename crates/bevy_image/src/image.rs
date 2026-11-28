@@ -1277,8 +1277,8 @@ impl Image {
     /// so that it is accessible from the CPU and GPU.
     /// You can customize this by changing the [`asset_usage`](Image::asset_usage) field.
     ///
-    /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
-    /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
+    /// [`Camera`]: https://docs.rs/bevy/latest/bevy/camera/struct.Camera.html
+    /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/camera/enum.RenderTarget.html#variant.Image
     pub fn new_target_texture(
         width: u32,
         height: u32,

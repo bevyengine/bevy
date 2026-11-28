@@ -85,7 +85,7 @@ use {
 /// [`add_message`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_message).
 ///
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/message.rs)
-/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/messages.rs)
+/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
 /// [`MessageReader`]: super::MessageReader
 /// [`MessageWriter`]: super::MessageWriter
