@@ -102,7 +102,7 @@ use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::mip_generation::experimental::depth::early_downsample_depth;
 use bevy_core_pipeline::schedule::{Core3d, Core3dSystems};
 use bevy_ecs::prelude::*;
-use bevy_image::{Image, ImageBufferInfo, ImageSampler};
+use bevy_image::{Image, ImageSampler};
 use bevy_material::AlphaMode;
 use bevy_render::{
     camera::sort_cameras,
@@ -279,7 +279,7 @@ impl Plugin for PbrPlugin {
                 let mut image = Image::from_buffer(
                     include_bytes!("bluenoise/stbn.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),
-                    ImageBufferInfo {
+                    bevy_image::ImageBufferInfo {
                         is_srgb: false,
                         asset_usage: RenderAssetUsages::RENDER_WORLD,
                         ..Default::default()
@@ -311,7 +311,7 @@ impl Plugin for PbrPlugin {
                 let mut image = Image::from_buffer(
                     include_bytes!("ltc/ltc.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),
-                    ImageBufferInfo {
+                    bevy_image::ImageBufferInfo {
                         is_srgb: false,
                         sampler: ImageSampler::linear(),
                         asset_usage: RenderAssetUsages::RENDER_WORLD,
@@ -341,7 +341,7 @@ impl Plugin for PbrPlugin {
                 Image::from_buffer(
                     include_bytes!("environment_map/dfg.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),
-                    ImageBufferInfo {
+                    bevy_image::ImageBufferInfo {
                         is_srgb: false,
                         sampler: ImageSampler::linear(),
                         asset_usage: RenderAssetUsages::RENDER_WORLD,
