@@ -228,7 +228,7 @@ fn shows_an_unreflected_component_under_a_name_based_key() {
     let index = app.world().resource::<DetailsIndex>();
     assert!(index.group(&key.0).is_some());
     assert!(index.group(Subject::type_path()).is_some());
-    assert_eq!(body_children(&mut app).len(), 2);
+    assert_eq!(component_groups(&mut app).len(), 2);
 }
 
 #[test]
@@ -383,7 +383,7 @@ fn separates_components_sharing_a_short_name() {
     assert!(index.widget(first, "first").is_some());
     assert!(index.widget(second, "second").is_some());
     assert_ne!(index.group(first), index.group(second));
-    assert_eq!(body_children(&mut app).len(), 2);
+    assert_eq!(component_groups(&mut app).len(), 2);
 
     app.world_mut()
         .resource_mut::<DetailsCollapsed>()
@@ -394,7 +394,7 @@ fn separates_components_sharing_a_short_name() {
     let index = app.world().resource::<DetailsIndex>();
     assert!(index.widget(first, "first").is_none());
     assert!(index.widget(second, "second").is_some());
-    assert_eq!(body_children(&mut app).len(), 2);
+    assert_eq!(component_groups(&mut app).len(), 2);
 }
 
 #[test]
@@ -691,6 +691,11 @@ fn shows_a_message_for_an_entity_without_components() {
         body_message(&mut app).as_deref(),
         Some("The selected entity has no components")
     );
+    let section = app
+        .world()
+        .resource::<DetailsIndex>()
+        .group(crate::details_panel::entity_section::SECTION_KEY);
+    assert_eq!(body_children(&mut app).first().copied(), section);
 }
 
 #[test]
@@ -746,7 +751,7 @@ fn keeps_unchanged_groups_when_components_change() {
     let holder = index.group(holder_id).unwrap();
     assert_eq!(index.group(subject_id), Some(group));
     assert_eq!(index.widget(subject_id, "scale"), Some(scale));
-    assert_eq!(body_children(&mut app), alloc::vec![holder, group]);
+    assert_eq!(component_groups(&mut app), alloc::vec![holder, group]);
 
     app.world_mut().entity_mut(subject).remove::<Holder>();
     refresh(&mut app);
@@ -755,7 +760,7 @@ fn keeps_unchanged_groups_when_components_change() {
     assert_eq!(index.group(holder_id), None);
     assert_eq!(index.group(subject_id), Some(group));
     assert!(app.world().get_entity(holder).is_err());
-    assert_eq!(body_children(&mut app), alloc::vec![group]);
+    assert_eq!(component_groups(&mut app), alloc::vec![group]);
 }
 
 #[test]

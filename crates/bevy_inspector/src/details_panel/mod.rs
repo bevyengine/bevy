@@ -2,8 +2,10 @@
 
 mod annotations;
 mod edit;
+mod entity_section;
 mod rows;
 mod sync;
+mod ticks;
 mod walk;
 
 #[cfg(test)]
@@ -27,6 +29,7 @@ use alloc::{
 
 use bevy_color::Color;
 use bevy_ecs::{
+    change_detection::{ComponentTicks, Tick},
     component::{Component, ComponentId, ComponentInfo},
     entity::Entity,
     event::EntityEvent,
@@ -75,6 +78,11 @@ const MAX_ITEMS: usize = 16;
 const INDENT: f32 = 12.0;
 /// The corner radius of a component card and of the blocks inside it, in logical pixels.
 const CARD_RADIUS: f32 = 5.0;
+/// The padding inside a component card and the blocks inside it, in logical pixels.
+///
+/// Field rows reach the right edge of their card or block and hold the right padding themselves,
+/// so that their write bars line up along that edge.
+const CARD_PADDING: f32 = 6.0;
 
 /// Marker for the scrollable column holding the component groups of the details panel.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
@@ -284,11 +292,13 @@ impl FieldEntry {
     }
 }
 
-/// The widgets rendering one field, and the value they were last given.
+/// The widgets rendering one field, the row that marks an app write to it, and the value they
+/// were last given.
 #[derive(Debug, Clone)]
 struct FieldWidget {
     entity: Entity,
     text: Option<Entity>,
+    row: Option<Entity>,
     value: FieldValue,
 }
 
@@ -300,15 +310,19 @@ pub(crate) struct ComponentDetails {
     pub(crate) name: String,
     pub(crate) memory: String,
     pub(crate) fields: Vec<FieldEntry>,
+    pub(crate) ticks: Option<ComponentTicks>,
 }
 
-/// The group spawned for one component, whether its fields were spawned, and the rows they were
-/// spawned for.
+/// The group spawned for one component, whether its fields were spawned, the rows they were
+/// spawned for, and the rows currently marked as written by the app.
 #[derive(Debug, Clone)]
 struct GroupWidget {
     entity: Entity,
     expanded: bool,
     layout: Vec<RowLayout>,
+    header: Option<Entity>,
+    ticks: Option<Entity>,
+    marked: HashSet<Entity>,
 }
 
 /// The parts of a field row that decide which widgets it is spawned with.
@@ -373,6 +387,8 @@ pub struct DetailsIndex {
     body: Option<Entity>,
     selection: Option<InspectableEntity>,
     empty: Option<EmptyState>,
+    changed: HashMap<ComponentKey, Tick>,
+    inspector_writes: HashMap<(Entity, ComponentKey), Tick>,
 }
 
 impl DetailsIndex {
@@ -404,16 +420,20 @@ impl DetailsIndex {
 #[derive(Resource, Clone, Debug, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
 pub struct DetailsCollapsed {
-    /// Whether a component starts collapsed.
+    /// Whether a component starts collapsed. The entity section always starts collapsed.
     pub by_default: bool,
-    /// The components toggled away from [`by_default`](Self::by_default).
+    /// The components toggled away from the state they start in.
     pub toggled: HashSet<ComponentKey>,
 }
 
 impl DetailsCollapsed {
     /// Returns `true` if the field list of the component is collapsed.
     pub fn is_collapsed(&self, key: &ComponentKey) -> bool {
-        self.by_default != self.toggled.contains(key)
+        self.starts_collapsed(key) != self.toggled.contains(key)
+    }
+
+    fn starts_collapsed(&self, key: &ComponentKey) -> bool {
+        self.by_default || entity_section::is_entity_section(key)
     }
 }
 
@@ -506,7 +526,7 @@ pub fn inspector_details_toggled(
     let Ok(component) = toggles.get(change.source) else {
         return;
     };
-    if change.value == collapsed.by_default {
+    if change.value == collapsed.starts_collapsed(&component.0) {
         collapsed.toggled.insert(component.0.clone());
     } else {
         collapsed.toggled.remove(&component.0);

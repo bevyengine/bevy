@@ -28,7 +28,7 @@ use bevy_feathers::{
     display::caption,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
-    theme::{ThemeToken, ThemedText},
+    theme::{ThemeBorderColor, ThemeToken, ThemedText},
     tokens,
 };
 use bevy_log::warn;
@@ -47,9 +47,11 @@ use super::{
         inspector_field_hex_focus_lost, inspector_field_i32_changed, inspector_field_i64_changed,
         inspector_field_text_changed, inspector_field_variant_changed,
     },
+    ticks::{UNWRITTEN_BAR, WRITE_BAR_WIDTH},
     walk::join,
     ComponentDetails, DetailsIndex, FieldEntry, FieldValue, FieldWidget, InspectorField,
-    InspectorFieldGroupBody, InspectorFieldGroupToggle, InspectorSegment, CARD_RADIUS, INDENT,
+    InspectorFieldGroupBody, InspectorFieldGroupToggle, InspectorSegment, CARD_PADDING,
+    CARD_RADIUS, INDENT,
 };
 use crate::{column_split::ColumnSplitLeading, entity_tree::InspectorUi};
 
@@ -79,7 +81,7 @@ pub(super) fn spawn_fields(
             spawn_vector_row(world, container, component, entry, axes, indent);
         } else if end > index + 1 && entry.value == FieldValue::Label(String::new()) {
             if let Some((block, body)) = spawn_field_group(world, container, &entry.label, indent) {
-                track_widget(world, component, entry, block, None);
+                track_widget(world, component, entry, block, None, None);
                 spawn_fields(
                     world,
                     body,
@@ -104,12 +106,14 @@ fn track_widget(
     entry: &FieldEntry,
     entity: Entity,
     text: Option<Entity>,
+    row: Option<Entity>,
 ) {
     world.resource_mut::<DetailsIndex>().fields.insert(
         (component.key.clone(), entry.path.clone()),
         FieldWidget {
             entity,
             text,
+            row,
             value: entry.value.clone(),
         },
     );
@@ -138,6 +142,12 @@ fn vector_axes<'a>(entry: &FieldEntry, children: &'a [FieldEntry]) -> Option<&'a
     .then_some(children)
 }
 
+/// The padding of a field row at `indent`, whose right side leaves room between the widgets and
+/// the write bar.
+fn row_padding(indent: usize) -> UiRect {
+    UiRect::left(px(indent as f32 * INDENT)).with_right(px(CARD_PADDING - WRITE_BAR_WIDTH))
+}
+
 /// Spawns the label of the vector `entry` above a number input for each of its `axes`.
 fn spawn_vector_row(
     world: &mut World,
@@ -155,10 +165,12 @@ fn spawn_vector_row(
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
                 row_gap: px(2),
-                padding: UiRect::left(px(indent as f32 * INDENT)),
+                padding: row_padding(indent),
+                border: UiRect::right(px(WRITE_BAR_WIDTH)),
                 min_width: px(0),
                 ..Default::default()
             },
+            ThemeBorderColor(UNWRITTEN_BAR),
             ChildOf(container),
         ))
         .id();
@@ -176,7 +188,7 @@ fn spawn_vector_row(
             ChildOf(row),
         ))
         .id();
-    track_widget(world, component, entry, row, None);
+    track_widget(world, component, entry, row, None, None);
 
     for (axis_entry, (name, sigil)) in axes.iter().zip(AXES) {
         let Some(input) = spawn_number_input(world, inputs, axis_entry, Some(name), sigil) else {
@@ -189,10 +201,11 @@ fn spawn_vector_row(
         let widget = FieldWidget {
             entity: input,
             text: None,
+            row: Some(row),
             value: axis_entry.value.clone(),
         };
         apply_value(world, &widget, &axis_entry.value);
-        track_widget(world, component, axis_entry, input, None);
+        track_widget(world, component, axis_entry, input, None, Some(row));
     }
 }
 
@@ -211,10 +224,10 @@ fn spawn_field_group(
             InspectorUi
             @group()
             Node {
-                padding: px(6),
+                padding: {UiRect::all(px(CARD_PADDING)).with_right(px(0))},
                 row_gap: px(6),
                 border_radius: px(CARD_RADIUS),
-                margin: UiRect::left(px(indent as f32 * INDENT)),
+                margin: {UiRect::left(px(indent as f32 * INDENT)).with_right(px(CARD_PADDING))},
             }
             ThemedText
         },
@@ -342,12 +355,14 @@ fn spawn_field_row(
                 },
                 column_gap: px(6),
                 row_gap: px(2),
-                padding: UiRect::left(px(indent as f32 * INDENT)),
+                padding: row_padding(indent),
+                border: UiRect::right(px(WRITE_BAR_WIDTH)),
                 min_width: px(0),
                 flex_shrink: 1.0,
                 overflow: Overflow::clip_x(),
                 ..Default::default()
             },
+            ThemeBorderColor(UNWRITTEN_BAR),
             ChildOf(container),
         ))
         .id();
@@ -377,7 +392,14 @@ fn spawn_field_row(
         });
     }
 
-    track_widget(world, component, entry, widget.entity, widget.text);
+    track_widget(
+        world,
+        component,
+        entry,
+        widget.entity,
+        widget.text,
+        Some(row),
+    );
     Some(())
 }
 
@@ -570,6 +592,7 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
             return Some(FieldWidget {
                 entity,
                 text: Some(text),
+                row: Some(row),
                 value: value.clone(),
             });
         }
@@ -605,6 +628,7 @@ fn spawn_widget(world: &mut World, row: Entity, entry: &FieldEntry) -> Option<Fi
     Some(FieldWidget {
         entity,
         text: None,
+        row: Some(row),
         value: value.clone(),
     })
 }
@@ -717,7 +741,7 @@ pub(super) fn replace_text(world: &mut World, entity: Option<Entity>, text: &str
 }
 
 /// Replaces the [`Text`] of `entity` with `value`, unless it already shows `value`.
-fn set_text(world: &mut World, entity: Option<Entity>, value: String) {
+pub(super) fn set_text(world: &mut World, entity: Option<Entity>, value: String) {
     let Some(mut text) = entity.and_then(|entity| world.get_mut::<Text>(entity)) else {
         return;
     };
