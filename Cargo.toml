@@ -3998,6 +3998,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "fuzzy_search"
+path = "examples/ui/fuzzy_search.rs"
+doc-scrape-examples = true
+required-features = ["bevy_feathers"]
+
+[package.metadata.example.fuzzy_search]
+name = "Fuzzy Search"
+description = "Demonstrates how to use the `bevy_fuzzy` crate to implement a fuzzy search feature."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 doc-scrape-examples = true
