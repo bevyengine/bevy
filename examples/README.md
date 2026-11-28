@@ -623,7 +623,7 @@ Example | Description
 [Font Queries](../examples/ui/text/font_query.rs) | Demonstrates font querying
 [Font Variations](../examples/ui/text/font_variations.rs) | Demonstrates how to use OpenType font variations.
 [Font Weights](../examples/ui/text/font_weights.rs) | Demonstrates how to use font weights.
-[Fuzzy Search](../examples/ui/fuzzy_search.rs) | Demonstrates how to use fuzzy search.
+[Fuzzy Search](../examples/ui/fuzzy_search.rs) | Demonstrates how to use the `bevy_fuzzy` crate to implement a fuzzy search feature.
 [Generic Font Families](../examples/ui/text/generic_font_families.rs) | Demonstrates how to use generic font families
 [Ghost Nodes](../examples/ui/layout/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Gradients](../examples/ui/styling/gradients.rs) | An example demonstrating gradients
