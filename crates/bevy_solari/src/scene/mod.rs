@@ -42,6 +42,7 @@ impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "brdf.wesl");
         load_shader_library!(app, "bindings.wesl");
+        load_shader_library!(app, "ray_cone.wesl");
         load_shader_library!(app, "sampling.wesl");
         embedded_asset!(app, "binder/setup_tlas_instances.wesl");
     }

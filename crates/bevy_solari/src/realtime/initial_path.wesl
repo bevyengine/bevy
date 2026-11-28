@@ -9,6 +9,7 @@ import package::realtime::atmosphere::calculate_light_contribution;
 import package::scene::sampling::{isinf, LightSample, NULL_LIGHT_ID, power_heuristic, trace_visibility, sample_environment_map_light};
 import package::scene::bindings::{light_sources, MIRROR_ROUGHNESS_THRESHOLD, RAY_T_MAX, RAY_T_MIN, resolve_ray_hit_full, ResolvedMaterial, ResolvedRayHitFull, trace_ray};
 import package::realtime::world_cache_query::{get_cell_size, query_world_cache, WORLD_CACHE_CELL_LIFETIME};
+import package::scene::ray_cone::{RayCone, ray_cone_apply_curvature, ray_cone_apply_roughness, ray_cone_from_camera, ray_cone_propagate};
 
 @if(DLSS_RR_GUIDE_BUFFERS)
 import package::realtime::resolve_dlss_rr_textures::{is_delta_mirror, primary_surface_glossy, psr_bounce_reflectance, psr_chain_mirror, psr_environment_miss, psr_init, replace_primary_surface};
@@ -38,6 +39,8 @@ struct PathState {
     normal: vec3<f32>,
     wo: vec3<f32>,
     material: ResolvedMaterial,
+    /// Ray cone at the current vertex, used to filter textures.
+    ray_cone: RayCone,
     /// Throughput past x1. With ReSTIR the brdf*cos at x1 is factored out of it, see x1_brdf.
     throughput_past_first_hit: vec3<f32>,
     /// Reconnection vertex x2, the first BRDF-sampled hit shared by every length >= 2 candidate
@@ -55,12 +58,13 @@ struct PathState {
     @if(RESTIR) selected_target_function: f32,
 }
 
-fn new_path_state(world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial) -> PathState {
+fn new_path_state(world_position: vec3<f32>, world_normal: vec3<f32>, wo: vec3<f32>, material: ResolvedMaterial, ray_cone: RayCone) -> PathState {
     var path: PathState;
     path.ray_origin = world_position + (world_normal * RAY_T_MIN);
     path.normal = world_normal;
     path.wo = wo;
     path.material = material;
+    path.ray_cone = ray_cone;
     path.throughput_past_first_hit = vec3(1.0);
     path.radiance = vec3(0.0);
     @if(RESTIR) {
@@ -81,7 +85,11 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
     let primary_NdotV = max(dot(world_normal, wo), 0.0001);
     let primary_F_ab = F_AB(material.perceptual_roughness, primary_NdotV);
 
-    var path = new_path_state(world_position, world_normal, wo, material);
+    // The G-buffer holds no curvature, so the cone leaves x1 as if it were flat
+    let camera_ray_cone = ray_cone_from_camera(view.clip_from_view, view.main_pass_viewport.w, view.mip_bias);
+    let primary_ray_cone = ray_cone_propagate(camera_ray_cone, distance(view.world_position, world_position));
+
+    var path = new_path_state(world_position, world_normal, wo, material, primary_ray_cone);
 
     @if(DLSS_RR_GUIDE_BUFFERS)
     var psr = psr_init(world_normal, material);
@@ -97,6 +105,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
         // Sample the BRDF and trace the next ray
         let next_bounce = evaluate_and_sample_brdf(path.wo, path.normal, path.material, F_ab, rng);
         if next_bounce.pdf == 0.0 { break; }
+        let ray_cone = ray_cone_apply_roughness(path.ray_cone, path.material.roughness, next_bounce.diffuse_selected, bounce == 0u);
         let ray = trace_ray(path.ray_origin, next_bounce.wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
 
         if ray.kind == RAY_QUERY_INTERSECTION_NONE {
@@ -115,7 +124,8 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
             break;
         }
 
-        let ray_hit = resolve_ray_hit_full(ray, -next_bounce.wi);
+        let ray_cone_at_hit = ray_cone_propagate(ray_cone, ray.t);
+        let ray_hit = resolve_ray_hit_full(ray, -next_bounce.wi, ray_cone_at_hit.width);
         let p_brdf = next_bounce.pdf;
 
         @if(DLSS_RR_GUIDE_BUFFERS)
@@ -176,6 +186,7 @@ fn generate_initial_path(world_position: vec3<f32>, world_normal: vec3<f32>, mat
         path.normal = ray_hit.world_normal;
         path.wo = -next_bounce.wi;
         path.material = ray_hit.material;
+        path.ray_cone = ray_cone_apply_curvature(ray_cone_at_hit, next_bounce.wi, ray_hit.geometric_world_normal, ray_hit.curvature);
 
         // Russian roulette for early termination
         if bounce > 0u {

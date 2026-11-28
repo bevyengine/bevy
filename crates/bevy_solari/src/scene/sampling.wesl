@@ -270,12 +270,12 @@ fn resolve_light_sample(light_sample: LightSample, light_source: LightSource) ->
         let triangle_count = emissive_mesh_triangle_count(light_source);
         let triangle_id = light_sample.light_id & 0xFFFFu;
         let barycentrics = triangle_barycentrics(light_sample.seed);
-        let triangle_data = resolve_triangle_data_full(light_source.id, triangle_id, barycentrics);
+        let triangle_data = resolve_triangle_data_full(light_source.id, triangle_id, barycentrics, vec3(0.0), 0.0);
 
         return ResolvedLightSample(
             vec4(triangle_data.world_position, 1.0),
             triangle_data.world_normal,
-            triangle_data.material.emissive.rgb,
+            select(triangle_data.material.emissive, vec3(0.0), triangle_data.material.alpha_masked_out),
             f32(triangle_count) * triangle_data.triangle_area,
             triangle_data.world_normal,
             NO_EMISSION_CONE,
