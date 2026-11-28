@@ -4,7 +4,7 @@ use bevy_asset::{
 };
 use bevy_camera::{Camera, CompositingSpace};
 use bevy_ecs::prelude::*;
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
+use bevy_image::{Image, ImageBufferInfo, ImageSampler, ImageType};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_log::error;
 use bevy_log::warn;
@@ -476,11 +476,13 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     Image::from_buffer(
         bytes,
         image_type,
-        CompressedImageFormats::NONE,
-        false,
-        image_sampler,
-        // LUT must be kept in main world for render recovery reasons
-        RenderAssetUsages::default(),
+        ImageBufferInfo {
+            is_srgb: false,
+            sampler: image_sampler,
+            // LUT must be kept in main world for render recovery reasons
+            asset_usage: RenderAssetUsages::default(),
+            ..default()
+        },
     )
     .unwrap()
 }

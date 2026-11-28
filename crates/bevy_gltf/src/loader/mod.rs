@@ -22,8 +22,8 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_image::{
-    CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
-    ImageType, TextureError,
+    CompressedImageFormats, Image, ImageBufferInfo, ImageLoaderSettings, ImageSampler,
+    ImageSamplerDescriptor, ImageType, TextureError,
 };
 use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
@@ -1312,10 +1312,13 @@ async fn load_image<'a, 'b>(
             let image = Image::from_buffer(
                 buffer,
                 ImageType::MimeType(mime_type),
-                supported_compressed_formats,
-                is_srgb,
-                ImageSampler::Descriptor(sampler_descriptor),
-                settings.load_materials,
+                ImageBufferInfo {
+                    supported_compressed_formats,
+                    is_srgb,
+                    sampler: ImageSampler::Descriptor(sampler_descriptor),
+                    asset_usage: settings.load_materials,
+                    ..Default::default()
+                },
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -1334,10 +1337,13 @@ async fn load_image<'a, 'b>(
                     image: Image::from_buffer(
                         &bytes,
                         mime_type.map(ImageType::MimeType).unwrap_or(image_type),
-                        supported_compressed_formats,
-                        is_srgb,
-                        ImageSampler::Descriptor(sampler_descriptor),
-                        settings.load_materials,
+                        ImageBufferInfo {
+                            supported_compressed_formats,
+                            is_srgb,
+                            sampler: ImageSampler::Descriptor(sampler_descriptor),
+                            asset_usage: settings.load_materials,
+                            ..Default::default()
+                        },
                     )?,
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })

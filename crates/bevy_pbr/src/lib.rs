@@ -279,10 +279,11 @@ impl Plugin for PbrPlugin {
                 let mut image = Image::from_buffer(
                     include_bytes!("bluenoise/stbn.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),
-                    bevy_image::CompressedImageFormats::NONE,
-                    false,
-                    ImageSampler::Default,
-                    RenderAssetUsages::RENDER_WORLD,
+                    bevy_image::ImageBufferInfo {
+                        is_srgb: false,
+                        asset_usage: RenderAssetUsages::RENDER_WORLD,
+                        ..Default::default()
+                    },
                 )
                 .expect("Failed to decode embedded blue-noise texture");
                 image.texture_descriptor.label = Some("bluenoise");
@@ -310,10 +311,12 @@ impl Plugin for PbrPlugin {
                 let mut image = Image::from_buffer(
                     include_bytes!("ltc/ltc.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),
-                    bevy_image::CompressedImageFormats::NONE,
-                    false,
-                    ImageSampler::linear(),
-                    RenderAssetUsages::RENDER_WORLD,
+                    bevy_image::ImageBufferInfo {
+                        is_srgb: false,
+                        sampler: ImageSampler::linear(),
+                        asset_usage: RenderAssetUsages::RENDER_WORLD,
+                        ..Default::default()
+                    },
                 )
                 .expect("Failed to decode embedded LTC LUTs");
                 image.texture_descriptor.label = Some("area_light_luts");
@@ -338,10 +341,12 @@ impl Plugin for PbrPlugin {
                 Image::from_buffer(
                     include_bytes!("environment_map/dfg.ktx2"),
                     bevy_image::ImageType::Extension("ktx2"),
-                    bevy_image::CompressedImageFormats::NONE,
-                    false,
-                    ImageSampler::linear(),
-                    RenderAssetUsages::RENDER_WORLD,
+                    bevy_image::ImageBufferInfo {
+                        is_srgb: false,
+                        sampler: ImageSampler::linear(),
+                        asset_usage: RenderAssetUsages::RENDER_WORLD,
+                        ..Default::default()
+                    },
                 )
                 .expect("Failed to decode embedded DFG LUT"),
             );
