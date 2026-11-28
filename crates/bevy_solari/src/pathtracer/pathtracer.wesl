@@ -4,6 +4,7 @@ import bevy_render::view::View;
 import package::scene::brdf::{evaluate_brdf, evaluate_and_sample_brdf, brdf_pdf, F_AB};
 import package::scene::sampling::{sample_random_light, random_emissive_light_pdf, power_heuristic, sample_environment_map_light};
 import package::scene::bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX, MIRROR_ROUGHNESS_THRESHOLD};
+import package::scene::ray_cone::{ray_cone_from_camera, ray_cone_propagate, ray_cone_scatter};
 
 enable wgpu_ray_query;
 
@@ -33,6 +34,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var ray_origin = view.world_position;
     var ray_direction = normalize((primary_ray_target.xyz / primary_ray_target.w) - ray_origin);
     var ray_t_min = 0.0;
+    var ray_cone = ray_cone_from_camera(view.clip_from_view, view.viewport.w, view.mip_bias);
 
     // Path trace
     var radiance = vec3(0.0);
@@ -42,7 +44,8 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let ray = trace_ray(ray_origin, ray_direction, ray_t_min, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind != RAY_QUERY_INTERSECTION_NONE {
             let wo = -ray_direction;
-            let ray_hit = resolve_ray_hit_full(ray, wo);
+            ray_cone = ray_cone_propagate(ray_cone, ray.t);
+            let ray_hit = resolve_ray_hit_full(ray, wo, ray_cone.width);
             let NdotV = max(dot(ray_hit.world_normal, wo), 0.0001);
             let F_ab = F_AB(ray_hit.material.perceptual_roughness, NdotV);
 
@@ -74,6 +77,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             // Sample new ray direction from the material BRDF for next bounce and apply BRDF
             let next_bounce = evaluate_and_sample_brdf(wo, ray_hit.world_normal, ray_hit.material, F_ab, &rng);
             if next_bounce.pdf == 0.0 { break; }
+            ray_cone = ray_cone_scatter(ray_cone, ray_direction, ray_hit.geometric_world_normal, ray_hit.curvature, ray_hit.material.roughness, next_bounce.diffuse_selected, p_bounce == 0.0);
             ray_direction = next_bounce.wi;
             ray_origin = ray_hit.world_position + (ray_hit.geometric_world_normal * RAY_T_MIN);
             ray_t_min = RAY_T_MIN;

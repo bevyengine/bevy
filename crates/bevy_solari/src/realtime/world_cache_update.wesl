@@ -36,7 +36,7 @@ fn update_world_cache(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(g
     let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
     let ray = trace_ray(geometry_data.world_position + (geometry_data.world_normal * RAY_T_MIN), ray_direction, RAY_T_MIN, constants.world_cache_max_gi_ray_distance, WORLD_CACHE_RAY_FLAG);
     if ray.kind != RAY_QUERY_INTERSECTION_NONE {
-        let ray_hit = resolve_ray_hit_full(ray, -ray_direction);
+        let ray_hit = resolve_ray_hit_full(ray, -ray_direction, 0.0);
         if ray.front_face || ray_hit.double_sided {
             let cell_life = atomicLoad(&world_cache.life[cell_index]);
             let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, cell_life, &rng);

@@ -1,5 +1,6 @@
 import bevy_pbr::render::pbr_functions::calculate_tbn_mikktspace;
 import bevy_render::maths::affine3_to_square;
+import package::scene::ray_cone::{ray_cone_texture_lod, TEXTURE_LOD_MIP_0, triangle_curvature};
 
 enable wgpu_ray_query;
 enable wgpu_binding_array;
@@ -178,11 +179,18 @@ fn trace_ray_previous_frame(ray_origin: vec3<f32>, ray_direction: vec3<f32>, ray
 
 fn passes_alpha_test(candidate: RayIntersection) -> bool {
     let barycentrics = vec3(1.0 - candidate.barycentrics.x - candidate.barycentrics.y, candidate.barycentrics);
-    return !resolve_triangle_data_full(candidate.instance_custom_data, candidate.primitive_index, barycentrics).material.alpha_masked_out;
+    return !resolve_triangle_data_full(candidate.instance_custom_data, candidate.primitive_index, barycentrics, vec3(0.0), 0.0).material.alpha_masked_out;
 }
 
-fn sample_texture(id: u32, uv: vec2<f32>) -> vec4<f32> {
-    return textureSampleLevel(textures[id], samplers[id], uv, 0.0); // TODO: Mipmap
+fn sample_texture(id: u32, uv: vec2<f32>, texture_lod: f32) -> vec4<f32> {
+    if texture_lod <= TEXTURE_LOD_MIP_0 {
+        return textureSampleLevel(textures[id], samplers[id], uv, 0.0);
+    }
+    // Ray Tracing Gems chapter 20, equation 34
+    let size = vec2<f32>(textureDimensions(textures[id]));
+    let mip = max(texture_lod + 0.5 * log2(size.x * size.y), 0.0);
+
+    return textureSampleLevel(textures[id], samplers[id], uv, mip);
 }
 
 struct ResolvedMaterial {
@@ -201,6 +209,7 @@ struct ResolvedRayHitFull {
     geometric_world_normal: vec3<f32>,
     world_tangent: vec4<f32>,
     uv: vec2<f32>,
+    curvature: f32,
     triangle_area: f32,
     triangle_count: u32,
     material: ResolvedMaterial,
@@ -210,24 +219,21 @@ struct ResolvedRayHitFull {
     barycentrics: vec3<f32>,
 }
 
-fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
+fn resolve_material(material: Material, uv: vec2<f32>, texture_lod: f32) -> ResolvedMaterial {
     var m: ResolvedMaterial;
 
     m.base_color = material.base_color.rgb;
     var alpha = material.alpha;
     if material.base_color_texture_id != TEXTURE_MAP_NONE {
-        let base_color = sample_texture(material.base_color_texture_id, uv);
+        let base_color = sample_texture(material.base_color_texture_id, uv, texture_lod);
         m.base_color *= base_color.rgb;
         alpha *= base_color.a;
     }
+    m.alpha_masked_out = alpha < material.alpha_cutoff;
 
     m.emissive = material.emissive.rgb;
     if material.emissive_texture_id != TEXTURE_MAP_NONE {
-        m.emissive *= sample_texture(material.emissive_texture_id, uv).rgb;
-    }
-    m.alpha_masked_out = alpha < material.alpha_cutoff;
-    if m.alpha_masked_out {
-        m.emissive = vec3(0.0);
+        m.emissive *= sample_texture(material.emissive_texture_id, uv, texture_lod).rgb;
     }
 
     m.reflectance = material.reflectance;
@@ -235,7 +241,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     m.perceptual_roughness = material.perceptual_roughness;
     m.metallic = material.metallic;
     if material.metallic_roughness_texture_id != TEXTURE_MAP_NONE {
-        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv).rgb;
+        let metallic_roughness = sample_texture(material.metallic_roughness_texture_id, uv, texture_lod).rgb;
         m.perceptual_roughness *= metallic_roughness.g;
         m.metallic *= metallic_roughness.b;
     }
@@ -245,9 +251,14 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     return m;
 }
 
-fn resolve_ray_hit_full(ray_hit: RayIntersection, wo: vec3<f32>) -> ResolvedRayHitFull {
+fn resolve_ray_hit_full(ray_hit: RayIntersection, wo: vec3<f32>, ray_cone_width: f32) -> ResolvedRayHitFull {
     let barycentrics = vec3(1.0 - ray_hit.barycentrics.x - ray_hit.barycentrics.y, ray_hit.barycentrics);
-    var resolved = resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics);
+    var resolved = resolve_triangle_data_full(ray_hit.instance_custom_data, ray_hit.primitive_index, barycentrics, -wo, ray_cone_width);
+
+    // Orient curvature towards the side the ray arrived on
+    if !ray_hit.front_face {
+        resolved.curvature = -resolved.curvature;
+    }
 
     // Flip normals for backfacing hits of double sided materials
     if !ray_hit.front_face && resolved.double_sided {
@@ -296,7 +307,7 @@ fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> ar
     );
 }
 
-fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
+fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>, ray_direction: vec3<f32>, ray_cone_width: f32) -> ResolvedRayHitFull {
     let material_id = material_ids[instance_id];
     let material = materials[material_id];
 
@@ -311,6 +322,11 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let mesh_uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
     let uv = material.uv_transform * mesh_uv + material.uv_translation;
 
+    var texture_lod = ray_cone_texture_lod(world_vertices, array(vertices[0].uv, vertices[1].uv, vertices[2].uv), ray_direction, ray_cone_width);
+    if texture_lod > TEXTURE_LOD_MIP_0 {
+        texture_lod += 0.5 * log2(max(abs(determinant(material.uv_transform)), 1e-12));
+    }
+
     let transform_3x3 = mat3x3(transform[0].xyz, transform[1].xyz, transform[2].xyz);
 
     let cofactor = mat3x3(cross(transform_3x3[1], transform_3x3[2]), cross(transform_3x3[2], transform_3x3[0]), cross(transform_3x3[0], transform_3x3[1]));
@@ -324,12 +340,20 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     var world_normal = normalize(determinant_sign * (cofactor * local_normal));
 
     let geometric_world_normal = world_normal;
+
+    let world_vertex_normals = array<vec3<f32>, 3>(
+        normalize_or_zero(determinant_sign * (cofactor * vertices[0].normal)),
+        normalize_or_zero(determinant_sign * (cofactor * vertices[1].normal)),
+        normalize_or_zero(determinant_sign * (cofactor * vertices[2].normal))
+    );
+    let curvature = triangle_curvature(world_vertices, world_vertex_normals);
+
     if material.normal_map_texture_id != TEXTURE_MAP_NONE {
         let TBN = calculate_tbn_mikktspace(world_normal, world_tangent);
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
-        var Nt = sample_texture(material.normal_map_texture_id, uv).rgb * 2.0 - 1.0;
+        var Nt = sample_texture(material.normal_map_texture_id, uv, texture_lod).rgb * 2.0 - 1.0;
         if (material.flags & MATERIAL_FLAG_FLIP_NORMAL_MAP_Y) != 0u {
             Nt.y = -Nt.y;
         }
@@ -341,7 +365,7 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let triangle_edge1 = world_vertices[0] - world_vertices[2];
     let triangle_area = length(cross(triangle_edge0, triangle_edge1)) / 2.0;
 
-    let resolved_material = resolve_material(material, uv);
+    let resolved_material = resolve_material(material, uv, texture_lod);
 
     return ResolvedRayHitFull(
         world_position,
@@ -349,6 +373,7 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         geometric_world_normal,
         world_tangent,
         uv,
+        curvature,
         triangle_area,
         instance_geometry_ids.triangle_count,
         resolved_material,
@@ -372,4 +397,10 @@ fn resolve_previous_frame_world_position(hit: ResolvedRayHitFull) -> vec3<f32> {
 fn bend_normal_towards_viewer(world_normal: vec3<f32>, wo: vec3<f32>) -> vec3<f32> {
     let NdotV = dot(world_normal, wo);
     return normalize(world_normal + max(MIN_SHADING_NDOTV - NdotV, 0.0) * wo);
+}
+
+/// Like `normalize`, but returns zero instead of NaN for a zero vector, e.g. a degenerate vertex normal.
+fn normalize_or_zero(v: vec3<f32>) -> vec3<f32> {
+    let length_squared = dot(v, v);
+    return select(vec3(0.0), v * inverseSqrt(length_squared), length_squared > 0.0);
 }
