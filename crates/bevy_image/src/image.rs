@@ -1614,38 +1614,11 @@ impl Image {
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
-    /// crate. Grayscale images are expanded to RGBA.
+    /// crate.
     pub fn from_buffer(
         buffer: &[u8],
         image_type: ImageType,
-        supported_compressed_formats: CompressedImageFormats,
-        is_srgb: bool,
-        image_sampler: ImageSampler,
-        asset_usage: RenderAssetUsages,
-    ) -> Result<Image, TextureError> {
-        Self::from_buffer_inner(
-            buffer,
-            image_type,
-            supported_compressed_formats,
-            is_srgb,
-            true,
-            image_sampler,
-            asset_usage,
-        )
-    }
-
-    pub(crate) fn from_buffer_inner(
-        buffer: &[u8],
-        image_type: ImageType,
-        #[cfg_attr(
-            not(any(feature = "basis-universal", feature = "dds", feature = "ktx2")),
-            expect(unused_variables, reason = "only used with certain features")
-        )]
-        supported_compressed_formats: CompressedImageFormats,
-        is_srgb: bool,
-        expand_grayscale: bool,
-        image_sampler: ImageSampler,
-        asset_usage: RenderAssetUsages,
+        info: ImageBufferInfo,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -1658,13 +1631,15 @@ impl Image {
         let mut image = match format {
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => {
-                basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
+                basis_buffer_to_image(buffer, info.supported_compressed_formats, info.is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
+            ImageFormat::Dds => {
+                dds_buffer_to_image(buffer, info.supported_compressed_formats, info.is_srgb)?
+            }
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
-                ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
+                ktx2_buffer_to_image(buffer, info.supported_compressed_formats, info.is_srgb)?
             }
             #[expect(
                 clippy::allow_attributes,
@@ -1682,11 +1657,16 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic_inner(dyn_img, is_srgb, expand_grayscale, asset_usage)
+                Self::from_dynamic_inner(
+                    dyn_img,
+                    info.is_srgb,
+                    info.expand_grayscale,
+                    info.asset_usage,
+                )
             }
         };
-        image.sampler = image_sampler;
-        image.asset_usage = asset_usage;
+        image.sampler = info.sampler;
+        image.asset_usage = info.asset_usage;
         Ok(image)
     }
 
@@ -2347,6 +2327,33 @@ pub enum TextureError {
     /// Only cubemaps with six faces are supported.
     #[error("only cubemaps with six faces are supported")]
     IncompleteCubemap,
+}
+
+/// Contains the configuration options used when creating an image from a buffer.
+#[derive(Debug, Clone)]
+pub struct ImageBufferInfo {
+    /// The compressed image formats supported by the GPU.
+    pub supported_compressed_formats: CompressedImageFormats,
+    /// Whether the image uses the sRGB color space.
+    pub is_srgb: bool,
+    /// Whether grayscale images should be expanded to RGBA.
+    pub expand_grayscale: bool,
+    /// The sampler configuration used for the image.
+    pub sampler: ImageSampler,
+    /// Where this image asset will be used. See [`RenderAssetUsages`] for more.
+    pub asset_usage: RenderAssetUsages,
+}
+
+impl Default for ImageBufferInfo {
+    fn default() -> Self {
+        Self {
+            supported_compressed_formats: CompressedImageFormats::NONE,
+            is_srgb: true,
+            expand_grayscale: true,
+            sampler: ImageSampler::Default,
+            asset_usage: RenderAssetUsages::default(),
+        }
+    }
 }
 
 /// The type of a raw image buffer.

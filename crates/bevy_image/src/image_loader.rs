@@ -1,5 +1,5 @@
 use crate::{
-    image::{Image, ImageFormat, ImageType, TextureError},
+    image::{Image, ImageBufferInfo, ImageFormat, ImageType, TextureError},
     TextureReinterpretationError,
 };
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
@@ -238,14 +238,16 @@ impl AssetLoader for ImageLoader {
 
         let expand_grayscale = settings.expand_grayscale
             && !settings.texture_format.is_some_and(|f| f.components() <= 2);
-        let mut image = Image::from_buffer_inner(
+        let mut image = Image::from_buffer(
             &bytes,
             image_type,
-            self.supported_compressed_formats,
-            settings.is_srgb,
-            expand_grayscale,
-            settings.sampler.clone(),
-            settings.asset_usage,
+            ImageBufferInfo {
+                supported_compressed_formats: self.supported_compressed_formats,
+                is_srgb: settings.is_srgb,
+                expand_grayscale,
+                sampler: settings.sampler.clone(),
+                asset_usage: settings.asset_usage,
+            },
         )
         .map_err(|err| FileTextureError {
             error: err,
