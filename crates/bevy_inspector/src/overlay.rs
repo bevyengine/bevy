@@ -29,9 +29,10 @@ use bevy_ecs::{
 };
 use bevy_feathers::{
     constants::icons,
-    controls::{ButtonVariant, FeathersDock, FeathersToolButton},
+    controls::{ButtonVariant, FeathersButton, FeathersDock},
     dark_theme::create_dark_theme,
     display::{caption, icon},
+    rounded_corners::RoundedCorners,
     theme::{InheritableThemeTextColor, ThemeBackgroundColor, ThemeBorderColor, UiTheme},
     tokens, FeathersPlugins,
 };
@@ -140,6 +141,29 @@ impl InspectorPanel {
             InspectorPanel::Details => "Details",
         }
     }
+
+    fn content(self) -> Box<dyn Scene> {
+        match self {
+            InspectorPanel::Entities => Box::new(bsn! {
+                Children [
+                    @entity_tree_body()
+                    Node { flex_grow: 1.0, min_width: px(0) }
+                ]
+            }),
+            InspectorPanel::Resources => Box::new(bsn! {
+                Children [
+                    @resource_list_body()
+                    Node { flex_grow: 1.0, min_width: px(0) }
+                ]
+            }),
+            InspectorPanel::Details => Box::new(bsn! {
+                Children [
+                    @details_body()
+                    Node { flex_grow: 1.0, min_width: px(0) }
+                ]
+            }),
+        }
+    }
 }
 
 #[derive(Component, Clone)]
@@ -209,28 +233,10 @@ fn build_overlay_panels(
         let Some(kind) = InspectorPanel::from_key(panel.panel.as_str()) else {
             continue;
         };
-        let mut entity = commands.entity(content);
-        entity.insert(DockPanelTitle::new(kind.title()));
-        match kind {
-            InspectorPanel::Entities => entity.apply_scene(bsn! {
-                Children [
-                    @entity_tree_body()
-                    Node { flex_grow: 1.0, min_width: px(0) }
-                ]
-            }),
-            InspectorPanel::Resources => entity.apply_scene(bsn! {
-                Children [
-                    @resource_list_body()
-                    Node { flex_grow: 1.0, min_width: px(0) }
-                ]
-            }),
-            InspectorPanel::Details => entity.apply_scene(bsn! {
-                Children [
-                    @details_body()
-                    Node { flex_grow: 1.0, min_width: px(0) }
-                ]
-            }),
-        };
+        commands
+            .entity(content)
+            .insert(DockPanelTitle::new(kind.title()))
+            .apply_scene(kind.content());
     }
 }
 
@@ -369,17 +375,26 @@ fn toolbar() -> impl Scene {
         ThemeBorderColor(tokens::DIALOG_BORDER)
         InheritableThemeTextColor(tokens::DIALOG_TEXT)
         Children [
-            @FeathersToolButton {
-                @caption: bsn! { @caption("Edit") },
+            Node {
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                column_gap: px(1),
             }
-            ModeToggle(InspectorMode::Edit)
-            on(on_mode_toggle)
-            --
-            @FeathersToolButton {
-                @caption: bsn! { @caption("Preview") },
-            }
-            ModeToggle(InspectorMode::Preview)
-            on(on_mode_toggle)
+            Children [
+                @FeathersButton {
+                    @caption: bsn! { @caption("Edit") },
+                    @corners: RoundedCorners::Left,
+                }
+                ModeToggle(InspectorMode::Edit)
+                on(on_mode_toggle)
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Preview") },
+                    @corners: RoundedCorners::Right,
+                }
+                ModeToggle(InspectorMode::Preview)
+                on(on_mode_toggle)
+            ]
             --
             @time_controls()
             --
