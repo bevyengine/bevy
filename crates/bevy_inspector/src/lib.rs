@@ -36,6 +36,7 @@ mod picking;
 #[cfg(feature = "remote")]
 pub mod remote;
 pub mod resource_list;
+pub mod time_controls;
 pub mod world_tabs;
 
 use alloc::string::{String, ToString};
@@ -66,7 +67,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::EditableTextSystems;
 use bevy_time::{Real, Time, Timer, TimerMode};
 use bevy_ui::{Display as NodeDisplay, Node, UiSystems};
-use bevy_ui_widgets::SelectedTreeItem;
+use bevy_ui_widgets::{DockSystems, SelectedTreeItem};
 
 use crate::column_split::ColumnSplitPlugin;
 use crate::details_panel::{
@@ -474,6 +475,7 @@ impl Plugin for InspectorPlugin {
         embedded_asset!(app, "assets/icons/eye-closed.png");
         embedded_asset!(app, "assets/icons/filter.png");
 
+        time_controls::add_time_controls(app);
         app.init_resource::<InspectorSources>()
             .init_resource::<InspectorSelection>()
             .init_resource::<InspectorMode>()
@@ -528,6 +530,7 @@ impl Plugin for InspectorPlugin {
                 )
                     .chain()
                     .ambiguous_with_all()
+                    .after(DockSystems::Panels)
                     .before(UiSystems::Prepare)
                     .before(UiSystems::Stack)
                     .before(VisibilitySystems::VisibilityPropagate),
