@@ -3609,7 +3609,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::NORMAL_PREPASS) && key.msaa_samples() == 1 {
+        // Blended meshes don't write to the normal prepass, so the normal stored there belongs to
+        // whatever is behind them.
+        if key.contains(MeshPipelineKey::NORMAL_PREPASS)
+            && key.msaa_samples() == 1
+            && depth_write_enabled
+        {
             shader_defs.push("LOAD_PREPASS_NORMALS".into());
         }
 
