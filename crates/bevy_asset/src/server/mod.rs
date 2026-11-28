@@ -846,12 +846,12 @@ impl AssetServer {
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
         let loaded_asset: LoadedAsset<A> = asset.into();
         let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
-        self.load_asset_untyped(None, erased_loaded_asset)
+        self.add_asset_erased_with_path(None, erased_loaded_asset)
             .typed_debug_checked()
     }
 
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub(crate) fn load_asset_untyped(
+    pub(crate) fn add_asset_erased_with_path(
         &self,
         path: Option<AssetPath<'static>>,
         asset: impl Into<ErasedLoadedAsset>,
@@ -1347,6 +1347,30 @@ impl AssetServer {
     /// real loader is added.
     pub fn preregister_loader<L: AssetLoader>(&self, extensions: &[&str]) {
         self.write_loaders().reserve::<L>(extensions);
+    }
+
+    /// Adds an asset in the handle used for `asset_path`.
+    ///
+    /// This function gets the handle for the `asset_path` and inserts `asset` as the value for that
+    /// handle. This is similar to [`Self::add`], except [`Self::add`] allocates a totally new
+    /// handle not affiliated with any path. This function returns the handle for the `asset_path`,
+    /// meaning that you can get the path from [`Handle::path`] (e.g., for serializing the handle).
+    ///
+    /// The `asset` value will overwrite whatever value is currently stored for that handle.
+    ///
+    /// Warning: This function is primarily provided as an escape hatch for editors that **intend**
+    /// to save this asset to disk (so before it is saved, the asset should behave as if it were
+    /// loaded from disk). The interactions may be weird if used haphazardly.
+    pub fn add_with_path<'a, A: Asset>(
+        &self,
+        asset_path: impl Into<AssetPath<'a>>,
+        asset: A,
+    ) -> Handle<A> {
+        self.add_asset_erased_with_path(
+            Some(asset_path.into().into_owned()),
+            LoadedAsset::from(asset),
+        )
+        .typed()
     }
 
     /// Retrieve a handle for the given path. This will create a handle (and [`AssetInfo`]) if it does not exist
