@@ -1295,7 +1295,7 @@ impl MaterialBindlessSlab {
             let binding_resource_id = BindingResourceId::from(unprepared_binding_resource);
             let increment_allocated_resource_count = match unprepared_binding_resource {
                 UnpreparedBindingResource::Buffer(buffer) => {
-                    let slot = self
+                    let (slot, inserted) = self
                         .buffers
                         .get_mut(&bindless_index)
                         .expect("Buffer binding array should exist")
@@ -1304,11 +1304,11 @@ impl MaterialBindlessSlab {
 
                     debug_assert!(pre_existing_slot
                         .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
-                    pre_existing_slot.is_none()
+                    inserted
                 }
 
                 UnpreparedBindingResource::ShaderBuffer(shader_buffer) => {
-                    let slot = self
+                    let (slot, inserted) = self
                         .shader_buffers
                         .get_mut(&bindless_index)
                         .expect("Shader buffer binding array should exist")
@@ -1317,7 +1317,7 @@ impl MaterialBindlessSlab {
 
                     debug_assert!(pre_existing_slot
                         .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
-                    pre_existing_slot.is_none()
+                    inserted
                 }
 
                 UnpreparedBindingResource::Data(data_range) => {
@@ -1340,7 +1340,7 @@ impl MaterialBindlessSlab {
                 UnpreparedBindingResource::TextureView(texture_view_dimension, texture_view) => {
                     let bindless_resource_type =
                         BindlessResourceType::from(*texture_view_dimension);
-                    let slot = self
+                    let (slot, inserted) = self
                         .textures
                         .get_mut(&bindless_resource_type)
                         .expect("Texture array should exist")
@@ -1349,12 +1349,12 @@ impl MaterialBindlessSlab {
 
                     debug_assert!(pre_existing_slot
                         .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
-                    pre_existing_slot.is_none()
+                    inserted
                 }
 
                 UnpreparedBindingResource::Sampler(sampler_binding_type, sampler) => {
                     let bindless_resource_type = BindlessResourceType::from(*sampler_binding_type);
-                    let slot = self
+                    let (slot, inserted) = self
                         .samplers
                         .get_mut(&bindless_resource_type)
                         .expect("Sampler should exist")
@@ -1363,7 +1363,7 @@ impl MaterialBindlessSlab {
 
                     debug_assert!(pre_existing_slot
                         .is_none_or(|pre_existing_slot| *pre_existing_slot == slot));
-                    pre_existing_slot.is_none()
+                    inserted
                 }
             };
 
@@ -2120,8 +2120,8 @@ where
     }
 
     /// Inserts a bindless resource into a binding array and returns the index
-    /// of the slot it was inserted into.
-    fn insert(&mut self, binding_resource_id: BindingResourceId, resource: R) -> u32 {
+    /// of the slot it was inserted into, plus whether a new entry was created
+    fn insert(&mut self, binding_resource_id: BindingResourceId, resource: R) -> (u32, bool) {
         match self.resource_to_slot.entry(binding_resource_id) {
             Entry::Occupied(o) => {
                 let slot = *o.get();
@@ -2131,7 +2131,7 @@ where
                     .expect("A slot in the resource_to_slot map should have a value")
                     .ref_count += 1;
 
-                slot
+                (slot, false)
             }
             Entry::Vacant(v) => {
                 let slot = self.free_slots.pop().unwrap_or(self.len);
@@ -2144,7 +2144,7 @@ where
                 self.bindings[slot as usize] = Some(MaterialBindlessBinding::new(resource));
 
                 self.len += 1;
-                slot
+                (slot, true)
             }
         }
     }
