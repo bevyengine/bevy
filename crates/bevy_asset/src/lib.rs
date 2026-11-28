@@ -3561,4 +3561,31 @@ mod tests {
         assert_eq!(cool_texts.get(&new_def_handle).unwrap().text, "def");
         assert_eq!(cool_texts.get(&new_ghi_handle).unwrap().text, "ghi");
     }
+
+    #[test]
+    fn add_asset_with_path() {
+        let mut app = create_app().0;
+
+        app.init_asset::<TestAsset>();
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle = asset_server.add_with_path("this_is_a_file_path", TestAsset);
+
+        assert_eq!(
+            handle.path().cloned(),
+            Some(AssetPath::from("this_is_a_file_path"))
+        );
+
+        app.update();
+
+        // The asset made it to the world.
+        assert!(app
+            .world()
+            .resource::<Assets<TestAsset>>()
+            .get(&handle)
+            .is_some());
+
+        let loaded_handle = asset_server.load::<TestAsset>("this_is_a_file_path");
+        assert_eq!(handle, loaded_handle);
+    }
 }
