@@ -246,6 +246,12 @@ pub struct LogPlugin {
     /// timestamp from the log output.
     ///
     /// Please see the `examples/app/log_layers.rs` for a complete example.
+    ///
+    /// Note: this hook is only used on desktop platforms. On Android, iOS and Wasm,
+    /// `LogPlugin` writes logs directly to the platform's native logging system (logcat,
+    /// the unified logging system, the browser console) and does not call this hook; use
+    /// [`custom_layer`](Self::custom_layer) if you need an additional layer on those
+    /// platforms.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 
     /// Whether to stream events to the Tracy profiler or collector. Only enable
@@ -360,6 +366,12 @@ impl Plugin for LogPlugin {
                 None
             };
 
+            // The formatter layer hook is not used on Android, mirroring the iOS and Wasm
+            // behavior: logs are written to the Android logging system (logcat) by
+            // `AndroidLayer` below, and `stderr` is separately forwarded to logcat by the
+            // Android activity glue, so a formatter layer writing to stderr would
+            // duplicate every log line.
+            #[cfg(not(target_os = "android"))]
             let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
                 // note: the implementation of `Default` reads from the env var NO_COLOR
                 // to decide whether to use ANSI color codes, which is common convention
@@ -369,12 +381,13 @@ impl Plugin for LogPlugin {
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame
             // at Level::INFO. Formatted logs should omit it.
-            #[cfg(feature = "tracing-tracy")]
+            #[cfg(all(feature = "tracing-tracy", not(target_os = "android")))]
             let fmt_layer =
                 fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
                     meta.fields().field("tracy.frame_mark").is_none()
                 }));
 
+            #[cfg(not(target_os = "android"))]
             let subscriber = subscriber.with(fmt_layer);
 
             #[cfg(all(feature = "tracing-chrome", not(target_os = "android")))]
