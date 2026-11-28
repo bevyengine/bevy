@@ -50,7 +50,7 @@ impl DebugPickingMode {
 ///
 /// "Normal" events are logged at the `debug` level. "Noisy" events are logged at the `trace` level.
 /// See [Bevy's LogPlugin](https://docs.rs/bevy/latest/bevy/log/struct.LogPlugin.html) and [Bevy
-/// Cheatbook: Logging, Console Messages](https://bevy-cheatbook.github.io/features/log.html) for
+/// Cheatbook: Logging, Console Messages](https://bevy-cheatbook.github.io/fundamentals/log.html) for
 /// details.
 ///
 /// Usually, the default level printed is `info`, so debug and trace messages will not be displayed

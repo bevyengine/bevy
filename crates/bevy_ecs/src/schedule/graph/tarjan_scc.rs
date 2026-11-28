@@ -6,11 +6,11 @@ use smallvec::SmallVec;
 use crate::schedule::graph::{DiGraph, GraphNodeId};
 
 /// Create an iterator over *strongly connected components* using Algorithm 3 in
-/// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J. Pierce,
+/// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J. Pearce,
 /// which is a memory-efficient variation of [Tarjan's algorithm][2].
 ///
 ///
-/// [1]: https://homepages.ecs.vuw.ac.nz/~djp/files/P05.pdf
+/// [1]: https://doi.org/10.1016/j.ipl.2015.08.010
 /// [2]: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 ///
 /// Returns each strongly connected component (scc).
@@ -97,11 +97,11 @@ impl<
     > TarjanScc<'graph, N, S, A, Neighbors>
 {
     /// Compute the next *strongly connected component* using Algorithm 3 in
-    /// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J. Pierce,
+    /// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J. Pearce,
     /// which is a memory-efficient variation of [Tarjan's algorithm][2].
     ///
     ///
-    /// [1]: https://homepages.ecs.vuw.ac.nz/~djp/files/P05.pdf
+    /// [1]: https://doi.org/10.1016/j.ipl.2015.08.010
     /// [2]: https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
     ///
     /// Returns `Some` for each strongly connected component (scc).

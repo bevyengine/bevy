@@ -449,7 +449,7 @@ pub struct StandardMaterial {
     /// It is very common to use an RGB texture that uses the red channel for the [`StandardMaterial::occlusion_texture`],
     /// and the B and G channels for [`StandardMaterial::metallic_roughness_texture`].
     /// In such cases, use the same image handle for both fields.
-    /// Notably, this is the setup used by [glTF](https://docs.blender.org/manual/en/latest/addons/import_export/scene_gltf2.html#baked-ambient-occlusion).
+    /// Notably, this is the setup used by [glTF](https://docs.blender.org/manual/en/4.1/addons/import_export/scene_gltf2.html#baked-ambient-occlusion).
     #[texture(7)]
     #[sampler(8)]
     #[dependency]
@@ -885,7 +885,7 @@ impl Default for StandardMaterial {
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
-            // <https://google.github.io/filament/Material%20Properties.pdf>
+            // <https://google.github.io/filament/notes/material_properties.html>
             reflectance: 0.5,
             diffuse_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
