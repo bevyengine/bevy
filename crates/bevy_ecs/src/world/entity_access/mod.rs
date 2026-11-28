@@ -1639,6 +1639,62 @@ mod tests {
     }
 
     #[test]
+    fn bundle_remove_triggers_with_present_components_in_bundle_order() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct B;
+
+        #[derive(Component)]
+        struct C;
+
+        #[derive(Resource, Default)]
+        struct Triggered {
+            discard: Vec<Vec<ComponentId>>,
+            remove: Vec<Vec<ComponentId>>,
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Triggered>();
+        world.add_observer(
+            |discard: On<Discard<(A, B, C)>>, mut triggered: ResMut<Triggered>| {
+                triggered
+                    .discard
+                    .push(discard.trigger().components.to_vec());
+            },
+        );
+        world.add_observer(
+            |remove: On<Remove<(A, B, C)>>, mut triggered: ResMut<Triggered>| {
+                triggered.remove.push(remove.trigger().components.to_vec());
+            },
+        );
+        let a = world.register_component::<A>();
+        let b = world.register_component::<B>();
+        let c = world.register_component::<C>();
+
+        let first = world.spawn((A, B)).id();
+        let second = world.spawn((A, B)).id();
+        let third = world.spawn((A, B, C)).id();
+
+        // The first removal computes the archetype edge, the second reads it from the cache.
+        world.entity_mut(first).remove::<(C, B, A)>();
+        world.entity_mut(second).remove::<(C, B, A)>();
+        world.entity_mut(third).take::<(B, A)>().unwrap();
+        world.entity_mut(third).remove::<(C, B, A)>();
+
+        let expected = vec![vec![b, a], vec![b, a], vec![b, a], vec![c]];
+        let triggered = world.resource::<Triggered>();
+        assert_eq!(triggered.discard, expected);
+        assert_eq!(triggered.remove, expected);
+        for entity in [first, second, third] {
+            let entity = world.entity(entity);
+            assert!(!entity.contains::<A>() && !entity.contains::<B>() && !entity.contains::<C>());
+        }
+    }
+
+    #[test]
     fn spawned_after_swap_remove() {
         #[derive(Component)]
         struct Marker;
