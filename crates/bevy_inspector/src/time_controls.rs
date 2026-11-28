@@ -173,7 +173,7 @@ fn speed_changed(
     let (Ok(TimeControl::Speed), Some(mut time)) = (controls.get(change.source), time) else {
         return;
     };
-    if change.value.is_nan() {
+    if change.value.is_nan() || change.value == time.relative_speed() {
         return;
     }
     let speed = change.value.clamp(MIN_SPEED, MAX_SPEED);
@@ -463,6 +463,19 @@ mod tests {
             Some(&NumericValue::F32(0.0))
         );
         assert_eq!(virtual_time(&app).relative_speed(), 0.0);
+    }
+
+    #[test]
+    fn confirming_the_shown_speed_keeps_an_app_speed_outside_the_range() {
+        let mut app = test_app(true);
+        for speed in [0.0, 250.0] {
+            app.world_mut()
+                .resource_mut::<Time<Virtual>>()
+                .set_relative_speed(speed);
+            app.update();
+            set_speed(&mut app, speed);
+            assert_eq!(virtual_time(&app).relative_speed(), speed);
+        }
     }
 
     #[test]
