@@ -23,20 +23,22 @@ pub fn switch_scene_in_ci<Scene: States + FreelyMutableState + Next>(
             frame_count.0 + 100,
             CiTestingEvent::NamedScreenshot(format!("{:?}", scene.get())),
         ));
-        if scenes_visited.contains(scene.get()) {
-            // Exit once all scenes have been screenshotted
-            ci_config.events.push(CiTestingEventOnFrame(
-                frame_count.0 + 1,
-                CiTestingEvent::AppExit,
-            ));
-        }
         return;
     }
 
     if !captured.is_empty() {
         // Screenshot taken! Switch to the next scene
         scenes_visited.insert(scene.get().clone());
-        next_scene.set(scene.get().next());
+        let next = scene.get().next();
+        if scenes_visited.contains(&next) {
+            // Exit once all scenes have been screenshotted
+            ci_config.events.push(CiTestingEventOnFrame(
+                frame_count.0 + 1,
+                CiTestingEvent::AppExit,
+            ));
+        } else {
+            next_scene.set(next);
+        }
     }
 }
 
