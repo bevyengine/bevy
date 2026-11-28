@@ -5,6 +5,7 @@ use crate::render_resource::{
 };
 use crate::renderer::wgpu_wrapper;
 use bevy_ecs::resource::Resource;
+use std::sync::OnceLock;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
@@ -16,9 +17,34 @@ wgpu_wrapper! {
 }
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
-#[derive(Resource, Clone)]
+///
+/// Limits and features are lazily cached, here because though they are cached on the device,
+/// in a Wasm context, they cross the wasm boundary and get serialized each frame which is expensive.
+/// Temporary workaround until wgpu caches these values in its WebGPU backend.
+/// Tracked in <https://github.com/gfx-rs/wgpu/pull/10513>.
+#[derive(Resource)]
 pub struct RenderDevice {
     device: WgpuDevice,
+    limits: OnceLock<wgpu::Limits>,
+    features: OnceLock<wgpu::Features>,
+}
+
+impl Clone for RenderDevice {
+    fn clone(&self) -> Self {
+        Self {
+            device: self.device.clone(),
+            limits: clone_once_lock(&self.limits),
+            features: clone_once_lock(&self.features),
+        }
+    }
+}
+
+fn clone_once_lock<T: Clone>(lock: &OnceLock<T>) -> OnceLock<T> {
+    let cloned = OnceLock::new();
+    if let Some(value) = lock.get() {
+        cloned.get_or_init(|| value.clone());
+    }
+    cloned
 }
 
 impl From<wgpu::Device> for RenderDevice {
@@ -31,6 +57,8 @@ impl RenderDevice {
     pub fn new(device: wgpu::Device) -> Self {
         Self {
             device: WgpuDevice::new(device),
+            limits: OnceLock::new(),
+            features: OnceLock::new(),
         }
     }
 
@@ -38,16 +66,16 @@ impl RenderDevice {
     ///
     /// Functions may panic if you use unsupported features.
     #[inline]
-    pub fn features(&self) -> wgpu::Features {
-        self.device.features()
+    pub fn features(&self) -> &wgpu::Features {
+        self.features.get_or_init(|| self.device.features())
     }
 
     /// List all [`Limits`](wgpu::Limits) that were requested of this device.
     ///
     /// If any of these limits are exceeded, functions may panic.
     #[inline]
-    pub fn limits(&self) -> wgpu::Limits {
-        self.device.limits()
+    pub fn limits(&self) -> &wgpu::Limits {
+        self.limits.get_or_init(|| self.device.limits())
     }
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
@@ -320,5 +348,47 @@ mod tests {
         assert_eq!(RenderDevice::align_copy_bytes_per_row(1), align);
         assert_eq!(RenderDevice::align_copy_bytes_per_row(align + 1), align * 2);
         assert_eq!(RenderDevice::align_copy_bytes_per_row(align), align);
+    }
+
+    #[test]
+    fn limits_and_features_are_cached_per_device() {
+        let (device, _queue) = crate::test_utils::create_dummy_device();
+
+        assert!(device.limits.get().is_none());
+        assert!(device.features.get().is_none());
+
+        let limits = device.limits();
+        let features = device.features();
+
+        assert!(core::ptr::eq(
+            limits,
+            device
+                .limits
+                .get()
+                .expect("limits are stored after the first read"),
+        ));
+        assert!(core::ptr::eq(
+            features,
+            device
+                .features
+                .get()
+                .expect("features are stored after the first read"),
+        ));
+        assert!(core::ptr::eq(device.limits(), limits));
+        assert!(core::ptr::eq(device.features(), features));
+
+        let cloned = device.clone();
+        assert_eq!(cloned.limits(), limits);
+        assert_eq!(cloned.features(), features);
+        assert!(
+            !core::ptr::eq(cloned.limits(), limits),
+            "a cloned device keeps its own cache"
+        );
+
+        let (other, _other_queue) = crate::test_utils::create_dummy_device();
+        assert!(
+            other.limits.get().is_none(),
+            "reading one device does not fill another device's cache"
+        );
     }
 }
