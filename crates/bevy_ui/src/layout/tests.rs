@@ -520,7 +520,7 @@ fn compute_layout_uses_camera_viewport() {
             &mut node_queries.p0(),
             &EntityHashSet::default(),
             &mut buffer_query,
-            &mut font_system,
+            font_system.as_mut(),
             &mut child_stack,
             true,
             &mut ghost_stack,

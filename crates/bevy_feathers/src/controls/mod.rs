@@ -10,6 +10,7 @@ mod color_swatch_grid;
 mod color_wheel;
 mod dialog;
 mod disclosure_toggle;
+mod dock;
 mod listview;
 mod menu;
 mod number_input;
@@ -34,6 +35,7 @@ pub use color_swatch_grid::*;
 pub use color_wheel::*;
 pub use dialog::*;
 pub use disclosure_toggle::*;
+pub use dock::*;
 pub use listview::*;
 pub use menu::*;
 pub use number_input::*;
@@ -67,6 +69,7 @@ impl PluginGroup for ControlsPlugin {
             .add(ColorSwatchGridPlugin)
             .add(ColorWheelPlugin)
             .add(DisclosureTogglePlugin)
+            .add(FeathersDockPlugin)
             .add(ListViewPlugin)
             .add(MenuPlugin)
             .add(NumberInputPlugin)

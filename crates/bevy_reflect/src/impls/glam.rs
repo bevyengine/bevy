@@ -1,5 +1,8 @@
+use crate::impls::macros::annotated;
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
 use assert_type_match::assert_type_match;
+#[cfg(feature = "annotations")]
+use bevy_annotations::SerializedAs;
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use glam::*;
 
@@ -499,20 +502,26 @@ reflect_enum!(
     }
 );
 
-impl_reflect_opaque!(::glam::BVec3A(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize
-));
-impl_reflect_opaque!(::glam::BVec4A(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize
-));
+annotated!(
+    @SerializedAs::Array { item: "bool", labels: &["x", "y", "z"] };
+    impl_reflect_opaque!(::glam::BVec3A(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        Serialize,
+    ))
+);
+annotated!(
+    @SerializedAs::Array { item: "bool", labels: &["x", "y", "z", "w"] };
+    impl_reflect_opaque!(::glam::BVec4A(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        Serialize,
+    ))
+);
 
 #[cfg(test)]
 mod tests {

@@ -47,6 +47,7 @@ bevy_input = { path = "../bevy_input", version = "0.20.0-dev", features = [
   "serialize",
 ] }
 bevy_math = { path = "../bevy_math", version = "0.20.0-dev", features = [
+  "bevy_reflect",
   "serialize",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.20.0-dev", features = [

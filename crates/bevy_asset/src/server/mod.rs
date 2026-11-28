@@ -1773,7 +1773,7 @@ impl<'a> LoadBuilder<'a> {
     ///
     /// The guard item is dropped when either the asset is loaded or loading has failed. This allows
     /// the [`Drop`] implementation of the guard item to notify the caller in some way. See the
-    /// `multi_asset_sync` example for usage.
+    /// [`multi_asset_sync` example](https://github.com/bevyengine/bevy/blob/latest/examples/asset/multi_asset_sync.rs) for usage.
     ///
     /// Only the last guard is kept. The previous guards are dropped before the load begins.
     #[must_use = "the load doesn't start until LoadBuilder has been consumed"]

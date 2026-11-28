@@ -425,8 +425,8 @@ impl Default for IrradianceVolume {
 /// light probe will coincide with the simulated boundaries used for parallax
 /// correction.
 ///
-/// See the `pccm` example for an example of usage of parallax-corrected
-/// cubemaps and the `light_probe_blending` example for an example of use of
+/// See the [`pccm` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/pccm.rs) for an example of usage of parallax-corrected
+/// cubemaps and the [`light_probe_blending` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/light_probe_blending.rs) for an example of use of
 /// custom parallax correction boundaries.
 #[derive(Clone, Copy, Default, Component, Reflect)]
 #[reflect(Clone, Default, Component)]

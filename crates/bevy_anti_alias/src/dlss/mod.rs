@@ -12,7 +12,7 @@
 //! 3. Check for the presence of `Option<Res<DlssSuperResolutionSupported>>` at runtime to see if DLSS is supported on the current machine
 //! 4. Add the `Dlss` component to your camera entity, optionally setting a specific `DlssPerfQualityMode` (defaults to `Auto`)
 //! 5. Optionally add sharpening via `ContrastAdaptiveSharpening`
-//! 6. Custom rendering code, including third party crates, should account for the optional `MainPassResolutionOverride` to work with DLSS (see the `custom_render_phase` example)
+//! 6. Custom rendering code, including third party crates, should account for the optional `MainPassResolutionOverride` to work with DLSS (see the [`custom_render_phase` example](https://github.com/bevyengine/bevy/blob/latest/examples/shader_advanced/custom_render_phase.rs))
 
 mod extract;
 mod node;

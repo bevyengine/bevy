@@ -329,7 +329,7 @@ pub struct PerspectiveProjection {
     /// camera.
     ///
     /// See the `calculate_mirror_camera_transform_and_projection` function in
-    /// the `mirror` example for an exhaustive example of usage.
+    /// the [`mirror` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/mirror.rs) for an exhaustive example of usage.
     pub near_clip_plane: Vec4,
 }
 
