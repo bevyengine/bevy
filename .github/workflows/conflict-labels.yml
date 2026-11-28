@@ -1,0 +1,21 @@
+name: Conflict labels
+
+on:
+  schedule:
+    - cron: '5 4 * * *'
+  push:
+  pull_request_target:
+    types: [synchronize]
+
+jobs:
+  run-script:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label Conflicting Pull Requests
+        uses: eps1lon/actions-label-merge-conflict@v3.1.0
+        with:
+          dirtyLabel: S-Merge-Requests
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
