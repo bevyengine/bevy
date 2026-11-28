@@ -22,6 +22,7 @@ use bevy_ecs::{
 use bevy_feathers::{
     controls::{ButtonVariant, FeathersButton, FeathersNumberInput, NumberInputStep, SoftLimit},
     display::caption,
+    rounded_corners::RoundedCorners,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene::{bsn, on, Scene};
@@ -42,7 +43,9 @@ pub struct TimeControls;
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component, Debug, Default, Clone, PartialEq)]
 pub enum TimeControl {
-    /// A button that pauses virtual time, or resumes it while paused. It is selected while paused.
+    /// A button that resumes paused virtual time. It is selected while virtual time runs.
+    Play,
+    /// A button that pauses virtual time. It is selected while virtual time is paused.
     #[default]
     Pause,
     /// A button that runs one frame of paused virtual time, which advances by that frame's real
@@ -66,7 +69,7 @@ struct FrameStep {
     running: bool,
 }
 
-/// Buttons that pause, resume and step virtual time, and an input for its speed.
+/// A group of buttons that resume, pause and step virtual time, and an input for its speed.
 ///
 /// The controls act on the [`Time<Virtual>`] of the app the inspector runs in, and need
 /// [`InspectorPlugin`](crate::InspectorPlugin).
@@ -82,18 +85,34 @@ pub fn time_controls() -> impl Scene {
             row_gap: px(3),
         }
         Children [
-            @FeathersButton {
-                @caption: bsn! { @caption("Pause") },
+            Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(1),
             }
-            TimeControl::Pause
-            on(time_control_activated)
-            --
-            @FeathersButton {
-                @caption: bsn! { @caption("Step") },
-            }
-            TimeControl::Step
-            InteractionDisabled
-            on(time_control_activated)
+            Children [
+                @FeathersButton {
+                    @caption: bsn! { @caption("Play") },
+                    @variant: ButtonVariant::Primary,
+                    @corners: RoundedCorners::Left,
+                }
+                TimeControl::Play
+                on(time_control_activated)
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Pause") },
+                    @corners: RoundedCorners::None,
+                }
+                TimeControl::Pause
+                on(time_control_activated)
+                --
+                @FeathersButton {
+                    @caption: bsn! { @caption("Step") },
+                    @corners: RoundedCorners::Right,
+                }
+                TimeControl::Step
+                InteractionDisabled
+                on(time_control_activated)
+            ]
             --
             @FeathersNumberInput {
                 @interior_label_text: {Some("Speed")},
@@ -130,19 +149,19 @@ fn time_control_activated(
     };
     let paused = time.is_paused() || step.as_ref().is_some_and(|step| step.running);
     match control {
-        TimeControl::Pause if paused => {
+        TimeControl::Play if paused => {
             time.unpause();
             if let Some(mut step) = step {
                 *step = FrameStep::default();
             }
         }
-        TimeControl::Pause => time.pause(),
+        TimeControl::Pause if !paused => time.pause(),
         TimeControl::Step if paused => {
             if let Some(mut step) = step {
                 step.requested = true;
             }
         }
-        TimeControl::Step | TimeControl::Speed => {}
+        TimeControl::Play | TimeControl::Pause | TimeControl::Step | TimeControl::Speed => {}
     }
 }
 
@@ -226,9 +245,10 @@ fn sync_time_controls(
     let speed = NumericValue::F32(time.relative_speed());
     for (entity, control, variant, value, disabled) in &mut controls {
         match control {
-            TimeControl::Pause => {
+            TimeControl::Play | TimeControl::Pause => {
+                let selected = (*control == TimeControl::Pause) == paused;
                 if let Some(mut variant) = variant {
-                    variant.set_if_neq(ButtonVariant::selected(paused));
+                    variant.set_if_neq(ButtonVariant::selected(selected));
                 }
             }
             TimeControl::Step if paused && disabled => {
@@ -324,9 +344,9 @@ mod tests {
         app.world().resource::<Time<Virtual>>()
     }
 
-    fn pause_variant(app: &mut App) -> ButtonVariant {
-        let pause = control(app, TimeControl::Pause);
-        app.world().get::<ButtonVariant>(pause).unwrap().clone()
+    fn variant(app: &mut App, kind: TimeControl) -> ButtonVariant {
+        let button = control(app, kind);
+        app.world().get::<ButtonVariant>(button).unwrap().clone()
     }
 
     fn step_disabled(app: &mut App) -> bool {
@@ -340,29 +360,62 @@ mod tests {
     }
 
     #[test]
-    fn the_pause_button_pauses_and_resumes_virtual_time_and_shows_it() {
+    fn play_is_selected_and_step_is_disabled_while_time_runs() {
         let mut app = test_app(true);
         assert!(!virtual_time(&app).is_paused());
-        assert_eq!(pause_variant(&mut app), ButtonVariant::Normal);
-        assert!(step_disabled(&mut app));
-
-        click(&mut app, TimeControl::Pause);
-        assert!(virtual_time(&app).is_paused());
-        assert_eq!(pause_variant(&mut app), ButtonVariant::Primary);
-        assert!(!step_disabled(&mut app));
-
-        click(&mut app, TimeControl::Pause);
-        assert!(!virtual_time(&app).is_paused());
-        assert_eq!(pause_variant(&mut app), ButtonVariant::Normal);
+        assert_eq!(variant(&mut app, TimeControl::Play), ButtonVariant::Primary);
+        assert_eq!(variant(&mut app, TimeControl::Pause), ButtonVariant::Normal);
         assert!(step_disabled(&mut app));
     }
 
     #[test]
-    fn a_pause_made_by_the_app_shows_on_the_button() {
+    fn pause_is_selected_and_step_is_enabled_while_time_is_paused() {
+        let mut app = test_app(true);
+        click(&mut app, TimeControl::Pause);
+        assert!(virtual_time(&app).is_paused());
+        assert_eq!(
+            variant(&mut app, TimeControl::Pause),
+            ButtonVariant::Primary
+        );
+        assert_eq!(variant(&mut app, TimeControl::Play), ButtonVariant::Normal);
+        assert!(!step_disabled(&mut app));
+    }
+
+    #[test]
+    fn play_resumes_paused_time() {
+        let mut app = test_app(true);
+        click(&mut app, TimeControl::Pause);
+        click(&mut app, TimeControl::Play);
+        assert!(!virtual_time(&app).is_paused());
+        assert_eq!(variant(&mut app, TimeControl::Play), ButtonVariant::Primary);
+        assert!(step_disabled(&mut app));
+
+        click(&mut app, TimeControl::Play);
+        assert!(!virtual_time(&app).is_paused());
+    }
+
+    #[test]
+    fn clicking_pause_twice_keeps_time_paused() {
+        let mut app = test_app(true);
+        click(&mut app, TimeControl::Pause);
+        click(&mut app, TimeControl::Pause);
+        assert!(virtual_time(&app).is_paused());
+        assert_eq!(
+            variant(&mut app, TimeControl::Pause),
+            ButtonVariant::Primary
+        );
+    }
+
+    #[test]
+    fn a_pause_made_by_the_app_shows_on_the_buttons() {
         let mut app = test_app(true);
         app.add_systems(Update, |mut time: ResMut<Time<Virtual>>| time.pause());
         app.update();
-        assert_eq!(pause_variant(&mut app), ButtonVariant::Primary);
+        assert_eq!(
+            variant(&mut app, TimeControl::Pause),
+            ButtonVariant::Primary
+        );
+        assert_eq!(variant(&mut app, TimeControl::Play), ButtonVariant::Normal);
         assert!(!step_disabled(&mut app));
     }
 
@@ -437,7 +490,11 @@ mod tests {
         assert_eq!(virtual_time(&app).elapsed(), paused_at + FRAME);
         assert_eq!(virtual_time(&app).delta(), FRAME);
         assert!(virtual_time(&app).is_paused());
-        assert_eq!(pause_variant(&mut app), ButtonVariant::Primary);
+        assert_eq!(
+            variant(&mut app, TimeControl::Pause),
+            ButtonVariant::Primary
+        );
+        assert_eq!(variant(&mut app, TimeControl::Play), ButtonVariant::Normal);
         assert!(!step_disabled(&mut app));
 
         app.update();
@@ -523,6 +580,7 @@ mod tests {
     fn the_controls_hide_without_virtual_time() {
         let mut app = test_app(false);
         assert_eq!(root_display(app.world_mut()), Display::None);
+        click(&mut app, TimeControl::Play);
         click(&mut app, TimeControl::Pause);
         click(&mut app, TimeControl::Step);
         set_speed(&mut app, 2.0);
