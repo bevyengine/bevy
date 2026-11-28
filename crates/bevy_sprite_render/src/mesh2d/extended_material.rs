@@ -135,7 +135,7 @@ impl<B: Material2d, E: MaterialExtension2d> AsBindGroup for ExtendedMaterial2d<B
     }
 
     fn bindless_supported(render_device: &RenderDevice) -> bool {
-        B::bindless_supported(render_device) && E::bindless_supported(render_device)
+        cbg::bindless_supported::<B, E>(render_device)
     }
 
     fn label() -> &'static str {
