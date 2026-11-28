@@ -5,7 +5,8 @@ mod render_device;
 mod wgpu_wrapper;
 
 pub use render_context::{
-    CurrentView, FlushCommands, PendingCommandBuffers, RenderContext, RenderContextState, ViewQuery,
+    CurrentView, FlushCommands, PendingCommandBuffers, RenderContext, RenderContextState,
+    ViewQuery, WgpuCommandBuffer, WgpuCommandEncoder,
 };
 pub use render_device::*;
 
@@ -103,7 +104,7 @@ pub fn render_system(
         crate::view::screenshot::submit_screenshot_commands(world, screenshot_state, &mut encoder);
         crate::gpu_readback::submit_readback_commands(world, &mut encoder);
 
-        render_queue.submit([encoder.finish()]);
+        render_queue.submit([encoder.into_inner().finish()]);
     }
 
     {
