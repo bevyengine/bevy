@@ -49,7 +49,10 @@ impl ColorAttachment {
                 ops: Operations {
                     load: match (self.clear_color, first_call) {
                         (Some(clear_color), true) => LoadOp::Clear(clear_color),
-                        (None, _) | (Some(_), false) => LoadOp::Load,
+                        // Clear with transparent black on the first call when clear_color is None
+                        // to prevent uninitialized data from corrupting the MSAA alpha channel.
+                        (None, true) => LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        (None, false) | (Some(_), false) => LoadOp::Load,
                     },
                     store: StoreOp::Store,
                 },
