@@ -186,18 +186,18 @@ pub struct SolariLighting {
     /// map light, and leak sky lighting into the cache.
     pub world_cache_max_gi_ray_distance: f32,
 
-    /// Soft upper limit on the number of world cache cells to update each frame.
+    /// Maximum number of world cache cells to update each frame.
     ///
     /// Higher values let the cache converge faster after lighting changes at the
     /// cost of more work per frame. Lower values are cheaper but make the cache
     /// slower to update.
     ///
-    /// This is a stochastic target that only takes effect when the number of
-    /// active cells exceeds it: each active cell is then updated with
-    /// probability `target / active_cells`, so on average this many cells
-    /// update, though individual frames may update more or fewer. When there
-    /// are fewer active cells than the target, all of them update every frame.
-    pub world_cache_cell_updates_soft_target: u32,
+    /// When there are more active cells than this number, this many of them are updated
+    /// per frame, taking turns, so each active cell is updated about once every
+    /// `active_cells / world_cache_max_cell_updates_per_frame` frames (rounded up).
+    ///
+    /// When there are fewer active cells than this, all of them update every frame.
+    pub world_cache_max_cell_updates_per_frame: u32,
 
     /// Size of a world cache cell at the lowest LOD, in meters.
     ///
@@ -248,7 +248,7 @@ impl Default for SolariLighting {
             world_cache_max_temporal_samples: 32.0,
             world_cache_direct_light_sample_count: 32,
             world_cache_max_gi_ray_distance: 50.0,
-            world_cache_cell_updates_soft_target: 40000,
+            world_cache_max_cell_updates_per_frame: 40000,
             world_cache_position_base_cell_size: 0.15,
             world_cache_position_lod_scale: 15.0,
             world_cache_force_opaque: true,

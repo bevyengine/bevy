@@ -1,10 +1,6 @@
 use crate::{kind::IgnoredFieldVTable, kind::KindRef, kind::UncoveredBytes, Reflect, Type};
 use alloc::{alloc::dealloc, boxed::Box, vec::Vec};
-use core::{
-    alloc::Layout,
-    mem,
-    ptr::{self, NonNull},
-};
+use core::{alloc::Layout, mem::DropGuard, ptr};
 use thiserror::Error;
 
 impl dyn Reflect {
@@ -182,12 +178,20 @@ impl dyn Reflect {
             .alloc()
             .ok_or(ReflectCloneError::new(ty, ReflectCloneErrorReason::Unsized))?;
         // Drops the initialized fields and frees `dst` if a field fails to clone, or panics
-        let mut guard = PartialClone {
-            ty,
-            dst,
-            fields: fields.clone(),
-            initialized: 0,
-        };
+        // Cleans up a partially cloned value: drops the first
+        // `initialized` `fields`, which were cloned into `dst`, and frees `dst`.
+        let fields_clone = fields.clone();
+        let mut guard = DropGuard::new(0, |initialized| {
+            for (offset, field) in fields_clone.take(initialized) {
+                let field_ptr = field.ty().as_reflect_ptr(dst.as_ptr().wrapping_add(offset));
+                // SAFETY: the first `initialized` fields were moved into `dst` at their offset, with the
+                // type of the field they were cloned from, and are owned by `dst`
+                unsafe { ptr::drop_in_place(field_ptr.cast_mut()) };
+            }
+            // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized fields were dropped
+            unsafe { ty.dealloc(dst) };
+        });
+
         init_uncovered(dst.as_ptr());
         for (offset, field) in fields {
             let clone = field.reflect_clone()?;
@@ -201,7 +205,7 @@ impl dyn Reflect {
             // SAFETY: the caller guarantees that `offset` is the offset of `field` in `self`, which
             // is the same in `dst`. `clone` was checked to have the same type as `field`.
             unsafe { move_box_into(clone, dst.as_ptr().add(offset)) };
-            guard.initialized += 1;
+            *guard += 1;
         }
         // If an ignored field's clone function panics, the ignored fields that were already cloned
         // are leaked, which is safe
@@ -212,7 +216,7 @@ impl dyn Reflect {
             // `self` and `dst`, and that `clone` is valid for its type
             unsafe { clone(self.ptr().byte_add(offset), dst.as_ptr().add(offset)) };
         }
-        mem::forget(guard);
+        DropGuard::dismiss(guard);
         // SAFETY: `dst` was allocated with `Type::alloc`. The caller guarantees that `fields` and
         // `ignored_fields` yielded every field of `self`, so every field was initialized above, and
         // that `init_uncovered` initialized every other byte (including the discriminant in the case
@@ -327,29 +331,5 @@ unsafe fn copy_uncovered_bytes(
         // SAFETY: the caller guarantees that `start..size` is in bounds of both `src` and `dst`,
         // which don't overlap
         unsafe { ptr::copy_nonoverlapping(src.add(start), dst.add(start), size - start) };
-    }
-}
-
-/// Cleans up a partially cloned value (see `<dyn Reflect>::clone_fields`): drops the first
-/// `initialized` `fields`, which were cloned into `dst`, and frees `dst`.
-struct PartialClone<'a, I: Iterator<Item = (usize, &'a dyn Reflect)>> {
-    ty: &'static Type,
-    dst: NonNull<u8>,
-    fields: I,
-    initialized: usize,
-}
-
-impl<'a, I: Iterator<Item = (usize, &'a dyn Reflect)>> Drop for PartialClone<'a, I> {
-    fn drop(&mut self) {
-        for (offset, field) in self.fields.by_ref().take(self.initialized) {
-            let field_ptr = field
-                .ty()
-                .as_reflect_ptr(self.dst.as_ptr().wrapping_add(offset));
-            // SAFETY: the first `initialized` fields were moved into `dst` at their offset, with the
-            // type of the field they were cloned from, and are owned by `dst`
-            unsafe { ptr::drop_in_place(field_ptr.cast_mut()) };
-        }
-        // SAFETY: `dst` was allocated with `Type::alloc`, and its initialized fields were dropped
-        unsafe { self.ty.dealloc(self.dst) };
     }
 }

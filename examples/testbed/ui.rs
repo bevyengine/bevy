@@ -74,6 +74,21 @@ fn main() {
         Update,
         change_detection::update.run_if(in_state(Scene::ChangeDetection)),
     )
+    .add_systems(
+        OnEnter(Scene::UiScale70),
+        ui_scale::setup(Scene::UiScale70, 0.7),
+    )
+    .add_systems(OnExit(Scene::UiScale70), ui_scale::reset)
+    .add_systems(
+        OnEnter(Scene::UiScale100),
+        ui_scale::setup(Scene::UiScale100, 1.0),
+    )
+    .add_systems(OnExit(Scene::UiScale100), ui_scale::reset)
+    .add_systems(
+        OnEnter(Scene::UiScale125),
+        ui_scale::setup(Scene::UiScale125, 1.25),
+    )
+    .add_systems(OnExit(Scene::UiScale125), ui_scale::reset)
     .add_systems(Update, switch_scene);
 
     match args.scene {
@@ -125,6 +140,9 @@ enum Scene {
     Block,
     InlineImage,
     ValKeywords,
+    UiScale70,
+    UiScale100,
+    UiScale125,
 }
 
 impl Scene {
@@ -158,6 +176,9 @@ impl Scene {
         Scene::Block,
         Scene::InlineImage,
         Scene::ValKeywords,
+        Scene::UiScale70,
+        Scene::UiScale100,
+        Scene::UiScale125,
     ];
 }
 
@@ -4179,6 +4200,320 @@ mod inline_image {
                 }
                 --
                 TextSpan::new(" after image")
+            ]
+        }
+    }
+}
+
+mod ui_scale {
+    use super::Scene;
+    use bevy::{
+        color::palettes::css::*, prelude::*, scene::Scene as BsnScene, text::FontSourceTemplate,
+        ui::ColorStop,
+    };
+
+    pub fn reset(mut ui_scale: ResMut<UiScale>) {
+        *ui_scale = UiScale::default();
+    }
+
+    pub fn setup(scene: Scene, scale: f32) -> impl Fn(Commands, ResMut<UiScale>) {
+        move |mut commands, mut ui_scale| {
+            ui_scale.0 = scale;
+            commands.spawn_scene_list(layout(scene, scale));
+        }
+    }
+
+    fn bold(size: f32) -> impl BsnScene {
+        bsn! {
+            TextFont {
+                font: FontSourceTemplate::Handle("fonts/FiraSans-Bold.ttf"),
+                font_size: FontSize::Px(size),
+            }
+        }
+    }
+
+    fn cell() -> impl BsnScene {
+        bsn! {
+            Node {
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(px(8)),
+                row_gap: px(8),
+                border_radius: BorderRadius::all(px(8)),
+            }
+            BackgroundColor(DARK_SLATE_GRAY)
+        }
+    }
+
+    fn caption(label: &'static str) -> impl BsnScene {
+        bsn! {
+            Text(label)
+            TextFont { font_size: FontSize::Px(14.) }
+        }
+    }
+
+    fn row() -> impl BsnScene {
+        bsn! {
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: px(16),
+            }
+        }
+    }
+
+    fn label_box(label: &'static str, font_size: FontSize, color: Srgba) -> impl BsnScene {
+        bsn! {
+            Node {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+            }
+            BackgroundColor(color)
+            Children [
+                Text(label)
+                TextFont { font_size }
+            ]
+        }
+    }
+
+    // The grid is sized so it still fits the 1280x720 window at the largest scale.
+    fn layout(scene: Scene, scale: f32) -> impl SceneList {
+        bsn_list! {
+            Camera2d
+            DespawnOnExit<Scene>(scene)
+            --
+            Node {
+                width: percent(100),
+                height: percent(100),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: px(12),
+            }
+            DespawnOnExit<Scene>(scene)
+            Children [
+                Text({format!("UiScale({scale})")})
+                @bold(32.)
+                --
+                Node {
+                    display: Display::Grid,
+                    grid_template_columns: vec![RepeatedGridTrack::px(3, 300.)],
+                    grid_template_rows: vec![RepeatedGridTrack::px(2, 210.)],
+                    row_gap: px(16),
+                    column_gap: px(16),
+                    padding: UiRect::all(px(12)),
+                    border: UiRect::all(px(4)),
+                    border_radius: BorderRadius::all(px(16)),
+                }
+                BackgroundColor(MIDNIGHT_BLUE)
+                BorderColor::all(GOLD)
+                Outline::new(px(3), px(4), WHITE.into())
+                BoxShadow::new(Color::BLACK, px(0), px(6), px(2), px(16))
+                Children [
+                    @cell()
+                    Children [
+                        @row()
+                        Children [
+                            Text("12px") @bold(12.)
+                            --
+                            Text("20px") @bold(20.)
+                            --
+                            Text("28px") @bold(28.)
+                        ]
+                        --
+                        Text(
+                            "This paragraph wraps inside a fixed width cell, so its \
+                             line breaks shift if text measurement ignores the scale."
+                        )
+                        TextFont { font_size: FontSize::Px(16.) }
+                        Node { width: percent(100) }
+                        --
+                        @row()
+                        Children [
+                            @label_box("rem", FontSize::Rem(0.875), INDIGO)
+                            Node { width: rem(5), height: rem(2) }
+                            EmSize(14.)
+                            --
+                            @label_box("vw vh", FontSize::Vw(1.1), SADDLE_BROWN)
+                            Node { width: vw(7), height: vh(4) }
+                            EmSize(14.)
+                            --
+                            @label_box("em", FontSize::Px(14.), DARK_GREEN)
+                            Node { width: em(5), height: em(2) }
+                            EmSize(14.)
+                        ]
+                    ]
+                    --
+                    @cell()
+                    Children [
+                        @caption("Borders, radius, outlines")
+                        --
+                        @row()
+                        Children [
+                            Node {
+                                width: px(72),
+                                height: px(72),
+                                border: UiRect::all(px(6)),
+                                border_radius: BorderRadius::all(px(18)),
+                            }
+                            BorderColor::all(RED)
+                            BackgroundColor(NAVY)
+                            --
+                            Node {
+                                width: px(72),
+                                height: px(72),
+                                border: UiRect {
+                                    left: px(12),
+                                    top: px(4),
+                                    right: px(4),
+                                    bottom: px(8),
+                                },
+                                border_radius: BorderRadius::MAX,
+                            }
+                            BorderColor::all(LIME)
+                            BackgroundColor(MAROON)
+                            Outline::new(px(3), px(3), YELLOW.into())
+                            --
+                            Node {
+                                width: px(72),
+                                height: px(48),
+                                border_radius: BorderRadius::top_left(px(24)),
+                            }
+                            BackgroundColor(TEAL)
+                            Outline::new(px(4), px(6), ORANGE.into())
+                        ]
+                    ]
+                    --
+                    @cell()
+                    Children [
+                        @caption("Image, box shadow")
+                        --
+                        @row()
+                        Children [
+                            ImageNode { image: "branding/icon.png" }
+                            Node {
+                                width: px(96),
+                                height: px(96),
+                                border_radius: BorderRadius::all(px(24)),
+                            }
+                            --
+                            ImageNode { image: "branding/icon.png" }
+                            Node { width: percent(20) }
+                            --
+                            Node {
+                                width: px(72),
+                                height: px(72),
+                                border_radius: BorderRadius::all(px(12)),
+                            }
+                            BackgroundColor(CORNFLOWER_BLUE)
+                            BoxShadow::new(
+                                Color::BLACK.with_alpha(0.8),
+                                px(8),
+                                px(8),
+                                px(4),
+                                px(10),
+                            )
+                        ]
+                    ]
+                    --
+                    @cell()
+                    Children [
+                        @caption("Nine-slice")
+                        --
+                        ImageNode {
+                            image: "textures/fantasy_ui_borders/numbered_slices.png",
+                            image_mode: NodeImageMode::Sliced(TextureSlicer {
+                                border: BorderRect::all(16.0),
+                                center_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                                sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1.0 },
+                            }),
+                        }
+                        Node { width: percent(100), height: px(70) }
+                        --
+                        ImageNode {
+                            image: "textures/fantasy_ui_borders/panel-border-010.png",
+                            image_mode: NodeImageMode::Sliced(TextureSlicer {
+                                border: BorderRect::all(22.0),
+                                center_scale_mode: SliceScaleMode::Stretch,
+                                sides_scale_mode: SliceScaleMode::Stretch,
+                                max_corner_scale: 1.0,
+                            }),
+                        }
+                        Node { width: px(200), height: px(70) }
+                    ]
+                    --
+                    @cell()
+                    Children [
+                        @caption("Linear and radial gradients")
+                        --
+                        Node {
+                            width: percent(100),
+                            height: px(50),
+                            border_radius: BorderRadius::all(px(10)),
+                        }
+                        BackgroundGradient::from(LinearGradient::new(
+                            LinearGradient::TO_RIGHT,
+                            vec![
+                                ColorStop::auto(RED),
+                                ColorStop::auto(YELLOW),
+                                ColorStop::auto(BLUE),
+                            ],
+                        ))
+                        --
+                        @row()
+                        Children [
+                            Node { width: percent(45), height: px(100) }
+                            BackgroundGradient::from(RadialGradient::new(
+                                UiPosition::CENTER,
+                                RadialGradientShape::FarthestCorner,
+                                vec![
+                                    ColorStop::new(WHITE, px(10)),
+                                    ColorStop::new(ORANGE, px(30)),
+                                    ColorStop::auto(PURPLE),
+                                ],
+                            ))
+                            --
+                            Node {
+                                width: px(100),
+                                height: px(100),
+                                border_radius: BorderRadius::MAX,
+                            }
+                            BackgroundGradient::from(RadialGradient::new(
+                                UiPosition::TOP_LEFT,
+                                RadialGradientShape::Circle(px(80)),
+                                vec![ColorStop::auto(LIME), ColorStop::auto(NAVY)],
+                            ))
+                        ]
+                    ]
+                    --
+                    @cell()
+                    Children [
+                        @caption("Overflow clip, UiTransform")
+                        --
+                        @row()
+                        Children [
+                            Node {
+                                width: px(110),
+                                height: px(110),
+                                padding: UiRect { left: px(20), top: px(20) },
+                                border: UiRect::all(px(4)),
+                                overflow: Overflow::clip(),
+                            }
+                            BorderColor::all(RED)
+                            BackgroundColor(Color::WHITE)
+                            Children [
+                                ImageNode { image: "branding/icon.png" }
+                                Node { min_width: px(160), min_height: px(160) }
+                            ]
+                            --
+                            @label_box("30deg", FontSize::Px(14.), CRIMSON)
+                            Node { width: px(60), height: px(60) }
+                            UiTransform::from_rotation(Rot2::degrees(30.))
+                            --
+                            @label_box("scale", FontSize::Px(14.), DARK_CYAN)
+                            Node { width: px(60), height: px(60) }
+                            UiTransform::from_scale(Vec2::new(1.2, 0.6))
+                        ]
+                    ]
+                ]
             ]
         }
     }
