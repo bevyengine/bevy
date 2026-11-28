@@ -3,7 +3,9 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
-use bevy_camera::{Camera3d, MainPassResolutionOverride, Viewport};
+use bevy_camera::{
+    visibility::InheritedVisibility, Camera3d, MainPassResolutionOverride, Viewport,
+};
 use bevy_color::ColorToComponents as _;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -242,7 +244,14 @@ pub fn init_volumetric_fog_pipeline(
 pub fn extract_volumetric_fog(
     mut commands: Commands,
     view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
+    fog_volumes: Extract<
+        Query<(
+            RenderEntity,
+            &FogVolume,
+            &GlobalTransform,
+            &InheritedVisibility,
+        )>,
+    >,
     volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
@@ -265,12 +274,15 @@ pub fn extract_volumetric_fog(
             .insert(*volumetric_fog);
     }
 
-    for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
-        commands
+    for (entity, fog_volume, fog_transform, visibility) in fog_volumes.iter() {
+        let mut render_entity = commands
             .get_entity(entity)
-            .expect("Fog volume entity wasn't synced.")
-            .insert((*fog_volume).clone())
-            .insert(*fog_transform);
+            .expect("Fog volume entity wasn't synced.");
+        if visibility.get() {
+            render_entity.insert(((*fog_volume).clone(), *fog_transform));
+        } else {
+            render_entity.remove::<FogVolume>();
+        }
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
@@ -819,7 +831,45 @@ mod tests {
     use std::f32::consts::FRAC_PI_4;
 
     use super::*;
+    use bevy_ecs::{system::RunSystemOnce, world::World};
     use bevy_math::{proj, Quat};
+    use bevy_render::MainWorld;
+
+    #[test]
+    fn fog_volume_extraction_tracks_visibility() {
+        let mut render_world = World::new();
+        let render_volume = render_world.spawn_empty().id();
+        let render_light = render_world.spawn_empty().id();
+        let mut main_world = MainWorld::default();
+        main_world.spawn((RenderEntity::from(render_light), VolumetricLight));
+        let volume = main_world
+            .spawn((
+                RenderEntity::from(render_volume),
+                FogVolume::default(),
+                GlobalTransform::default(),
+                InheritedVisibility::VISIBLE,
+            ))
+            .id();
+        render_world.insert_resource(main_world);
+
+        for visibility in [
+            InheritedVisibility::VISIBLE,
+            InheritedVisibility::HIDDEN,
+            InheritedVisibility::VISIBLE,
+        ] {
+            render_world
+                .resource_mut::<MainWorld>()
+                .entity_mut(volume)
+                .insert(visibility);
+            render_world
+                .run_system_once(extract_volumetric_fog)
+                .unwrap();
+            assert_eq!(
+                render_world.get::<FogVolume>(render_volume).is_some(),
+                visibility.get()
+            );
+        }
+    }
 
     // A rotated fog volume that doesn't reach the near plane shouldn't be treated as interior.
     #[test]
