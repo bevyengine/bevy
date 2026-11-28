@@ -88,6 +88,7 @@ impl FeathersCheckbox {
                     height: size::CHECKBOX_SIZE,
                     border: px(2),
                     border_radius: px(4),
+                    flex_shrink: 0.,
                 }
                 CheckboxOutline
                 ThemeBackgroundColor(tokens::CHECKBOX_BG)

@@ -281,7 +281,7 @@ pub struct ClusteredDecal {
     /// For example, you might use the tag to restrict the set of surfaces to
     /// which a decal can be rendered.
     ///
-    /// See the `clustered_decals` example for an example of use.
+    /// See the [`clustered_decals` example](https://github.com/bevyengine/bevy/blob/latest/examples/3d/clustered_decals.rs) for an example of use.
     pub tag: u32,
 }
 

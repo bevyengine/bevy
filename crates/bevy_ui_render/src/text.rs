@@ -7,7 +7,8 @@ use bevy_math::{Affine2, Rect, Vec2};
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_text::{
-    EditableText, Placeholder, TextColor, TextCursorStyle, TextLayoutInfo, TextReadWriteMode,
+    EditableText, Placeholder, PlaceholderColor, TextColor, TextCursorStyle, TextLayoutInfo,
+    TextReadWriteMode,
 };
 use bevy_ui::{
     CalculatedClip, ComputedNode, ComputedStackIndex, ComputedUiTargetCamera, ResolvedBorderRadius,
@@ -79,6 +80,9 @@ pub fn extract_text_cursor(
         .iter()
         .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -168,7 +172,7 @@ pub fn extract_text_cursor(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_SELECTION,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT_SELECTION,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform * Affine2::from_translation(selection.center()),
@@ -203,7 +207,7 @@ pub fn extract_text_cursor(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_CURSOR,
+                        z_order: stack_index as f32 + stack_z_offsets::TEXT_CURSOR,
                         clip: clip.clone(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(cursor_rect.center()),
@@ -267,6 +271,9 @@ pub fn extract_preedit_underlines(
         .iter()
         .flat_map(|main_entity| text_node_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         if !inherited_visibility.get()
             || uinode.is_empty()
             || text_layout_info.preedit_underline_rects.is_empty()
@@ -295,7 +302,7 @@ pub fn extract_preedit_underlines(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                        z_order: stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                         clip: clip.clone(),
                         image: AssetId::default(),
                         transform: transform * Affine2::from_translation(rect.center()),
@@ -324,19 +331,22 @@ pub fn extract_text_placeholder(
     mut commands: Commands,
     extracted_uinodes: ResMut<ExtractedUiNodes>,
     text_node_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &ComputedStackIndex,
-            &UiGlobalTransform,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
-            &TextColor,
-            &TextLayoutInfo,
-            &EditableText,
-            &Placeholder,
-        )>,
+        Query<
+            (
+                Entity,
+                &ComputedNode,
+                &ComputedStackIndex,
+                &UiGlobalTransform,
+                &InheritedVisibility,
+                Option<&CalculatedClip>,
+                &ComputedUiTargetCamera,
+                &TextColor,
+                &TextLayoutInfo,
+                &EditableText,
+                Option<&PlaceholderColor>,
+            ),
+            With<Placeholder>,
+        >,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
@@ -356,7 +366,7 @@ pub fn extract_text_placeholder(
         text_color,
         text_layout_info,
         editable_text,
-        placeholder,
+        placeholder_color,
     ) in extracted_uinodes
         .changed
         .iter()
@@ -366,6 +376,10 @@ pub fn extract_text_placeholder(
         if !inherited_visibility.get() || uinode.is_empty() || placeholder_glyphs.is_empty() {
             continue;
         }
+
+        let Some(z_order) = stack_index.get().map(|z| z as f32 + stack_z_offsets::TEXT) else {
+            continue;
+        };
 
         let Some(extracted_camera_entity) = camera_mapper.map(target_camera) else {
             continue;
@@ -377,7 +391,7 @@ pub fn extract_text_placeholder(
         let clip =
             calculate_text_scroll_clip(Some(editable_text), maybe_clip, uinode, global_transform);
 
-        let color = placeholder.resolve_color(text_color.0).to_linear();
+        let color = PlaceholderColor::resolve(placeholder_color, text_color.0).to_linear();
         // color glyphs (emoji) keep their colors but share the hint's alpha
         let color_glyph = LinearRgba::WHITE.with_alpha(color.alpha);
 
@@ -404,7 +418,7 @@ pub fn extract_text_placeholder(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order,
                             image: glyph.atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {

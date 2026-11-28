@@ -1,5 +1,5 @@
 use crate::{Font, InlineBox, TextBrush, TextError, TextLayoutInfo, TextSection};
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -674,7 +674,38 @@ impl<const N: usize> From<[FontSource; N]> for FontSourceTemplate {
 }
 
 /// The default font source used to resolve `FontSource::Default`.
-/// `DefaultFontSource(FontSource::Default)` is mapped to the default Font asset.
+/// `DefaultFontSource(FontSource::Default)` is mapped to the default `Font` asset.
+/// If `default_font` feature is enabled, the embedded 'FiraMono-subset.ttf' is the default.
+///
+/// There are two ways to change the `FontSource::Default`:
+///
+/// 1: (Recommended) You can set this resource from a font source, by an asset handle or a font family name
+/// ```
+/// # use bevy_asset::{AssetServer, Handle};
+/// # use bevy_ecs::system::{Res, ResMut};
+/// # use bevy_text::{DefaultFontSource, Font, FontSource};
+/// fn replace_default_font_asset_system(
+///     mut default_font: ResMut<DefaultFontSource>,
+///     asset_server: Res<AssetServer>,
+/// ) {
+///     // With an asset handle:
+///     let font_handle: Handle<Font> = asset_server.load("fonts/MyFont.ttf");
+///     default_font.0 = font_handle.into();
+///
+///     // Or with a font family name:
+///     default_font.0 = FontSource::family("My Font");
+/// }
+/// ```
+/// 2: (If you are unable to use method 1) You can replace the `Font` asset with inserting a font under `AssetId::default()`
+/// ```
+/// # use bevy_asset::{AssetId, Assets};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_text::Font;
+/// fn replace_default_font_asset_system(mut fonts: ResMut<Assets<Font>>) {
+///     # let custom_font: Font = unimplemented!();
+///     fonts.insert(AssetId::default(), custom_font);
+/// }
+/// ```
 #[derive(Clone, Debug, Reflect, PartialEq, Default, Resource, Deref, DerefMut)]
 pub struct DefaultFontSource(pub FontSource);
 
@@ -857,6 +888,77 @@ impl Default for TextFont {
     }
 }
 
+/// Context values needed to evaluate a `FontSize`
+#[derive(Copy, Clone, Debug)]
+pub struct FontSizeCtx {
+    /// rem size in logical pixels
+    pub rem: f32,
+    /// viewport size in logical pixels
+    pub view: Vec2,
+}
+
+impl FontSizeCtx {
+    /// Size in logical pixels relative to the value of the `RemSize` resource.
+    pub fn rem(&self, value: f32) -> f32 {
+        self.rem * value
+    }
+
+    /// Size in logical pixels as a percentage of the viewport width.
+    pub fn vw(&self, value: f32) -> f32 {
+        self.view.x * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the viewport height.
+    pub fn vh(&self, value: f32) -> f32 {
+        self.view.y * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the smaller of the viewport width and height.
+    pub fn vmin(&self, value: f32) -> f32 {
+        self.view.min_element() * value / 100.
+    }
+
+    /// Size in logical pixels as a percentage of the larger of the viewport width and height.
+    pub fn vmax(&self, value: f32) -> f32 {
+        self.view.max_element() * value / 100.
+    }
+}
+
+/// Calc fontsize wrapper
+#[derive(Clone, Reflect)]
+#[reflect(opaque)]
+#[reflect(Clone, Debug, Serialize, Deserialize)]
+pub struct FontSizeCalc(Arc<Box<dyn Fn(FontSizeCtx) -> f32 + Send + Sync>>);
+
+impl Debug for FontSizeCalc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str("FontSizeCalc(..)")
+    }
+}
+
+impl Serialize for FontSizeCalc {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        bevy_log::warn_once!("`FontSizeCalc` can't serialized, it will be deserialized with a closure returning the current `RemSize`.");
+        s.serialize_unit()
+    }
+}
+
+impl<'de> Deserialize<'de> for FontSizeCalc {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        <()>::deserialize(d)?;
+        bevy_log::warn_once!(
+            "Deserialized a `FontSizeCalc` without a closure. It will return the current `RemSize`."
+        );
+        Ok(FontSizeCalc(Arc::new(Box::new(|ctx| ctx.rem))))
+    }
+}
+
+impl PartialEq for FontSizeCalc {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
 /// The vertical height of rasterized glyphs in the font atlas in pixels.
 ///
 /// This is multiplied by the scale factor, but not the text entity
@@ -866,7 +968,7 @@ impl Default for TextFont {
 ///
 /// A new font atlas is generated for every combination of font handle and scaled font size
 /// which can have a strong performance impact.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 pub enum FontSize {
     /// Font Size in logical pixels.
     Px(f32),
@@ -880,37 +982,62 @@ pub enum FontSize {
     VMax(f32),
     /// Font Size relative to the value of the `RemSize` resource.
     Rem(f32),
+    /// Calc
+    Calc {
+        /// The closure used to compute the font size.
+        calc: FontSizeCalc,
+        /// Multiplier applied to the closure's result.
+        /// Used to avoid overflow with `Mul`.
+        scalar: f32,
+    },
 }
 
 impl FontSize {
     /// Evaluate the font size to a value in logical pixels
     pub fn eval(
-        self,
+        &self,
         // Viewport size in logical pixels
         logical_viewport_size: Vec2,
         // Base Rem size in logical pixels
         rem_size: RemSize,
     ) -> f32 {
         match self {
-            FontSize::Px(s) => s,
+            FontSize::Px(s) => *s,
             FontSize::Vw(s) => logical_viewport_size.x * s / 100.,
             FontSize::Vh(s) => logical_viewport_size.y * s / 100.,
             FontSize::VMin(s) => logical_viewport_size.min_element() * s / 100.,
             FontSize::VMax(s) => logical_viewport_size.max_element() * s / 100.,
             FontSize::Rem(s) => rem_size.0 * s,
+            FontSize::Calc { scalar, calc } => {
+                (calc.0)(FontSizeCtx {
+                    view: logical_viewport_size,
+                    rem: *rem_size,
+                }) * scalar
+            }
+        }
+    }
+
+    /// Create a a calc font size
+    pub fn calc(calc: impl Fn(FontSizeCtx) -> f32 + Send + Sync + 'static) -> Self {
+        Self::Calc {
+            calc: FontSizeCalc(Arc::new(Box::new(calc))),
+            scalar: 1.,
         }
     }
 }
 
 impl PartialEq for FontSize {
     fn eq(&self, other: &Self) -> bool {
-        match (*self, *other) {
+        match (self, other) {
             (Self::Px(l), Self::Px(r))
             | (Self::Vw(l), Self::Vw(r))
             | (Self::Vh(l), Self::Vh(r))
             | (Self::VMin(l), Self::VMin(r))
             | (Self::VMax(l), Self::VMax(r))
-            | (Self::Rem(l), Self::Rem(r)) => l == r,
+            | (Self::Rem(l), Self::Rem(r)) => *l == *r,
+            (Self::Calc { calc: c, scalar: s }, Self::Calc { calc: d, scalar: t }) => {
+                c == d && s == t
+            }
             _ => false,
         }
     }
@@ -927,6 +1054,10 @@ impl core::ops::Mul<f32> for FontSize {
             FontSize::VMin(v) => FontSize::VMin(v * rhs),
             FontSize::VMax(v) => FontSize::VMax(v * rhs),
             FontSize::Rem(v) => FontSize::Rem(v * rhs),
+            FontSize::Calc { calc, scalar } => FontSize::Calc {
+                calc,
+                scalar: scalar * rhs,
+            },
         }
     }
 }
@@ -941,7 +1072,7 @@ impl core::ops::Mul<FontSize> for f32 {
 
 impl Default for FontSize {
     fn default() -> Self {
-        Self::Px(20.)
+        Self::Rem(1.)
     }
 }
 
@@ -993,7 +1124,7 @@ impl Default for EmSize {
 impl EmSize {
     /// Resolves a [`FontSize`] to a concrete [`EmSize`] in logical pixels.
     pub fn from_font_size(
-        font_size: FontSize,
+        font_size: &FontSize,
         logical_viewport_size: Vec2,
         rem_size: RemSize,
     ) -> Self {

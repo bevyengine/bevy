@@ -7,8 +7,8 @@
 //! they cannot be defaulted through reflection.
 
 use crate::{
-    attributes::CustomAttributes, kind::FieldKind, kind::Kind, kind::Struct, kind::StructField,
-    kind::StructKind, kind::UncoveredBytes, type_path::GenericTypePath,
+    kind::FieldKind, kind::Kind, kind::Struct, kind::StructField, kind::StructKind,
+    kind::UncoveredBytes, metadata::Metadata, type_path::GenericTypePath,
     type_path::GenericTypePathCell, type_path::TypePath, type_path::TypePathStr,
     type_registry::GetTypeRegistration, type_registry::TypeRegistration,
     type_registry::TypeRegistry, type_vtable::TypeVTable, Type, TypeRef, Typed,
@@ -61,7 +61,7 @@ macro_rules! impl_reflect_tuple {
                         name: stringify!($index),
                         offset: offset_of!(Self, $index),
                         ty: TypeRef(Type::of::<$T>),
-                        custom_attributes: CustomAttributes::EMPTY,
+                        metadata: Metadata::EMPTY,
                     }
                 ),+];
                 let vtable = TypeVTable::new::<Self>();

@@ -7,6 +7,7 @@
 
 //! Provides rendering functionality for `bevy_ui`.
 
+mod blur;
 pub mod box_shadow;
 pub mod clipping;
 mod gradient;
@@ -72,9 +73,9 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, EditableText, InlineBox, PositionedGlyph, Strikethrough, StrikethroughColor,
-    TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan, Underline,
-    UnderlineColor,
+    ComputedTextBlock, EditableText, InlineBox, PlaceholderColor, PositionedGlyph, Strikethrough,
+    StrikethroughColor, TextBackgroundColor, TextColor, TextCursorStyle, TextLayoutInfo, TextSpan,
+    Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -82,6 +83,9 @@ use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 use std::mem;
 
+pub use blur::{
+    BlurRegion, BlurRegionCamera, BlurSetting, BlurShaderPlugin, DEFAULT_MAX_BLUR_REGIONS_COUNT,
+};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -309,6 +313,7 @@ impl Plugin for UiRenderPlugin {
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
         app.add_plugins(BoxShadowPlugin);
+        app.add_plugins(BlurShaderPlugin::<DEFAULT_MAX_BLUR_REGIONS_COUNT>);
     }
 }
 
@@ -484,6 +489,7 @@ pub fn extract_uinode_changes(
                         Changed<StrikethroughColor>,
                         Changed<UnderlineColor>,
                         Changed<BorderStyle>,
+                        Changed<PlaceholderColor>,
                     )>,
                 )>,
             ),
@@ -573,11 +579,13 @@ pub fn extract_uinode_changes(
         mut removed_underline_color_query,
         mut removed_inline_image_query,
         mut removed_border_style_query,
+        mut removed_placeholder_color_query,
     ): (
         Extract<RemovedComponents<StrikethroughColor>>,
         Extract<RemovedComponents<UnderlineColor>>,
         Extract<RemovedComponents<InlineImage>>,
         Extract<RemovedComponents<BorderStyle>>,
+        Extract<RemovedComponents<PlaceholderColor>>,
     ),
     #[cfg(feature = "bevy_ui_debug")] mut removed_debug_options_query: Extract<
         RemovedComponents<UiDebugOptions>,
@@ -640,6 +648,7 @@ pub fn extract_uinode_changes(
             .chain(removed_underline_color_query.read())
             .chain(removed_inline_image_query.read())
             .chain(removed_border_style_query.read())
+            .chain(removed_placeholder_color_query.read())
         {
             process_changed_entity(
                 main_entity.into(),
@@ -759,6 +768,9 @@ pub fn extract_uinode_background_colors(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible backgrounds
         if !inherited_visibility.get()
             || (background_color.is_fully_transparent()
@@ -788,7 +800,7 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    z_order: stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -815,7 +827,7 @@ pub fn extract_uinode_background_colors(
             extracted_sub_uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                    z_order: stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
                     clip: clip.cloned(),
                     image: AssetId::default(),
                     transform: transform.into(),
@@ -864,6 +876,9 @@ pub fn extract_inline_images(
             .iter()
             .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible images and empty nodes
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -893,7 +908,7 @@ pub fn extract_inline_images(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::INLINE_IMAGE,
+                        z_order: stack_index as f32 + stack_z_offsets::INLINE_IMAGE,
                         clip: clip.cloned(),
                         image: image.image.id(),
                         transform: Affine2::from(*transform)
@@ -954,6 +969,9 @@ pub fn extract_uinode_images(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         let visual_box = match image.visual_box {
             VisualBox::ContentBox => uinode.content_box(),
             VisualBox::PaddingBox => uinode.padding_box(),
@@ -1036,7 +1054,7 @@ pub fn extract_uinode_images(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                    z_order: stack_index as f32 + stack_z_offsets::IMAGE,
                     clip: clip.cloned(),
                     image: image.image.id(),
                     transform: Affine2::from(*transform)
@@ -1119,6 +1137,9 @@ pub fn extract_uinode_borders(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible borders and removed nodes
         if !inherited_visibility.get() || node.is_some_and(|node| node.display == Display::None) {
             continue;
@@ -1148,7 +1169,7 @@ pub fn extract_uinode_borders(
             let node_ctx = BorderNodeContext {
                 entity: entity.into(),
                 camera_entity: extracted_camera_entity,
-                z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                z_order: stack_index as f32 + stack_z_offsets::BORDER,
                 clip: maybe_clip.cloned(),
             };
             let base_transform: Affine2 = transform.into();
@@ -1240,7 +1261,7 @@ pub fn extract_uinode_borders(
                 .insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
-                        z_order: stack_index.0 as f32 + stack_z_offsets::BORDER,
+                        z_order: stack_index as f32 + stack_z_offsets::BORDER,
                         image,
                         clip: maybe_clip.cloned(),
                         transform: transform.into(),
@@ -1579,6 +1600,9 @@ pub fn extract_viewport_nodes(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -1607,7 +1631,7 @@ pub fn extract_viewport_nodes(
             .insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
-                    z_order: stack_index.0 as f32 + stack_z_offsets::IMAGE,
+                    z_order: stack_index as f32 + stack_z_offsets::IMAGE,
                     clip: clip.cloned(),
                     image: image.id(),
                     transform: transform.into(),
@@ -1674,6 +1698,9 @@ pub fn extract_text_sections(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -1758,7 +1785,7 @@ pub fn extract_text_sections(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1815,6 +1842,9 @@ pub fn extract_text_shadows(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -1861,7 +1891,7 @@ pub fn extract_text_shadows(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
                             transform: node_transform,
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             image: atlas_info.texture,
                             clip: clip.clone(),
                             item: ExtractedUiItem::Glyphs {
@@ -1894,7 +1924,7 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1925,7 +1955,7 @@ pub fn extract_text_shadows(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: node_transform
@@ -1996,6 +2026,9 @@ pub fn extract_text_decorations(
         .iter()
         .flat_map(|main_entity| uinode_query.get(main_entity.entity()).ok())
     {
+        let Some(stack_index) = stack_index.get() else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -2040,7 +2073,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform * Affine2::from_translation(run.bounds.center()),
@@ -2075,7 +2108,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform
@@ -2111,7 +2144,7 @@ pub fn extract_text_decorations(
                     .insert(
                         commands.spawn_empty().id(),
                         ExtractedUiNode {
-                            z_order: stack_index.0 as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
+                            z_order: stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                             clip: clip.clone(),
                             image: AssetId::default(),
                             transform: transform

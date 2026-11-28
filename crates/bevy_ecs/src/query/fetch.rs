@@ -19,7 +19,7 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
-use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
+use bevy_ptr::ThinSlicePtr;
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, iter, marker::PhantomData, ops::Range, panic::Location};
 use nonmax::NonMaxU32;
@@ -2428,7 +2428,8 @@ unsafe impl<T: Component> QueryData for &T {
                 let table = unsafe { table.unwrap_unchecked() };
                 // SAFETY: Caller ensures `table_row` is in range.
                 let item = unsafe { table.get_unchecked(table_row.index()) };
-                item.deref()
+                // SAFETY: Read access was registered in `set_component_access`
+                unsafe { item.as_ref_unchecked() }
             },
             |sparse_set| {
                 // SAFETY: Caller ensures `entity` is in range.
@@ -2683,11 +2684,15 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                     callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
 
                 Ref {
-                    value: component.deref(),
+                    // SAFETY: Read access was registered in `set_component_access`
+                    value: unsafe { component.as_ref_unchecked() },
                     ticks: ComponentTicksRef {
-                        added: added.deref(),
-                        changed: changed.deref(),
-                        changed_by: caller.map(|caller| caller.deref()),
+                        // SAFETY: Read access was registered in `set_component_access`
+                        added: unsafe { added.as_ref_unchecked() },
+                        // SAFETY: Read access was registered in `set_component_access`
+                        changed: unsafe { changed.as_ref_unchecked() },
+                        // SAFETY: Read access was registered in `set_component_access`
+                        changed_by: caller.map(|caller| unsafe { caller.as_ref_unchecked() }),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
@@ -2979,11 +2984,15 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 };
 
                 Mut {
-                    value: component.deref_mut(),
+                    // SAFETY: Write access was registered in `set_component_access`
+                    value: unsafe { component.as_mut_unchecked() },
                     ticks: ComponentTicksMut {
-                        added: added.deref_mut(),
-                        changed: changed.deref_mut(),
-                        changed_by: caller.map(|caller| caller.deref_mut()),
+                        // SAFETY: Write access was registered in `set_component_access`
+                        added: unsafe { added.as_mut_unchecked() },
+                        // SAFETY: Write access was registered in `set_component_access`
+                        changed: unsafe { changed.as_mut_unchecked() },
+                        // SAFETY: Write access was registered in `set_component_access`
+                        changed_by: caller.map(|caller| unsafe { caller.as_mut_unchecked() }),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                         summary_tick,

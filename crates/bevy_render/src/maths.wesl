@@ -140,6 +140,12 @@ fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32> {
     return pow(abs(color), vec3(power)) * sign(color);
 }
 
+/// pow(x, 5.0) but faster and safe for negatives, useful for fresnel equations
+fn pow5(x: f32) -> f32 {
+    let x2 = x * x;
+    return x2 * x2 * x;
+}
+
 /// https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2
 fn project_onto(lhs: vec3<f32>, rhs: vec3<f32>) -> vec3<f32> {
     let other_len_sq_rcp = 1.0 / dot(rhs, rhs);
